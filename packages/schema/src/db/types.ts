@@ -24,5 +24,5 @@ export const Side = z.enum(['B', 'S']);
 /** Builder fee in tenths of a basis point. 50 = 0.05% = 5 bps. */
 export const FeeTenthsBp = z.number().int().min(0).max(100);
 
-/** Telegram numeric user id. */
-export const TgUserId = z.bigint().positive();
+/** Telegram numeric user id. Accepts string for JSON-over-HTTP transport. */
+export const TgUserId = z.coerce.bigint().positive();
