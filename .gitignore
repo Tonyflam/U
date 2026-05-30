@@ -1,0 +1,48 @@
+## Node
+node_modules/
+.npm/
+.pnp.*
+.yarn/
+
+## Build outputs
+dist/
+build/
+out/
+.next/
+.vercel/
+.turbo/
+*.tsbuildinfo
+
+## Test / coverage
+coverage/
+.nyc_output/
+
+## Logs
+*.log
+npm-debug.log*
+logs/
+
+## Env / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+.secrets
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+
+## Local-only docs (private operational notes)
+docs/private/
+BUS_FACTOR.md

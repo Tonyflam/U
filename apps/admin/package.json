@@ -1,0 +1,21 @@
+{
+  "name": "@whalepod/admin",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx watch src/start.ts",
+    "start": "node dist/start.js"
+  },
+  "dependencies": {
+    "@whalepod/config": "0.0.0",
+    "@whalepod/schema": "*",
+    "drizzle-orm": "^0.33.0",
+    "fastify": "^5.0.0",
+    "grammy": "^1.30.0",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "whalepod",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mirror Hyperliquid whales from Telegram. Non-custodial.",
+  "homepage": "https://whalepod.trade",
+  "license": "SEE LICENSE IN LICENSES.md",
+  "engines": {
+    "node": ">=22.11.0 <23",
+    "npm": ">=10.9.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b",
+    "typecheck:clean": "tsc -b --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "audit:signatures": "npm audit signatures",
+    "prepare": "node -e \"if (process.env.CI !== 'true') { try { require('child_process').execSync('git config core.hooksPath .githooks', { stdio: 'inherit' }) } catch (_) {} }\""
+  },
+  "devDependencies": {
+    "@eslint/js": "9.14.0",
+    "@types/node": "22.9.0",
+    "@vitest/coverage-v8": "2.1.4",
+    "eslint": "9.14.0",
+    "eslint-config-prettier": "9.1.0",
+    "prettier": "3.3.3",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "typescript-eslint": "8.13.0",
+    "vitest": "2.1.4"
+  }
+}

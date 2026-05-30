@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+out
+.next
+.vercel
+coverage
+*.tsbuildinfo
+package-lock.json
+docs/brand/assets
+# drizzle-kit generated metadata — do not reformat
+**/drizzle/meta
+**/db/migrations/meta

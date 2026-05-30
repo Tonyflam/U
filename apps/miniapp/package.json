@@ -1,0 +1,23 @@
+{
+  "name": "@whalepod/miniapp",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@whalepod/config": "0.0.0",
+    "@whalepod/schema": "0.0.0",
+    "@whalepod/sdk": "0.0.0",
+    "@whalepod/vault": "0.0.0",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  }
+}

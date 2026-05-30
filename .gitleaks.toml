@@ -1,0 +1,24 @@
+# WhalePod gitleaks config.
+# Extends the built-in default ruleset.
+
+title = "WhalePod gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths excluded from secret scanning"
+paths = [
+  '''node_modules/''',
+  '''\.next/''',
+  '''dist/''',
+  '''build/''',
+  '''coverage/''',
+  '''package-lock\.json''',
+  '''docs/brand/assets/''',
+]
+
+# Allow well-known test/example HL agent address used in public Hyperliquid docs.
+regexes = [
+  '''0x0000000000000000000000000000000000000000''',
+]

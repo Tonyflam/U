@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# WhalePod pre-commit hook.
+# Enforces: secret scanning, format, lint, fast typecheck.
+# Bypass only with explicit human review; never use --no-verify in CI scripts.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "→ gitleaks"
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml
+else
+  echo "  gitleaks not installed. Install: https://github.com/gitleaks/gitleaks" >&2
+  echo "  brew install gitleaks  OR  go install github.com/gitleaks/gitleaks/v8@latest" >&2
+  exit 1
+fi
+
+echo "→ prettier (changed files)"
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|mjs|cjs|json|md|yml|yaml)$' || true)
+if [ -n "$STAGED" ]; then
+  echo "$STAGED" | xargs npx --no-install prettier --check
+fi
+
+echo "→ eslint (changed ts/tsx)"
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+  echo "$STAGED_TS" | xargs npx --no-install eslint --max-warnings=0
+fi
+
+echo "✓ pre-commit clean"

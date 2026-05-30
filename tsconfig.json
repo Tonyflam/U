@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/bot" },
+    { "path": "./apps/miniapp" },
+    { "path": "./apps/web" },
+    { "path": "./apps/admin" },
+    { "path": "./apps/ws-consumer" },
+    { "path": "./packages/config" },
+    { "path": "./packages/sdk" },
+    { "path": "./packages/schema" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/vault" }
+  ]
+}

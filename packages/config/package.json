@@ -1,0 +1,23 @@
+{
+  "name": "@whalepod/config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./env": "./dist/env.js",
+    "./kms": "./dist/kms.js",
+    "./redact": "./dist/redact.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.658.1",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  }
+}
