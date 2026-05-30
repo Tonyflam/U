@@ -131,10 +131,12 @@ const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/u;
 
 const ONBOARD_PROMPT = 'You need to onboard first. Tap the button to open the WhalePod app.';
 
-function onboardReply(miniAppUrl: string): Reply {
+function onboardReply(ctx: HandlerCtx): Reply {
+  const base = ctx.miniAppUrl.replace(/\/+$/u, '');
+  const url = `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
   return {
     text: ONBOARD_PROMPT,
-    buttons: [[{ label: 'Open WhalePod', url: miniAppUrl }]],
+    buttons: [[{ label: 'Open WhalePod', url }]],
   };
 }
 
@@ -187,7 +189,7 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
 
 async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   const code = await ctx.repo.getOrMintReferralCode(user.id);
   const url = `https://t.me/${ctx.botUsername}?start=ref_${code}`;
   return [
@@ -218,7 +220,7 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
         after: { startParam },
       });
     }
-    return [onboardReply(ctx.miniAppUrl)];
+    return [onboardReply(ctx)];
   }
 
   if (startParam?.startsWith('ref_') === true) {
@@ -271,7 +273,7 @@ function helpReply(): Reply {
 
 async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   const lines = [
     `Wallet: ${fmtAddr(user.mainWallet)}`,
     `Agent: ${fmtAddr(user.agentAddress)}`,
@@ -283,7 +285,7 @@ async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
 
 async function handlePnl(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   const fills: readonly PnlFill[] = await ctx.repo.listFillsForUser(user.id, 500);
   const markPrice: MarkPriceFn = ctx.markPrice ?? ((): null => null);
   const summary = summarizePnl(fills, markPrice);
@@ -303,7 +305,7 @@ async function handleNotify(
   ctx: HandlerCtx,
 ): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   const before = await ctx.repo.getNotifyPrefs(user.id);
   if (action === 'show') {
     return [{ text: describeNotifyPrefs(before) }];
@@ -339,7 +341,7 @@ function describeNotifyPrefs(p: NotifyPrefs): string {
 
 async function handleFollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
     return [
       {
@@ -365,7 +367,7 @@ async function handleFollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {
 
 async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
     return [{ text: `\`${target}\` is not a 0x address.` }];
   }
@@ -384,7 +386,7 @@ async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]>
 
 async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   const n = await ctx.repo.setAllSubscriptionsPaused(user.id, paused);
   await ctx.repo.appendAudit({
     actor: `tg:${ctx.tgUser.id.toString()}`,
@@ -399,7 +401,7 @@ async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[
 
 async function handleKill(killSwitch: boolean, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   if (user.killSwitch === killSwitch) {
     return [{ text: `Kill switch already ${killSwitch ? 'ON' : 'off'}.` }];
   }
@@ -422,7 +424,7 @@ async function handleKill(killSwitch: boolean, ctx: HandlerCtx): Promise<Reply[]
 
 async function handleFee(tenthsBp: number, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   if (tenthsBp > BUILDER_FEE_PERP_CAP_TENTHS_BP) {
     return [
       {
@@ -434,7 +436,7 @@ async function handleFee(tenthsBp: number, ctx: HandlerCtx): Promise<Reply[]> {
     return [
       {
         text: `Fee ${String(tenthsBp)} exceeds your on-chain approval (${String(user.approvedMaxFeeTenthsBp)}). Re-approve in the WhalePod app to raise it.`,
-        buttons: [[{ label: 'Open WhalePod', url: ctx.miniAppUrl }]],
+        buttons: [[{ label: 'Open WhalePod', url: `${ctx.miniAppUrl}${ctx.miniAppUrl.includes('?') ? '&' : '?'}tg=${ctx.tgUser.id.toString()}` }]],
       },
     ];
   }
@@ -459,7 +461,7 @@ async function handleSetTpSl(
   ctx: HandlerCtx,
 ): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx.miniAppUrl)];
+  if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
     return [{ text: `\`${target}\` is not a 0x address.` }];
   }
