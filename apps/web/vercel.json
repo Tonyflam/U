@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd ../.. && npm install --workspaces --include-workspace-root=false --ignore-scripts && npm run build -w @whalepod/web",
+  "buildCommand": "cd ../.. && npm install --ignore-scripts && npm run build -w @whalepod/web",
   "outputDirectory": "public",
   "framework": null,
   "installCommand": "echo skip",
