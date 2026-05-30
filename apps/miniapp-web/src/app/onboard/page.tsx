@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useConnect, useDisconnect, useSignTypedData } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
 
 interface StartResponse {
   provisionalId: string;
@@ -30,6 +30,7 @@ export default function OnboardPage(): JSX.Element {
   const { connect, connectors, isPending: connecting } = useConnect();
   const { disconnect } = useDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
+  const { switchChainAsync } = useSwitchChain();
 
   const [maxFeeBps, setMaxFeeBps] = useState(5);
   const [equityFloorUsd, setEquityFloorUsd] = useState('0');
@@ -67,6 +68,18 @@ export default function OnboardPage(): JSX.Element {
         message: Record<string, unknown>;
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
+      const targetChainId = Number(
+        (td1.domain as { chainId?: number | string }).chainId ?? 0,
+      );
+      if (targetChainId > 0) {
+        try {
+          await switchChainAsync({ chainId: targetChainId });
+        } catch (e) {
+          throw new Error(
+            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
+          );
+        }
+      }
       const approveAgentSig = await signTypedDataAsync(td1 as never);
       const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
 
