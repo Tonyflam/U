@@ -12,7 +12,8 @@
 import 'server-only';
 import { Redis } from '@upstash/redis';
 import { verifyTypedData } from 'viem';
-import { Address } from '@whalepod/schema';
+import { eq } from 'drizzle-orm';
+import { Address, createDb, schema, type Db } from '@whalepod/schema';
 import { KmsClient } from '@whalepod/config';
 import { type OnboardDeps, type OnboardRepo, type ProvisionalRow } from '@whalepod/miniapp';
 
@@ -40,8 +41,11 @@ function decodeRow(s: string): ProvisionalRow {
   }) as ProvisionalRow;
 }
 
-class RedisOnboardRepo implements OnboardRepo {
-  constructor(private readonly redis: Redis) {}
+class HybridOnboardRepo implements OnboardRepo {
+  constructor(
+    private readonly redis: Redis,
+    private readonly db: Db,
+  ) {}
   async putProvisional(row: ProvisionalRow): Promise<void> {
     await this.redis.set(`onboard:prov:${row.id}`, encodeRow(row), {
       ex: PROVISIONAL_TTL_SECONDS,
@@ -50,22 +54,45 @@ class RedisOnboardRepo implements OnboardRepo {
   async getProvisional(id: string): Promise<ProvisionalRow | null> {
     const raw = await this.redis.get<string>(`onboard:prov:${id}`);
     if (!raw) return null;
-    if (typeof raw !== 'string') {
-      // Upstash auto-parses JSON sometimes; re-stringify.
-      return decodeRow(JSON.stringify(raw));
-    }
+    if (typeof raw !== 'string') return decodeRow(JSON.stringify(raw));
     return decodeRow(raw);
   }
   async finalize(
     provisionalId: string,
     _sigs: { approveAgentSig: `0x${string}`; approveBuilderFeeSig: `0x${string}` },
   ): Promise<{ userId: string }> {
-    const key = `onboard:user:${provisionalId}`;
-    const existing = await this.redis.get<string>(key);
-    if (typeof existing === 'string' && existing) return { userId: existing };
-    const userId = crypto.randomUUID();
-    await this.redis.set(key, userId, { ex: 86400 });
-    return { userId };
+    const prov = await this.getProvisional(provisionalId);
+    if (!prov) throw new Error(`provisional row missing during finalize: ${provisionalId}`);
+
+    const existing = await this.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.tgUserId, prov.tgUserId))
+      .limit(1);
+    if (existing[0]) {
+      await this.redis.del(`onboard:prov:${provisionalId}`);
+      return { userId: existing[0].id };
+    }
+
+    const inserted = await this.db
+      .insert(schema.users)
+      .values({
+        tgUserId: prov.tgUserId,
+        tgUsername: prov.tgUsername,
+        mainWallet: prov.mainWallet,
+        agentAddress: prov.agentAddress,
+        agentKeyCt: prov.sealed.ct,
+        agentKeyIv: prov.sealed.iv,
+        agentKeyTag: prov.sealed.tag,
+        agentDekCt: prov.sealed.dekCt,
+        approvedMaxFeeTenthsBp: prov.approvedMaxFeeTenthsBp,
+        currentFeeTenthsBp: prov.currentFeeTenthsBp,
+        equityFloorUsd: prov.equityFloorUsd,
+      })
+      .returning({ id: schema.users.id });
+
+    await this.redis.del(`onboard:prov:${provisionalId}`);
+    return { userId: inserted[0]!.id };
   }
 }
 
@@ -80,18 +107,25 @@ export function getOnboardDeps(): OnboardDeps {
   const agentName = process.env['AGENT_NAME'] ?? 'WhalePod';
   const redisUrl = process.env['UPSTASH_REDIS_REST_URL'];
   const redisToken = process.env['UPSTASH_REDIS_REST_TOKEN'];
+  const databaseUrl = process.env['DATABASE_URL'];
+  const databaseSsl = (process.env['DATABASE_SSL'] ?? 'require') as
+    | 'require'
+    | 'prefer'
+    | 'disable';
   if (!awsRegion) throw new Error('AWS_REGION required');
   if (!cmkArn) throw new Error('VAULT_KMS_CMK_ARN required');
   if (!builderAddrRaw) throw new Error('BUILDER_ADDRESS required');
   if (!redisUrl) throw new Error('UPSTASH_REDIS_REST_URL required');
   if (!redisToken) throw new Error('UPSTASH_REDIS_REST_TOKEN required');
+  if (!databaseUrl) throw new Error('DATABASE_URL required');
   const builderAddress = Address.parse(builderAddrRaw);
 
   const kms = new KmsClient({ region: awsRegion, keyId: cmkArn });
   const redis = new Redis({ url: redisUrl, token: redisToken });
+  const { db } = createDb({ url: databaseUrl, ssl: databaseSsl, max: 1 });
 
   cached = {
-    repo: new RedisOnboardRepo(redis),
+    repo: new HybridOnboardRepo(redis, db),
     kms,
     builderAddress,
     chain,

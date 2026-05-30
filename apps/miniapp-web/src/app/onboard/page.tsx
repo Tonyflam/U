@@ -55,8 +55,12 @@ export default function OnboardPage(): JSX.Element {
         }),
       });
       if (!startRes.ok) {
-        const j = (await startRes.json().catch(() => ({}))) as { message?: string };
-        throw new Error(j.message ?? `start failed: ${String(startRes.status)}`);
+        const j = (await startRes.json().catch(() => ({}))) as {
+          message?: string;
+          detail?: string;
+          error?: string;
+        };
+        throw new Error(j.detail ?? j.message ?? j.error ?? `start failed: ${String(startRes.status)}`);
       }
       const start = (await startRes.json()) as StartResponse;
       setState({ step: 'sign', start });
@@ -93,8 +97,12 @@ export default function OnboardPage(): JSX.Element {
         }),
       });
       if (!completeRes.ok) {
-        const j = (await completeRes.json().catch(() => ({}))) as { message?: string };
-        throw new Error(j.message ?? `complete failed: ${String(completeRes.status)}`);
+        const j = (await completeRes.json().catch(() => ({}))) as {
+          message?: string;
+          detail?: string;
+          error?: string;
+        };
+        throw new Error(j.detail ?? j.message ?? j.error ?? `complete failed: ${String(completeRes.status)}`);
       }
       const out = (await completeRes.json()) as { userId: string };
       setState({ step: 'done', userId: out.userId });
@@ -160,11 +168,59 @@ export default function OnboardPage(): JSX.Element {
           )}
 
           {state.step === 'done' ? (
-            <p style={{ color: '#34d399', marginTop: 16 }}>
-              All set. Your user id: <code>{state.userId}</code>. Return to Telegram.
-            </p>
+            <div
+              style={{
+                marginTop: 16,
+                padding: 16,
+                background: '#052e16',
+                border: '1px solid #166534',
+                borderRadius: 8,
+              }}
+            >
+              <p style={{ color: '#34d399', margin: 0, fontWeight: 600 }}>
+                You&apos;re onboarded.
+              </p>
+              <p style={{ color: '#a7f3d0', margin: '8px 0 0', fontSize: 14 }}>
+                Wallet <code>{address}</code> is now connected. Return to Telegram and
+                send <code>/wallet</code> or <code>/whales</code> to start mirroring.
+              </p>
+              <button
+                type="button"
+                style={{ ...btn, marginTop: 12 }}
+                onClick={() => {
+                  const tg = (window as unknown as { Telegram?: { WebApp?: { close?: () => void } } })
+                    .Telegram?.WebApp;
+                  if (tg?.close) tg.close();
+                  else window.close();
+                }}
+              >
+                Back to Telegram
+              </button>
+            </div>
           ) : state.step === 'error' ? (
-            <p style={{ color: '#f87171', marginTop: 16 }}>Error: {state.error}</p>
+            <div
+              style={{
+                marginTop: 16,
+                padding: 16,
+                background: '#450a0a',
+                border: '1px solid #991b1b',
+                borderRadius: 8,
+              }}
+            >
+              <p style={{ color: '#fca5a5', margin: 0, fontWeight: 600 }}>
+                Something went wrong
+              </p>
+              <p style={{ color: '#fecaca', margin: '8px 0 0', fontSize: 13 }}>
+                {state.error}
+              </p>
+              <button
+                type="button"
+                style={{ ...btn, marginTop: 12 }}
+                onClick={() => setState({ step: 'connect' })}
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <button
               type="button"

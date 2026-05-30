@@ -129,14 +129,15 @@ export interface Reply {
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/u;
 
-const ONBOARD_PROMPT = 'You need to onboard first. Tap the button to open the WhalePod app.';
+const ONBOARD_PROMPT =
+  "Let's get you set up. Tap the button below to connect your Hyperliquid wallet.\n\nWhalePod is non-custodial: you keep your funds, we only mirror trades through an agent key you approve.";
 
 function onboardReply(ctx: HandlerCtx): Reply {
   const base = ctx.miniAppUrl.replace(/\/+$/u, '');
   const url = `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
   return {
     text: ONBOARD_PROMPT,
-    buttons: [[{ label: 'Open WhalePod', url }]],
+    buttons: [[{ label: '🚀 Open WhalePod', url }]],
   };
 }
 
