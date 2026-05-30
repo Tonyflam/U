@@ -24,7 +24,10 @@ class InMemoryOnboardRepo implements OnboardRepo {
   async getProvisional(id: string): Promise<ProvisionalRow | null> {
     return this.rows.get(id) ?? null;
   }
-  async finalize(provisionalId: string): Promise<{ userId: string }> {
+  async finalize(
+    provisionalId: string,
+    _sigs: { approveAgentSig: `0x${string}`; approveBuilderFeeSig: `0x${string}` },
+  ): Promise<{ userId: string }> {
     const existing = this.users.get(provisionalId);
     if (existing) return existing;
     const userId = crypto.randomUUID();

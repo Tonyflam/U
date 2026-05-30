@@ -21,6 +21,8 @@ export async function POST(req: Request): Promise<NextResponse> {
       return NextResponse.json({ error: err.code, message: err.message }, { status });
     }
     console.error('onboard/complete failed', err);
-    return NextResponse.json({ error: 'internal' }, { status: 500 });
+    const detail =
+      err instanceof Error ? `${err.name}: ${err.message}` : 'unknown';
+    return NextResponse.json({ error: 'internal', detail }, { status: 500 });
   }
 }
