@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useAccount, useConnect, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
+import { useEffect, useState } from 'react';
+import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -19,31 +20,46 @@ interface State {
   userId?: string;
 }
 
-const TG_USER_ID_FROM_URL = (): string | null => {
+function getTgUserId(): string | null {
   if (typeof window === 'undefined') return null;
-  const url = new URL(window.location.href);
-  return url.searchParams.get('tg');
-};
+  return new URL(window.location.href).searchParams.get('tg');
+}
+
+function shortAddr(a: string): string {
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
 
 export default function OnboardPage(): JSX.Element {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending: connecting } = useConnect();
   const { disconnect } = useDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const { switchChainAsync } = useSwitchChain();
+  const { open } = useAppKit();
 
   const [maxFeeBps, setMaxFeeBps] = useState(5);
   const [equityFloorUsd, setEquityFloorUsd] = useState('0');
   const [state, setState] = useState<State>({ step: 'connect' });
   const [busy, setBusy] = useState(false);
+  const [signStep, setSignStep] = useState<0 | 1 | 2>(0);
+
+  useEffect(() => {
+    const tg = (window as unknown as { Telegram?: { WebApp?: { ready?: () => void; expand?: () => void; setHeaderColor?: (c: string) => void } } })
+      .Telegram?.WebApp;
+    tg?.ready?.();
+    tg?.expand?.();
+    tg?.setHeaderColor?.('#0b0e14');
+  }, []);
 
   async function beginOnboarding(): Promise<void> {
     if (!address) return;
     setBusy(true);
+    setSignStep(0);
     setState({ step: 'sign' });
     try {
-      const tgUserId = TG_USER_ID_FROM_URL();
-      if (!tgUserId) throw new Error('Open this page from your Telegram bot link.');
+      const tgUserId = getTgUserId();
+      if (!tgUserId)
+        throw new Error('Open this page from your Telegram bot link to continue.');
+
       const startRes = await fetch('/api/onboarding/start', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -60,7 +76,9 @@ export default function OnboardPage(): JSX.Element {
           detail?: string;
           error?: string;
         };
-        throw new Error(j.detail ?? j.message ?? j.error ?? `start failed: ${String(startRes.status)}`);
+        throw new Error(
+          j.detail ?? j.message ?? j.error ?? `start failed: ${String(startRes.status)}`,
+        );
       }
       const start = (await startRes.json()) as StartResponse;
       setState({ step: 'sign', start });
@@ -72,19 +90,21 @@ export default function OnboardPage(): JSX.Element {
         message: Record<string, unknown>;
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
-      const targetChainId = Number(
-        (td1.domain as { chainId?: number | string }).chainId ?? 0,
-      );
+
+      const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
       if (targetChainId > 0) {
         try {
           await switchChainAsync({ chainId: targetChainId });
-        } catch (e) {
+        } catch {
           throw new Error(
             `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
           );
         }
       }
+
+      setSignStep(1);
       const approveAgentSig = await signTypedDataAsync(td1 as never);
+      setSignStep(2);
       const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
 
       const completeRes = await fetch('/api/onboarding/complete', {
@@ -94,6 +114,7 @@ export default function OnboardPage(): JSX.Element {
           provisionalId: start.provisionalId,
           approveAgentSig,
           approveBuilderFeeSig,
+          tgUserId,
         }),
       });
       if (!completeRes.ok) {
@@ -102,162 +123,408 @@ export default function OnboardPage(): JSX.Element {
           detail?: string;
           error?: string;
         };
-        throw new Error(j.detail ?? j.message ?? j.error ?? `complete failed: ${String(completeRes.status)}`);
+        throw new Error(
+          j.detail ?? j.message ?? j.error ?? `complete failed: ${String(completeRes.status)}`,
+        );
       }
       const out = (await completeRes.json()) as { userId: string };
       setState({ step: 'done', userId: out.userId });
     } catch (err) {
-      setState({ step: 'error', error: err instanceof Error ? err.message : String(err) });
+      const msg = err instanceof Error ? err.message : String(err);
+      setState({ step: 'error', error: msg });
     } finally {
       setBusy(false);
     }
   }
 
+  function returnToTg(): void {
+    const tg = (window as unknown as { Telegram?: { WebApp?: { close?: () => void } } })
+      .Telegram?.WebApp;
+    if (tg?.close) tg.close();
+    else window.close();
+  }
+
   return (
-    <main style={{ maxWidth: 640, margin: '0 auto', padding: 32 }}>
-      <h1>Onboard</h1>
+    <main className="wrap">
+      <div className="bg" />
+      <div className="card">
+        <header className="hd">
+          <div className="logo">
+            <span className="dot" />
+            <span>WhalePod</span>
+          </div>
+          {isConnected && address ? (
+            <button className="pill" type="button" onClick={() => disconnect()} title="Disconnect">
+              {shortAddr(address)}
+            </button>
+          ) : null}
+        </header>
 
-      {!isConnected ? (
-        <section>
-          <p>Connect the wallet you use to trade on Hyperliquid.</p>
-          {connectors.map((c) => (
+        {!isConnected ? (
+          <section className="intro">
+            <h1>
+              Mirror Hyperliquid <span className="grad">whales</span> from Telegram.
+            </h1>
+            <p className="lede">
+              Non-custodial. Your funds stay on Hyperliquid — we only place orders through an
+              agent key you approve.
+            </p>
+            <ul className="feats">
+              <li>
+                <strong>Cap 10 bps</strong> builder fee, default 5 bps.
+              </li>
+              <li>
+                <strong>Kill switch</strong> from any device, instantly.
+              </li>
+              <li>
+                <strong>Agent key</strong> can trade — never withdraw.
+              </li>
+            </ul>
+            <button className="cta" type="button" onClick={() => void open()}>
+              Connect wallet
+            </button>
+            <p className="muted small">
+              MetaMask · Rabby · Coinbase · Trust · 380+ wallets via WalletConnect
+            </p>
+          </section>
+        ) : state.step === 'done' ? (
+          <section className="done">
+            <div className="check">✓</div>
+            <h2>You&apos;re in.</h2>
+            <p>
+              Wallet <code>{address ? shortAddr(address) : ''}</code> is connected and authorized.
+              <br />
+              Head back to Telegram and try <code>/wallet</code> or <code>/whales</code>.
+            </p>
+            <button className="cta" type="button" onClick={returnToTg}>
+              Back to Telegram
+            </button>
+          </section>
+        ) : state.step === 'error' ? (
+          <section className="err">
+            <div className="x">!</div>
+            <h2>Something went wrong</h2>
+            <p className="errMsg">{state.error}</p>
             <button
-              key={c.uid}
+              className="cta"
               type="button"
-              onClick={() => connect({ connector: c })}
-              disabled={connecting}
-              style={btn}
+              onClick={() => setState({ step: 'connect' })}
             >
-              {connecting ? 'Connecting…' : `Connect ${c.name}`}
+              Try again
             </button>
-          ))}
-        </section>
-      ) : (
-        <section>
-          <p>
-            Connected: <code>{address}</code>{' '}
-            <button type="button" onClick={() => disconnect()} style={linkBtn}>
-              disconnect
-            </button>
-          </p>
+          </section>
+        ) : (
+          <section className="cfg">
+            <h2>Set your guardrails</h2>
+            <p className="muted">These are enforced on every mirrored order.</p>
 
-          {state.step !== 'done' && state.step !== 'error' && (
-            <fieldset style={{ border: '1px solid #333', padding: 16, marginTop: 16 }}>
-              <legend>Settings</legend>
-              <label style={{ display: 'block', marginBottom: 12 }}>
-                Max builder fee (bps, max 10):{' '}
+            <label className="row">
+              <span className="lbl">Max builder fee</span>
+              <span className="ctrl">
                 <input
                   type="number"
                   min={1}
                   max={10}
                   value={maxFeeBps}
+                  disabled={busy}
                   onChange={(e) => setMaxFeeBps(Number(e.target.value))}
-                  style={inp}
                 />
-              </label>
-              <label style={{ display: 'block' }}>
-                Equity floor (USD, never trade below):{' '}
+                <span className="suffix">bps</span>
+              </span>
+            </label>
+            <p className="hint">Hyperliquid&apos;s hard cap is 10 bps. Default 5 bps.</p>
+
+            <label className="row">
+              <span className="lbl">Equity floor</span>
+              <span className="ctrl">
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={equityFloorUsd}
+                  disabled={busy}
                   onChange={(e) => setEquityFloorUsd(e.target.value)}
-                  style={inp}
                 />
-              </label>
-            </fieldset>
-          )}
+                <span className="suffix">USD</span>
+              </span>
+            </label>
+            <p className="hint">No new orders if your account equity is below this number.</p>
 
-          {state.step === 'done' ? (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                background: '#052e16',
-                border: '1px solid #166534',
-                borderRadius: 8,
-              }}
-            >
-              <p style={{ color: '#34d399', margin: 0, fontWeight: 600 }}>
-                You&apos;re onboarded.
-              </p>
-              <p style={{ color: '#a7f3d0', margin: '8px 0 0', fontSize: 14 }}>
-                Wallet <code>{address}</code> is now connected. Return to Telegram and
-                send <code>/wallet</code> or <code>/whales</code> to start mirroring.
-              </p>
-              <button
-                type="button"
-                style={{ ...btn, marginTop: 12 }}
-                onClick={() => {
-                  const tg = (window as unknown as { Telegram?: { WebApp?: { close?: () => void } } })
-                    .Telegram?.WebApp;
-                  if (tg?.close) tg.close();
-                  else window.close();
-                }}
-              >
-                Back to Telegram
-              </button>
-            </div>
-          ) : state.step === 'error' ? (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                background: '#450a0a',
-                border: '1px solid #991b1b',
-                borderRadius: 8,
-              }}
-            >
-              <p style={{ color: '#fca5a5', margin: 0, fontWeight: 600 }}>
-                Something went wrong
-              </p>
-              <p style={{ color: '#fecaca', margin: '8px 0 0', fontSize: 13 }}>
-                {state.error}
-              </p>
-              <button
-                type="button"
-                style={{ ...btn, marginTop: 12 }}
-                onClick={() => setState({ step: 'connect' })}
-              >
-                Try again
-              </button>
-            </div>
-          ) : (
+            {busy ? (
+              <div className="steps">
+                <Step n={1} label="Build agent key" active={signStep >= 0} done={signStep > 0} />
+                <Step n={2} label="Approve agent" active={signStep >= 1} done={signStep > 1} />
+                <Step n={3} label="Approve builder fee" active={signStep >= 2} done={false} />
+              </div>
+            ) : null}
+
             <button
+              className="cta"
               type="button"
-              onClick={() => void beginOnboarding()}
               disabled={busy}
-              style={btn}
+              onClick={() => void beginOnboarding()}
             >
-              {busy ? 'Working…' : 'Sign and authorize'}
+              {busy ? 'Waiting for signatures…' : 'Sign & authorize'}
             </button>
-          )}
-        </section>
-      )}
+            <p className="muted small">
+              Two signatures: one to register the agent, one to approve the builder fee. Free —
+              no on-chain transaction.
+            </p>
+          </section>
+        )}
+      </div>
+
+      <footer className="ft">
+        <a href="https://t.me/WhalePodBot" target="_blank" rel="noopener">
+          Telegram
+        </a>
+        <span>·</span>
+        <a href="https://x.com/whalepod_xyz" target="_blank" rel="noopener">
+          X
+        </a>
+        <span>·</span>
+        <span>Non-custodial · Open source</span>
+      </footer>
+
+      <style jsx>{styles}</style>
     </main>
   );
 }
 
-const btn: React.CSSProperties = {
-  padding: '10px 18px',
-  marginTop: 16,
-  background: '#3b82f6',
-  color: 'white',
-  border: 'none',
-  borderRadius: 6,
-  cursor: 'pointer',
-};
-const linkBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: '#93c5fd',
-  border: 'none',
-  cursor: 'pointer',
-  padding: 0,
-};
-const inp: React.CSSProperties = {
-  marginLeft: 8,
-  padding: '4px 8px',
-  background: '#111',
-  color: 'white',
-  border: '1px solid #333',
-  borderRadius: 4,
-};
+function Step({
+  n,
+  label,
+  active,
+  done,
+}: {
+  n: number;
+  label: string;
+  active: boolean;
+  done: boolean;
+}): JSX.Element {
+  return (
+    <div className={`step ${done ? 'done' : active ? 'active' : ''}`}>
+      <span className="bullet">{done ? '✓' : n}</span>
+      <span>{label}</span>
+      <style jsx>{`
+        .step {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 0;
+          color: #6b7280;
+          font-size: 14px;
+          transition: color 0.2s;
+        }
+        .step.active {
+          color: #e6e6e6;
+        }
+        .step.done {
+          color: #3bd5b5;
+        }
+        .bullet {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #1f2937;
+          color: inherit;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid #2a3344;
+        }
+        .step.active .bullet {
+          border-color: #3bd5b5;
+          color: #3bd5b5;
+          box-shadow: 0 0 0 4px rgba(59, 213, 181, 0.12);
+        }
+        .step.done .bullet {
+          background: #3bd5b5;
+          color: #04201a;
+          border-color: #3bd5b5;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const styles = `
+  .wrap {
+    min-height: 100dvh;
+    padding: 24px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(60% 50% at 50% 0%, rgba(59, 213, 181, 0.18), transparent 70%),
+      radial-gradient(40% 40% at 100% 100%, rgba(99, 102, 241, 0.12), transparent 70%),
+      #0b0e14;
+  }
+  .card {
+    width: 100%;
+    max-width: 520px;
+    background: linear-gradient(180deg, rgba(22, 27, 34, 0.85), rgba(15, 18, 24, 0.85));
+    border: 1px solid #1e2530;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    animation: fadeUp 0.4s ease-out both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hd {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #3bd5b5;
+    box-shadow: 0 0 0 4px rgba(59, 213, 181, 0.18);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(59, 213, 181, 0.18); }
+    50% { box-shadow: 0 0 0 8px rgba(59, 213, 181, 0.04); }
+  }
+  .pill {
+    background: #11161f;
+    color: #9ca3af;
+    border: 1px solid #1f2937;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    transition: all 0.15s;
+  }
+  .pill:hover { color: #fca5a5; border-color: #7f1d1d; }
+
+  h1 {
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  .grad {
+    background: linear-gradient(90deg, #3bd5b5, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h2 { font-size: 20px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lede { color: #9ca3af; margin: 0 0 20px; font-size: 15px; line-height: 1.55; }
+  .muted { color: #9ca3af; }
+  .small { font-size: 12px; margin: 12px 0 0; }
+  .hint { color: #6b7280; font-size: 12px; margin: 4px 0 16px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .feats { list-style: none; padding: 0; margin: 0 0 24px; }
+  .feats li {
+    padding: 10px 12px;
+    border: 1px solid #1f2937;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #d1d5db;
+  }
+  .feats strong { color: #fff; }
+
+  .cta {
+    width: 100%;
+    background: linear-gradient(180deg, #3bd5b5, #2bb89a);
+    color: #04201a;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 8px 20px -8px rgba(59, 213, 181, 0.5);
+  }
+  .cta:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .cta:active { transform: translateY(0); }
+  .cta:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0;
+  }
+  .lbl { font-size: 14px; color: #d1d5db; }
+  .ctrl {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #0d1117; border: 1px solid #1f2937;
+    border-radius: 8px; padding: 6px 10px;
+    transition: border-color 0.15s;
+  }
+  .ctrl:focus-within { border-color: #3bd5b5; }
+  .ctrl input {
+    background: transparent; color: #e6e6e6; border: none; outline: none;
+    width: 80px; font-size: 14px; text-align: right;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .suffix { color: #6b7280; font-size: 12px; }
+
+  .steps {
+    margin: 16px 0;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+  }
+
+  .done, .err { text-align: center; padding: 8px 0; }
+  .check, .x {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 700;
+    margin: 8px auto 16px;
+    animation: pop 0.35s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  .check { background: rgba(59, 213, 181, 0.15); color: #3bd5b5; border: 1px solid rgba(59,213,181,0.4); }
+  .x { background: rgba(248, 113, 113, 0.12); color: #fca5a5; border: 1px solid rgba(248,113,113,0.4); }
+  @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .errMsg {
+    color: #fecaca; font-size: 13px;
+    background: rgba(127,29,29,0.2); border: 1px solid rgba(127,29,29,0.4);
+    padding: 10px 12px; border-radius: 8px;
+    word-break: break-word; text-align: left;
+    margin: 8px 0 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .ft {
+    margin-top: 24px;
+    color: #6b7280;
+    font-size: 12px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .ft a { color: #9ca3af; text-decoration: none; }
+  .ft a:hover { color: #3bd5b5; }
+`;
