@@ -20,6 +20,7 @@ export {
   OnboardError,
   type OnboardDeps,
   type OnboardRepo,
+  type ExchangeSubmitter,
   type ProvisionalRow,
   type StartResponse,
   type VerifyTypedDataFn,

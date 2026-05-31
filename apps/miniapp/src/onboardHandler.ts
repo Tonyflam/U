@@ -79,6 +79,21 @@ export type VerifyTypedDataFn = (args: {
   signature: `0x${string}`;
 }) => Promise<boolean>;
 
+/**
+ * Submits a user-signed L1 action (approveAgent / approveBuilderFee) to HL's
+ * `/exchange` endpoint. Implementation splits the 65-byte hex sig into
+ * `{r,s,v}` and POSTs the canonical envelope. Throws on any HL error so the
+ * onboarding flow fails loudly — silently swallowing this is what caused
+ * "User or API Wallet does not exist" at mirror time.
+ */
+export interface ExchangeSubmitter {
+  submit(req: {
+    readonly action: unknown;
+    readonly signatureHex: `0x${string}`;
+    readonly nonce: number;
+  }): Promise<void>;
+}
+
 export interface OnboardDeps {
   readonly repo: OnboardRepo;
   readonly kms: VaultKms;
@@ -89,6 +104,7 @@ export interface OnboardDeps {
   readonly generateAgentKey?: () => NewAgentKey;
   readonly newId?: () => string;
   readonly verifyTypedData: VerifyTypedDataFn;
+  readonly submitExchange: ExchangeSubmitter;
 }
 
 export interface StartResponse {
@@ -110,6 +126,7 @@ export class OnboardError extends Error {
       | 'invalid_request'
       | 'provisional_not_found'
       | 'signature_mismatch'
+      | 'exchange_rejected'
       | 'internal',
     message: string,
   ) {
@@ -229,6 +246,30 @@ export async function onboardCompleteHandler(
   });
   if (!okAgent || !okBuilder) {
     throw new OnboardError('signature_mismatch', 'one or both signatures do not match mainWallet');
+  }
+  try {
+    await deps.submitExchange.submit({
+      action: prov.approveAgentAction,
+      signatureHex: approveAgentSig,
+      nonce: prov.approveAgentAction.nonce,
+    });
+  } catch (err) {
+    throw new OnboardError(
+      'exchange_rejected',
+      `Hyperliquid rejected approveAgent: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  try {
+    await deps.submitExchange.submit({
+      action: prov.approveBuilderFeeAction,
+      signatureHex: approveBuilderFeeSig,
+      nonce: prov.approveBuilderFeeAction.nonce,
+    });
+  } catch (err) {
+    throw new OnboardError(
+      'exchange_rejected',
+      `Hyperliquid rejected approveBuilderFee: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   return deps.repo.finalize(req.provisionalId, {
     approveAgentSig,

@@ -85,6 +85,7 @@ function depsWith(
       privateKey: new Uint8Array(32).fill(7),
     }),
     verifyTypedData,
+    submitExchange: { submit: async () => undefined },
   };
   return { ...base, ...overrides, repo, verifyTypedData };
 }

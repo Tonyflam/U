@@ -15,7 +15,13 @@ import { verifyTypedData } from 'viem';
 import { eq } from 'drizzle-orm';
 import { Address, createDb, schema, type Db } from '@whalepod/schema';
 import { KmsClient } from '@whalepod/config';
-import { type OnboardDeps, type OnboardRepo, type ProvisionalRow } from '@whalepod/miniapp';
+import { HttpHlTransport, hlBaseUrl } from '@whalepod/sdk';
+import {
+  type ExchangeSubmitter,
+  type OnboardDeps,
+  type OnboardRepo,
+  type ProvisionalRow,
+} from '@whalepod/miniapp';
 
 const PROVISIONAL_TTL_SECONDS = 600;
 
@@ -142,6 +148,21 @@ export function getOnboardDeps(): OnboardDeps {
   const redis = new Redis({ url: redisUrl, token: redisToken });
   const { db } = createDb({ url: databaseUrl, ssl: databaseSsl, max: 1 });
 
+  const hlBaseUrlResolved =
+    process.env['HL_API_URL'] ?? hlBaseUrl(chain === 'Mainnet' ? 'mainnet' : 'testnet');
+  const transport = new HttpHlTransport({ baseUrl: hlBaseUrlResolved });
+  const submitExchange: ExchangeSubmitter = {
+    submit: async ({ action, signatureHex, nonce }) => {
+      if (signatureHex.length !== 132) {
+        throw new Error(`bad signature length: ${String(signatureHex.length)}`);
+      }
+      const r = `0x${signatureHex.slice(2, 66)}` as `0x${string}`;
+      const s = `0x${signatureHex.slice(66, 130)}` as `0x${string}`;
+      const v = Number.parseInt(signatureHex.slice(130, 132), 16);
+      await transport.exchange({ action, signature: { r, s, v }, nonce });
+    },
+  };
+
   cached = {
     repo: new HybridOnboardRepo(redis, db),
     kms,
@@ -149,6 +170,7 @@ export function getOnboardDeps(): OnboardDeps {
     chain,
     agentName,
     verifyTypedData: async (args) => verifyTypedData(args),
+    submitExchange,
   };
   return cached;
 }
