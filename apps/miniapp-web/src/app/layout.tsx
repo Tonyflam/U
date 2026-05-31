@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Providers } from './providers';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html lang="en">
       <head>
-        <script src="https://telegram.org/js/telegram-web-app.js" async={false} />
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
       </head>
       <body
         style={{

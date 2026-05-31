@@ -11,7 +11,7 @@ interface StartResponse {
   approveBuilderFee: { typedData: Record<string, unknown> };
 }
 
-type Step = 'loading' | 'connect' | 'config' | 'sign' | 'done' | 'already' | 'error';
+type Step = 'loading' | 'noTg' | 'connect' | 'config' | 'sign' | 'done' | 'already' | 'error';
 
 interface OnboardedInfo {
   mainWallet: string;
@@ -69,15 +69,25 @@ export default function OnboardPage(): JSX.Element {
     tg?.setHeaderColor?.('#0b0e14');
   }, []);
 
-  // Check if this TG user is already onboarded; if so, show the "already" state.
+  // Resolve TG user id (URL param OR Telegram.WebApp init data) — retry up to
+  // ~1.5s because the SDK script may not be ready when this effect first runs.
+  // Then check status against the DB.
   useEffect(() => {
-    const tgUserId = getTgUserId();
-    if (!tgUserId) {
-      setState({ step: 'connect' });
-      return;
-    }
     let cancelled = false;
-    (async () => {
+    let attempts = 0;
+    const maxAttempts = 15;
+
+    async function resolveAndCheck(): Promise<void> {
+      const tgUserId = getTgUserId();
+      if (!tgUserId) {
+        attempts += 1;
+        if (attempts < maxAttempts && !cancelled) {
+          setTimeout(() => void resolveAndCheck(), 100);
+          return;
+        }
+        if (!cancelled) setState({ step: 'noTg' });
+        return;
+      }
       try {
         const r = await fetch(`/api/onboarding/status?tg=${encodeURIComponent(tgUserId)}`, {
           cache: 'no-store',
@@ -103,7 +113,9 @@ export default function OnboardPage(): JSX.Element {
       } catch {
         if (!cancelled) setState({ step: 'connect' });
       }
-    })();
+    }
+
+    void resolveAndCheck();
     return () => {
       cancelled = true;
     };
@@ -247,6 +259,33 @@ export default function OnboardPage(): JSX.Element {
           <section className="intro" style={{ textAlign: 'center', padding: '40px 0' }}>
             <div className="spinner" />
             <p className="muted small">Checking your account…</p>
+          </section>
+        ) : state.step === 'noTg' ? (
+          <section className="intro" style={{ textAlign: 'center' }}>
+            <img
+              src="/logo.png"
+              alt="WhalePod"
+              width={56}
+              height={56}
+              style={{ width: 56, height: 56, borderRadius: 12, margin: '0 auto 16px', display: 'block' }}
+            />
+            <h2>Open WhalePod from Telegram</h2>
+            <p className="lede" style={{ marginTop: 8 }}>
+              WhalePod is a Telegram mini-app. Open it from the bot so we can link your
+              wallet to your Telegram account.
+            </p>
+            <a
+              className="cta"
+              href="https://t.me/WhalePodBot"
+              target="_blank"
+              rel="noopener"
+              style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center' }}
+            >
+              Open @WhalePodBot →
+            </a>
+            <p className="muted small" style={{ marginTop: 12 }}>
+              Already onboarded? Open the bot and tap the menu button.
+            </p>
           </section>
         ) : state.step === 'already' && state.info ? (
           <section className="done">
