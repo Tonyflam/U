@@ -151,6 +151,13 @@ export class InMemoryBotRepo implements BotRepo {
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
+  async revokeUser(userId: string): Promise<void> {
+    const u = this.users.get(userId);
+    if (!u) throw new Error(`unknown user ${userId}`);
+    this.users.delete(userId);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
   async setCurrentFee(userId: string, tenthsBp: number): Promise<void> {
     const u = this.users.get(userId);
     if (!u) throw new Error(`unknown user ${userId}`);

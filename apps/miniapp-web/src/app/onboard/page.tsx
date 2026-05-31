@@ -276,12 +276,12 @@ export default function OnboardPage(): JSX.Element {
             </p>
             <a
               className="cta"
-              href="https://t.me/WhalePodBot"
+              href="https://t.me/whalepod_bot"
               target="_blank"
               rel="noopener"
               style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center' }}
             >
-              Open @WhalePodBot →
+              Open @whalepod_bot →
             </a>
             <p className="muted small" style={{ marginTop: 12 }}>
               Already onboarded? Open the bot and tap the menu button.

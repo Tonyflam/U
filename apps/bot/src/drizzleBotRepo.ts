@@ -14,7 +14,7 @@
  *  - The kill switch is per-user on `users.kill_switch`. The global kill
  *    lives in `kill_switches_global` and is owned by the admin surface.
  */
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { schema, type AnyDb } from '@whalepod/schema';
 import type { BotRepo, BotUser, Subscription, Whale } from './handlers.js';
 import type { NotifyPrefs } from './notify.js';
@@ -37,7 +37,7 @@ export class DrizzleBotRepo implements BotRepo {
         killSwitch: schema.users.killSwitch,
       })
       .from(schema.users)
-      .where(eq(schema.users.tgUserId, tgUserId))
+      .where(and(eq(schema.users.tgUserId, tgUserId), isNull(schema.users.revokedAt)))
       .limit(1);
     const row = rows[0];
     return row ?? null;
@@ -209,6 +209,13 @@ export class DrizzleBotRepo implements BotRepo {
 
   async setKillSwitch(userId: string, killSwitch: boolean): Promise<void> {
     await this.db.update(schema.users).set({ killSwitch }).where(eq(schema.users.id, userId));
+  }
+
+  async revokeUser(userId: string): Promise<void> {
+    await this.db
+      .update(schema.users)
+      .set({ revokedAt: sql`now()`, killSwitch: true })
+      .where(eq(schema.users.id, userId));
   }
 
   async setCurrentFee(userId: string, tenthsBp: number): Promise<void> {

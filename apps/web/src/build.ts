@@ -17,7 +17,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'public');
 const outPath = join(outDir, 'index.html');
 
-const botUrl = process.env['BOT_URL'] ?? 'https://t.me/WhalePodBot';
+const botUrl = process.env['BOT_URL'] ?? 'https://t.me/whalepod_bot';
 const html = buildLandingHtml({ botUrl });
 
 mkdirSync(outDir, { recursive: true });

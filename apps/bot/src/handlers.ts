@@ -60,6 +60,11 @@ export interface BotRepo {
     patch: { readonly tpBps?: number | null; readonly slBps?: number | null },
   ): Promise<Subscription | null>;
   setKillSwitch(userId: string, killSwitch: boolean): Promise<void>;
+  /**
+   * Soft-deletes the user: sets revoked_at, flips kill_switch on. After this,
+   * `getUserByTgId` returns null until they re-onboard.
+   */
+  revokeUser(userId: string): Promise<void>;
   setCurrentFee(userId: string, tenthsBp: number): Promise<void>;
   /** Persisted per-user notification preferences. Missing fields fall back to renderer defaults. */
   getNotifyPrefs(userId: string): Promise<NotifyPrefs>;
@@ -129,7 +134,7 @@ export interface Reply {
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/u;
 
 const ONBOARD_PROMPT =
-  "Let's get you set up. Tap the button below to connect your Hyperliquid wallet.\n\nWhalePod is non-custodial: you keep your funds, we only mirror trades through an agent key you approve.";
+  "Let's get you onboarded. Tap the button below to connect your Hyperliquid wallet.\n\nWhalePod is non-custodial: you keep your funds, we only mirror trades through an agent key you approve.";
 
 function onboardReply(ctx: HandlerCtx): Reply {
   const base = ctx.miniAppUrl.replace(/\/+$/u, '');
@@ -168,6 +173,8 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handleKill(true, ctx);
     case 'unkill':
       return handleKill(false, ctx);
+    case 'disconnect':
+      return handleDisconnect(ctx);
     case 'tp':
       return handleSetTpSl('tp', command.target, command.offsetBps, ctx);
     case 'sl':
@@ -259,6 +266,7 @@ function helpReply(): Reply {
       '/sl <0x…> <bps|off> — set stop-loss offset for a whale (1–9999 bps)',
       '/kill — emergency stop (no mirrors will be sent)',
       '/unkill — clear emergency stop',
+      '/disconnect — disconnect wallet & revoke agent (you can re-onboard after)',
       '/share — get your invite link',
       '/pnl — show realized + unrealized PnL across your mirrors',
       '/leaderboard — top traders by realized PnL',
@@ -415,6 +423,34 @@ async function handleKill(killSwitch: boolean, ctx: HandlerCtx): Promise<Reply[]
       text: killSwitch
         ? 'Kill switch ON. No further mirrors will be sent until /unkill.'
         : 'Kill switch cleared. Mirrors will resume on next whale fill.',
+    },
+  ];
+}
+
+async function handleDisconnect(ctx: HandlerCtx): Promise<Reply[]> {
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) {
+    return [onboardReply(ctx)];
+  }
+  await ctx.repo.revokeUser(user.id);
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'wallet_disconnect',
+    target: `user:${user.id}`,
+    before: { mainWallet: user.mainWallet, agentAddress: user.agentAddress },
+  });
+  const base = ctx.miniAppUrl.replace(/\/+$/u, '');
+  const url = `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
+  return [
+    {
+      text: [
+        '🔌 Wallet disconnected.',
+        '',
+        `Wallet ${fmtAddr(user.mainWallet)} has been removed and the agent key revoked. All mirrors are paused.`,
+        '',
+        'You can re-connect a wallet anytime — same or different.',
+      ].join('\n'),
+      buttons: [[{ label: '🚀 Connect a wallet', url }]],
     },
   ];
 }

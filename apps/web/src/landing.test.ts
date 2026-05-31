@@ -10,16 +10,16 @@ describe('escapeHtml', () => {
   });
 
   it('is a no-op for safe ASCII', () => {
-    expect(escapeHtml('https://t.me/WhalePodBot')).toBe('https://t.me/WhalePodBot');
+    expect(escapeHtml('https://t.me/whalepod_bot')).toBe('https://t.me/whalepod_bot');
   });
 });
 
 describe('buildLandingHtml', () => {
-  const env = { botUrl: 'https://t.me/WhalePodBot' };
+  const env = { botUrl: 'https://t.me/whalepod_bot' };
 
   it('embeds the bot URL in a CTA', () => {
     const html = buildLandingHtml(env);
-    expect(html).toMatch(/href="https:\/\/t\.me\/WhalePodBot"/);
+    expect(html).toMatch(/href="https:\/\/t\.me\/whalepod_bot"/);
   });
 
   it('escapes a malicious bot URL', () => {

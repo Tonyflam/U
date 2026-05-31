@@ -15,6 +15,7 @@ export type Command =
   | { readonly kind: 'resume' }
   | { readonly kind: 'kill' }
   | { readonly kind: 'unkill' }
+  | { readonly kind: 'disconnect' }
   | { readonly kind: 'tp'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'sl'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'share' }
@@ -52,6 +53,9 @@ export function parseCommand(text: string): Command | null {
       return { kind: 'kill' };
     case 'unkill':
       return { kind: 'unkill' };
+    case 'disconnect':
+    case 'logout':
+      return { kind: 'disconnect' };
     case 'share':
       return { kind: 'share' };
     case 'pnl':

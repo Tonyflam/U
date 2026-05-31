@@ -26,7 +26,7 @@ describe('handleCommand /start', () => {
     const { ctx } = setup({ onboarded: false });
     const replies = await handleCommand({ kind: 'start', startParam: null }, ctx);
     expect(replies[0]?.text).toMatch(/onboard/i);
-    expect(replies[0]?.buttons?.[0]?.[0]?.url).toBe(MINIAPP);
+    expect(replies[0]?.buttons?.[0]?.[0]?.url).toMatch(new RegExp(`^${MINIAPP}/onboard\\?tg=`));
   });
 
   it('welcomes back an onboarded user', async () => {
