@@ -303,12 +303,13 @@ export class HlWebSocketSource implements FillSource {
     const r = raw as Record<string, unknown>;
     const hash = pickString(r['hash']);
     const coin = pickString(r['coin']);
-    const side = pickString(r['side']);
+    const sideRaw = pickString(r['side']);
     const px = pickString(r['px']);
     const sz = pickString(r['sz']);
     const time = typeof r['time'] === 'number' ? r['time'] : undefined;
-    if (hash === undefined || coin === undefined || side === undefined) return undefined;
+    if (hash === undefined || coin === undefined || sideRaw === undefined) return undefined;
     if (px === undefined || sz === undefined || time === undefined) return undefined;
+    const side = sideRaw === 'A' ? 'S' : sideRaw === 'B' ? 'B' : sideRaw;
     return { hash, user, coin, side, px, sz, time };
   }
 }
