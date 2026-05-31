@@ -24,9 +24,14 @@ import {
   type OrderIntent,
 } from '@whalepod/sdk';
 import type { AssetIndexResolver } from './mirrorEngine.js';
-import type { MarkPriceFn } from './pnl.js';
+import type { MarkPriceFn, PnlFill } from './pnl.js';
 import type { AgentSigner, AuditSink } from './submitMirror.js';
 import type { LivePositionsLookup } from './hlLivePositions.js';
+import type { FillSink } from './fillSink.js';
+
+export interface PnlFillReader {
+  listFillsForUser(userId: string, limit: number): Promise<readonly PnlFill[]>;
+}
 
 export interface CloseUser {
   readonly id: string;
@@ -58,6 +63,14 @@ export interface PositionCloserDeps {
   readonly builderAddress: Address;
   readonly nonce: () => number;
   readonly now: () => number;
+  /**
+   * Optional pair used to also reconcile the bot's local PnL ledger after
+   * the HL ack. We compute per-whale netSz on the closed coin from
+   * `pnlReader` and write canceling synthetic fills to `fillSink` so /pnl
+   * stops showing "still holding" for what is no longer on HL.
+   */
+  readonly pnlReader?: PnlFillReader;
+  readonly fillSink?: FillSink;
   /** Max acceptable slippage on the close, in basis points. Default 100 (1%). */
   readonly slippageBps?: number;
 }
@@ -79,6 +92,11 @@ export async function closePositions(
   if (wanted && targets.length === 0) return { kind: 'coin_not_open', coin: wanted };
 
   const slippageBps = deps.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+  // Pre-load the user's local fill history once so we can reconcile the
+  // PnL ledger per closed coin without re-querying inside the loop.
+  const ledgerFills = deps.pnlReader && deps.fillSink
+    ? await deps.pnlReader.listFillsForUser(user.id, 500).catch(() => [] as readonly PnlFill[])
+    : ([] as readonly PnlFill[]);
   const results: CloseCoinResult[] = [];
   for (const pos of targets) {
     const asset = deps.assets.resolve(pos.coin);
@@ -135,6 +153,17 @@ export async function closePositions(
         target: `coin:${pos.coin}`,
         after: { outcome: 'submitted', sz, isBuy, limitPx: orderIntent.limitPx, nonce, cloid },
       });
+      if (deps.fillSink) {
+        await reconcileLedger({
+          fills: ledgerFills,
+          coin: pos.coin,
+          mark,
+          userId: user.id,
+          cloid,
+          now: deps.now(),
+          sink: deps.fillSink,
+        });
+      }
       results.push({ coin: pos.coin, kind: 'submitted', sz, isBuy });
     } catch (err) {
       const message = errMessage(err);
@@ -183,4 +212,62 @@ function fnv1a64(s: string, seed: bigint): bigint {
     h = (h * FNV_PRIME) & MASK;
   }
   return h;
+}
+
+/**
+ * Mirrors the closure into the bot's local fill ledger so /pnl stops
+ * reporting "still holding" for a coin we just closed on HL. Walks the
+ * user's existing mirror fills, sums per-whale netSz / costBasis for the
+ * closed coin, and writes one synthetic canceling fill per whale that
+ * still has nonzero exposure. realizedPnlUsd is set to the existing
+ * mark-to-market PnL so the "Closed trades" total updates correctly.
+ *
+ * builderFeeUsd is left at 0 here — the real builder fee is recorded by
+ * HL on the actual reduce-only IOC order; if we ever start ingesting our
+ * own fills from HL, we should de-dupe these synthetic rows by hlFillId
+ * prefix `close:`.
+ */
+async function reconcileLedger(input: {
+  readonly fills: readonly PnlFill[];
+  readonly coin: string;
+  readonly mark: number;
+  readonly userId: string;
+  readonly cloid: string;
+  readonly now: number;
+  readonly sink: FillSink;
+}): Promise<void> {
+  type Agg = { netSz: number; costBasisUsd: number; whaleAlias: string | null };
+  const byWhale = new Map<string, Agg>();
+  for (const f of input.fills) {
+    if (f.coin !== input.coin) continue;
+    const sz = Number(f.sz);
+    const px = Number(f.px);
+    if (!Number.isFinite(sz) || !Number.isFinite(px)) continue;
+    const signed = f.side === 'B' ? sz : -sz;
+    const a = byWhale.get(f.whaleAddress) ?? { netSz: 0, costBasisUsd: 0, whaleAlias: f.whaleAlias ?? null };
+    a.netSz += signed;
+    a.costBasisUsd += signed * px;
+    byWhale.set(f.whaleAddress, a);
+  }
+
+  for (const [whaleAddress, pos] of byWhale) {
+    if (Math.abs(pos.netSz) < 1e-8) continue;
+    const isBuyToClose = pos.netSz < 0;
+    const sz = Math.abs(pos.netSz);
+    const realizedPnlUsd = pos.netSz * input.mark - pos.costBasisUsd;
+    await input.sink.recordMirrorFill({
+      hlFillId: `close:${input.cloid}:${whaleAddress}`,
+      whaleAddress,
+      coin: input.coin,
+      side: isBuyToClose ? 'B' : 'S',
+      px: formatPx(input.mark),
+      sz: formatSz(sz),
+      notionalUsd: (sz * input.mark).toFixed(2),
+      builderFeeTenthsBp: 0,
+      builderFeeUsd: '0',
+      userId: input.userId,
+      ts: input.now,
+      realizedPnlUsd: realizedPnlUsd.toFixed(6),
+    });
+  }
 }

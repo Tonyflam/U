@@ -26,7 +26,6 @@ import pino from 'pino';
 import { webhookCallback } from 'grammy';
 import { z } from 'zod';
 import { createBot } from './bot.js';
-import { registerBotCommands } from './botCommandMenu.js';
 import { DrizzleBotRepo } from './drizzleBotRepo.js';
 import {
   DrizzleAgentKeyLookup,
@@ -241,6 +240,8 @@ async function main(): Promise<void> {
         nonce: submitDeps.nonce,
         now: submitDeps.now,
         slippageBps: env.RISK_MAX_SLIPPAGE_BPS,
+        pnlReader: repo,
+        fillSink,
       },
     );
 
@@ -280,9 +281,6 @@ async function main(): Promise<void> {
   if (env.BOT_MODE === 'polling') {
     log.info('starting bot in long-polling mode');
     await bot.init();
-    await registerBotCommands(bot.api).catch((err: unknown) => {
-      log.warn({ err }, 'setMyCommands failed');
-    });
     process.on('SIGTERM', () => {
       controller.stopped = true;
     });
@@ -332,11 +330,6 @@ async function main(): Promise<void> {
   const port = env.BOT_PORT;
   await app.listen({ port, host: '0.0.0.0' });
   log.info({ port }, 'bot webhook listening');
-
-  await bot.init();
-  await registerBotCommands(bot.api).catch((err: unknown) => {
-    log.warn({ err }, 'setMyCommands failed');
-  });
 
   const shutdown = async (signal: string): Promise<void> => {
     log.info({ signal }, 'shutting down');
