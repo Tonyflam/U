@@ -41,8 +41,38 @@ export interface CloseUser {
   readonly approvedMaxFeeTenthsBp: number;
 }
 
+/**
+ * When a coin is closed and we have local ledger data for it, we also
+ * surface the per-coin trade summary so the bot can mint a "share this
+ * trade" card. Absent when no mirrored fills exist for the coin (e.g.
+ * the user opened the position outside WhalePod).
+ */
+export interface CloseTradeSummary {
+  /** 'long' if the pre-close exposure was net positive; 'short' otherwise. */
+  readonly side: 'long' | 'short';
+  /** Absolute size that was closed, decimal string. */
+  readonly sz: string;
+  /** Volume-weighted average entry price, decimal string. */
+  readonly entryPx: string;
+  /** Mark price used as the close fill, decimal string. */
+  readonly exitPx: string;
+  /** Realized USD PnL across all whales for this coin, decimal string (signed). */
+  readonly pnlUsd: string;
+  /** Percent PnL vs cost basis, decimal string (signed, e.g. "8.12"). */
+  readonly pnlPct: string;
+  /** Alias of the whale that contributed the largest |netSz|, if any. */
+  readonly whaleAlias: string | null;
+}
+
 export type CloseCoinResult =
-  | { readonly coin: string; readonly kind: 'submitted'; readonly sz: string; readonly isBuy: boolean }
+  | {
+      readonly coin: string;
+      readonly kind: 'submitted';
+      readonly sz: string;
+      readonly isBuy: boolean;
+      /** Present when we have local fills for this coin to summarize. */
+      readonly trade?: CloseTradeSummary;
+    }
   | { readonly coin: string; readonly kind: 'no_mark' }
   | { readonly coin: string; readonly kind: 'exchange_error'; readonly message: string }
   | { readonly coin: string; readonly kind: 'transport_error'; readonly message: string }
@@ -94,9 +124,10 @@ export async function closePositions(
   const slippageBps = deps.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
   // Pre-load the user's local fill history once so we can reconcile the
   // PnL ledger per closed coin without re-querying inside the loop.
-  const ledgerFills = deps.pnlReader && deps.fillSink
-    ? await deps.pnlReader.listFillsForUser(user.id, 500).catch(() => [] as readonly PnlFill[])
-    : ([] as readonly PnlFill[]);
+  const ledgerFills =
+    deps.pnlReader && deps.fillSink
+      ? await deps.pnlReader.listFillsForUser(user.id, 500).catch(() => [] as readonly PnlFill[])
+      : ([] as readonly PnlFill[]);
   const results: CloseCoinResult[] = [];
   for (const pos of targets) {
     const asset = deps.assets.resolve(pos.coin);
@@ -153,8 +184,9 @@ export async function closePositions(
         target: `coin:${pos.coin}`,
         after: { outcome: 'submitted', sz, isBuy, limitPx: orderIntent.limitPx, nonce, cloid },
       });
+      let trade: CloseTradeSummary | undefined;
       if (deps.fillSink) {
-        await reconcileLedger({
+        trade = await reconcileLedger({
           fills: ledgerFills,
           coin: pos.coin,
           mark,
@@ -164,7 +196,11 @@ export async function closePositions(
           sink: deps.fillSink,
         });
       }
-      results.push({ coin: pos.coin, kind: 'submitted', sz, isBuy });
+      results.push(
+        trade
+          ? { coin: pos.coin, kind: 'submitted', sz, isBuy, trade }
+          : { coin: pos.coin, kind: 'submitted', sz, isBuy },
+      );
     } catch (err) {
       const message = errMessage(err);
       const kind = err instanceof HlExchangeError ? 'exchange_error' : 'transport_error';
@@ -196,7 +232,7 @@ function formatSz(n: number): string {
 }
 
 function cloidFor(userId: string, coin: string, nonce: number): `0x${string}` {
-  const seed = `close:${userId}:${coin}:${nonce}`;
+  const seed = `close:${userId}:${coin}:${String(nonce)}`;
   const lo = fnv1a64(seed, 0n);
   const hi = fnv1a64(seed, 0xcbf29ce484222325n);
   const hex = hi.toString(16).padStart(16, '0') + lo.toString(16).padStart(16, '0');
@@ -235,8 +271,12 @@ async function reconcileLedger(input: {
   readonly cloid: string;
   readonly now: number;
   readonly sink: FillSink;
-}): Promise<void> {
-  type Agg = { netSz: number; costBasisUsd: number; whaleAlias: string | null };
+}): Promise<CloseTradeSummary | undefined> {
+  interface Agg {
+    netSz: number;
+    costBasisUsd: number;
+    whaleAlias: string | null;
+  }
   const byWhale = new Map<string, Agg>();
   for (const f of input.fills) {
     if (f.coin !== input.coin) continue;
@@ -244,17 +284,33 @@ async function reconcileLedger(input: {
     const px = Number(f.px);
     if (!Number.isFinite(sz) || !Number.isFinite(px)) continue;
     const signed = f.side === 'B' ? sz : -sz;
-    const a = byWhale.get(f.whaleAddress) ?? { netSz: 0, costBasisUsd: 0, whaleAlias: f.whaleAlias ?? null };
+    const a = byWhale.get(f.whaleAddress) ?? {
+      netSz: 0,
+      costBasisUsd: 0,
+      whaleAlias: f.whaleAlias ?? null,
+    };
     a.netSz += signed;
     a.costBasisUsd += signed * px;
     byWhale.set(f.whaleAddress, a);
   }
 
+  let totalNetSz = 0;
+  let totalCost = 0;
+  let totalRealized = 0;
+  let topWhaleAbsSz = 0;
+  let topWhaleAlias: string | null = null;
   for (const [whaleAddress, pos] of byWhale) {
     if (Math.abs(pos.netSz) < 1e-8) continue;
     const isBuyToClose = pos.netSz < 0;
     const sz = Math.abs(pos.netSz);
     const realizedPnlUsd = pos.netSz * input.mark - pos.costBasisUsd;
+    totalNetSz += pos.netSz;
+    totalCost += pos.costBasisUsd;
+    totalRealized += realizedPnlUsd;
+    if (sz > topWhaleAbsSz) {
+      topWhaleAbsSz = sz;
+      topWhaleAlias = pos.whaleAlias;
+    }
     await input.sink.recordMirrorFill({
       hlFillId: `close:${input.cloid}:${whaleAddress}`,
       whaleAddress,
@@ -270,4 +326,19 @@ async function reconcileLedger(input: {
       realizedPnlUsd: realizedPnlUsd.toFixed(6),
     });
   }
+
+  if (Math.abs(totalNetSz) < 1e-8) return undefined;
+  const sz = Math.abs(totalNetSz);
+  const entryPx = Math.abs(totalCost / totalNetSz);
+  const costAbs = Math.abs(totalCost);
+  const pct = costAbs > 0 ? (totalRealized / costAbs) * 100 : 0;
+  return {
+    side: totalNetSz > 0 ? 'long' : 'short',
+    sz: formatSz(sz),
+    entryPx: formatPx(entryPx),
+    exitPx: formatPx(input.mark),
+    pnlUsd: totalRealized.toFixed(2),
+    pnlPct: pct.toFixed(2),
+    whaleAlias: topWhaleAlias,
+  };
 }

@@ -47,3 +47,4 @@ export {
   signL1Action,
   type SignL1ActionParams,
 } from './signL1.js';
+export { signTradeShare, verifyTradeShare, type TradeSharePayload } from './shareToken.js';

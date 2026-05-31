@@ -10,7 +10,7 @@
  * write through the same repo, in one transaction conceptually. Keeping
  * handlers pure means we can test the audit invariant exhaustively.
  */
-import { TPSL_MAX_BPS, TPSL_MIN_BPS, type TpSl } from '@whalepod/sdk';
+import { TPSL_MAX_BPS, TPSL_MIN_BPS, signTradeShare, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { computeLeaderboard, renderLeaderboard, type LeaderboardEntry } from './referral.js';
 import type { NotifyPrefs } from './notify.js';
@@ -134,6 +134,11 @@ export interface HandlerCtx {
    * reply with a "feature unavailable" message rather than crashing.
    */
   readonly closer?: PositionCloseFn;
+  /**
+   * HMAC secret used to mint trade-share tokens after /close. When omitted,
+   * the bot still sends close replies but skips the "Share this trade" button.
+   */
+  readonly shareTokenSecret?: string;
 }
 
 /**
@@ -156,11 +161,26 @@ export type CloseExecResult =
       readonly kind: 'submitted';
       readonly sz: string;
       readonly isBuy: boolean;
+      readonly trade?: CloseTradeSummary;
     }
   | { readonly coin: string; readonly kind: 'no_mark' }
   | { readonly coin: string; readonly kind: 'exchange_error'; readonly message: string }
   | { readonly coin: string; readonly kind: 'transport_error'; readonly message: string }
   | { readonly coin: string; readonly kind: 'asset_unknown' };
+
+/**
+ * Per-coin trade summary surfaced by the closer so handlers can mint a
+ * "Share this trade" card. Mirrors the SDK's share-token payload shape.
+ */
+export interface CloseTradeSummary {
+  readonly side: 'long' | 'short';
+  readonly sz: string;
+  readonly entryPx: string;
+  readonly exitPx: string;
+  readonly pnlUsd: string;
+  readonly pnlPct: string;
+  readonly whaleAlias: string | null;
+}
 
 export interface Reply {
   readonly text: string;
@@ -290,11 +310,35 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
   if (outcome.kind === 'coin_not_open') {
     return [{ text: `You have no open ${outcome.coin} position.` }];
   }
+
   const lines = ['Close requests submitted:', ''];
+  const buttons: { readonly label: string; readonly url: string }[][] = [];
+
+  // We only mint share buttons if we have the HMAC secret AND at least one
+  // submitted result came with a trade summary. Referral code is fetched
+  // lazily — minted on first call, then reused.
+  let codePromise: Promise<string> | null = null;
+  const getCode = (): Promise<string> => {
+    codePromise ??= ctx.repo.getOrMintReferralCode(user.id);
+    return codePromise;
+  };
+  const base = ctx.miniAppUrl.replace(/\/+$/u, '');
+  const now = Date.now();
+
   for (const r of outcome.results) {
     if (r.kind === 'submitted') {
       const side = r.isBuy ? 'buy' : 'sell';
-      lines.push(`  ✅ ${r.coin}: ${side} ${r.sz} (reduce-only IOC)`);
+      if (r.trade) {
+        const pnl = Number(r.trade.pnlUsd);
+        const pnlStr = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `−$${Math.abs(pnl).toFixed(2)}`;
+        const pct = Number(r.trade.pnlPct);
+        const pctStr = pct >= 0 ? `+${pct.toFixed(2)}%` : `−${Math.abs(pct).toFixed(2)}%`;
+        lines.push(
+          `  ✅ ${r.coin} ${r.trade.side.toUpperCase()}: closed ${r.trade.sz} @ $${r.trade.exitPx} (${pnlStr}, ${pctStr})`,
+        );
+      } else {
+        lines.push(`  ✅ ${r.coin}: ${side} ${r.sz} (reduce-only IOC)`);
+      }
     } else if (r.kind === 'no_mark') {
       lines.push(`  ❌ ${r.coin}: no mark price available, try again in a moment`);
     } else if (r.kind === 'asset_unknown') {
@@ -304,7 +348,47 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
     }
   }
   lines.push('', 'Use /pnl to confirm the position closed.');
-  return [{ text: lines.join('\n') }];
+
+  // Mint share buttons in order. We do this after the loop so the rendered
+  // text comes first and stays readable even if code-mint fails.
+  if (ctx.shareTokenSecret) {
+    for (const r of outcome.results) {
+      if (r.kind !== 'submitted' || !r.trade) continue;
+      try {
+        const code = await getCode();
+        const token = signTradeShare(
+          {
+            code,
+            coin: r.coin,
+            side: r.trade.side,
+            sz: r.trade.sz,
+            entryPx: r.trade.entryPx,
+            exitPx: r.trade.exitPx,
+            pnlUsd: r.trade.pnlUsd,
+            pnlPct: r.trade.pnlPct,
+            whaleAlias: r.trade.whaleAlias,
+            ts: now,
+          },
+          ctx.shareTokenSecret,
+        );
+        const tradeUrl = `${base}/share/t/${encodeURIComponent(token)}`;
+        const pnl = Number(r.trade.pnlUsd);
+        const emoji = pnl > 0 ? '🟢' : pnl < 0 ? '🔴' : '⚪';
+        const pitch = `Closed ${r.trade.side} ${r.coin} on WhalePod.`;
+        buttons.push([
+          {
+            label: `${emoji} Share ${r.coin} trade`,
+            url: `https://t.me/share/url?url=${encodeURIComponent(tradeUrl)}&text=${encodeURIComponent(pitch)}`,
+          },
+        ]);
+      } catch {
+        // Skip share button on this coin if token mint fails — don't block
+        // the close confirmation.
+      }
+    }
+  }
+
+  return [{ text: lines.join('\n'), ...(buttons.length > 0 ? { buttons } : {}) }];
 }
 
 async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<Reply[]> {

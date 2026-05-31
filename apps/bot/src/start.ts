@@ -50,6 +50,7 @@ import { RealizedPnlFillSink } from './realizedPnlSink.js';
 import { captureGeo, extractCountry, extractTgUserId } from './geoCapture.js';
 import type { MirrorEngineDeps } from './mirrorEngine.js';
 import type { SubmitMirrorDeps } from './submitMirror.js';
+import type { PositionCloseFn } from './handlers.js';
 
 const botEnv = commonEnv.extend({
   TELEGRAM_BOT_TOKEN: z.string().min(40),
@@ -88,6 +89,7 @@ const botEnv = commonEnv.extend({
     .int()
     .positive()
     .default(60 * 60 * 1000),
+  SHARE_TOKEN_SECRET: z.string().min(32).optional(),
 });
 
 async function main(): Promise<void> {
@@ -122,8 +124,9 @@ async function main(): Promise<void> {
   // that calls into a holder we fill in once those deps exist. Until then,
   // /close replies "temporarily unavailable" because the holder is undefined
   // and `createBot` only passes `closer` when truthy.
-  let livePositionCloser: import('./handlers.js').PositionCloseFn | undefined;
-  const closerProxy: import('./handlers.js').PositionCloseFn = (input) => {
+  // eslint-disable-next-line prefer-const -- reassigned at the bottom once signer/assets are ready
+  let livePositionCloser: PositionCloseFn | undefined;
+  const closerProxy: PositionCloseFn = (input) => {
     if (!livePositionCloser) {
       return Promise.resolve({ kind: 'no_positions' as const });
     }
@@ -138,6 +141,7 @@ async function main(): Promise<void> {
     log,
     markPrice: markPrices.get(),
     closer: closerProxy,
+    ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
   });
 
   const userSnapshots = new DrizzleUserSnapshotLookup(db);

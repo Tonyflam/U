@@ -35,6 +35,8 @@ export interface BotDeps {
   readonly markPrice?: MarkPriceFn;
   /** Optional reduce-only position closer for /close + /closeall. */
   readonly closer?: PositionCloseFn;
+  /** Optional HMAC secret for minting trade-share tokens. */
+  readonly shareTokenSecret?: string;
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -75,6 +77,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       botUsername: deps.botUsername,
       ...(deps.markPrice ? { markPrice: deps.markPrice } : {}),
       ...(deps.closer ? { closer: deps.closer } : {}),
+      ...(deps.shareTokenSecret ? { shareTokenSecret: deps.shareTokenSecret } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');
