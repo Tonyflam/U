@@ -66,7 +66,7 @@ export async function ensureGroup(
 
 interface StreamEntry {
   readonly id: string;
-  readonly payload: string | undefined;
+  readonly payload: unknown;
 }
 
 /**
@@ -126,12 +126,25 @@ async function readBatch(
 ): Promise<readonly StreamEntry[]> {
   const raw = (await redis.xreadgroup(opts.groupName, opts.consumerName, opts.streamKey, '>', {
     count: opts.batch,
-  })) as readonly [string, readonly [string, Record<string, string>][]][] | null;
+  })) as readonly [string, readonly [string, unknown][]][] | null;
   if (!raw || raw.length === 0) return [];
   const out: StreamEntry[] = [];
   for (const [, list] of raw) {
     for (const [id, fields] of list) {
-      out.push({ id, payload: fields['payload'] });
+      // Upstash returns fields as a flat array [key, value, key, value, ...].
+      // Older shape was a Record. Support both.
+      let payload: unknown;
+      if (Array.isArray(fields)) {
+        for (let i = 0; i < fields.length - 1; i += 2) {
+          if (fields[i] === 'payload') {
+            payload = fields[i + 1];
+            break;
+          }
+        }
+      } else if (fields && typeof fields === 'object') {
+        payload = (fields as Record<string, unknown>)['payload'];
+      }
+      out.push({ id, payload });
     }
   }
   return out;
@@ -145,16 +158,21 @@ async function handleEntry(
   entry: StreamEntry,
   options: MirrorConsumerOptions,
 ): Promise<MirrorOutcome | undefined> {
-  if (entry.payload === undefined) {
+  if (entry.payload === undefined || entry.payload === null) {
     options.log.warn({ entryId: entry.id }, 'mirror-consumer: entry missing payload');
     return undefined;
   }
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(entry.payload);
-  } catch (err) {
-    options.log.warn({ err, entryId: entry.id }, 'mirror-consumer: invalid JSON payload');
-    return undefined;
+  if (typeof entry.payload === 'string') {
+    try {
+      parsed = JSON.parse(entry.payload);
+    } catch (err) {
+      options.log.warn({ err, entryId: entry.id }, 'mirror-consumer: invalid JSON payload');
+      return undefined;
+    }
+  } else {
+    // Upstash auto-deserializes JSON values stored in streams.
+    parsed = entry.payload;
   }
   const intent = MirrorIntent.safeParse(parsed);
   if (!intent.success) {

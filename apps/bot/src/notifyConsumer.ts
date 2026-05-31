@@ -44,7 +44,7 @@ export interface NotifyConsumerOptions {
 
 interface StreamEntry {
   readonly id: string;
-  readonly payload: string | undefined;
+  readonly payload: unknown;
   readonly tgUserId: string | undefined;
 }
 
@@ -97,16 +97,27 @@ async function readBatch(
 ): Promise<readonly StreamEntry[]> {
   const raw = (await redis.xreadgroup(opts.groupName, opts.consumerName, opts.streamKey, '>', {
     count: opts.batch,
-  })) as readonly [string, readonly [string, Record<string, string>][]][] | null;
+  })) as readonly [string, readonly [string, unknown][]][] | null;
   if (!raw || raw.length === 0) return [];
   const out: StreamEntry[] = [];
   for (const [, list] of raw) {
     for (const [id, fields] of list) {
-      out.push({
-        id,
-        payload: fields['payload'],
-        tgUserId: fields['tgUserId'],
-      });
+      let payload: unknown;
+      let tgUserId: string | undefined;
+      if (Array.isArray(fields)) {
+        for (let i = 0; i < fields.length - 1; i += 2) {
+          const k = fields[i];
+          const v = fields[i + 1];
+          if (k === 'payload') payload = v;
+          else if (k === 'tgUserId') tgUserId = typeof v === 'string' ? v : String(v);
+        }
+      } else if (fields && typeof fields === 'object') {
+        const rec = fields as Record<string, unknown>;
+        payload = rec['payload'];
+        const t = rec['tgUserId'];
+        tgUserId = t === undefined ? undefined : typeof t === 'string' ? t : String(t);
+      }
+      out.push({ id, payload, tgUserId });
     }
   }
   return out;
@@ -120,16 +131,20 @@ export async function handleEntry(
   entry: StreamEntry,
   options: NotifyConsumerOptions,
 ): Promise<void> {
-  if (entry.payload === undefined || entry.tgUserId === undefined) {
+  if (entry.payload === undefined || entry.payload === null || entry.tgUserId === undefined) {
     options.log.warn({ entryId: entry.id }, 'notify-consumer: entry missing fields');
     return;
   }
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(entry.payload);
-  } catch (err) {
-    options.log.warn({ err, entryId: entry.id }, 'notify-consumer: invalid JSON payload');
-    return;
+  if (typeof entry.payload === 'string') {
+    try {
+      parsed = JSON.parse(entry.payload);
+    } catch (err) {
+      options.log.warn({ err, entryId: entry.id }, 'notify-consumer: invalid JSON payload');
+      return;
+    }
+  } else {
+    parsed = entry.payload;
   }
   const event = MirrorFillEvent.safeParse(parsed);
   if (!event.success) {
