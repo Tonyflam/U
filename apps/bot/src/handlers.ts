@@ -218,8 +218,8 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
       text: [
         '📨 Invite friends to WhalePod',
         '',
-        `Your invite link:`,
-        '`' + url + '`',
+        'Your invite link:',
+        url,
         '',
         'How referrals work:',
         '  1. Share the link (tap the button below).',
@@ -277,7 +277,7 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
       text: [
         `👋 Welcome back!`,
         ``,
-        `Wallet: \`${user.mainWallet}\``,
+        `Wallet: ${user.mainWallet}`,
         `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}`,
         ``,
         `Tap /whales to browse traders, /mirrors to see what you're copying, or /help for everything.`,
@@ -289,38 +289,37 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
 function helpReply(): Reply {
   return {
     text: [
-      '🐋 *WhalePod commands*',
+      '🐋 WhalePod — what each command does',
       '',
-      '_Mirror trades from top Hyperliquid traders, automatically._',
+      'Mirror trades from top Hyperliquid traders, automatically.',
       '',
-      '*Getting started*',
-      '/whales — see traders you can copy',
-      '/follow `<address>` `[usd]` — start copying a trader',
-      '   _example:_ `/follow 0xabc... 50` (risk at most $50 per copied trade)',
-      '/mirrors — list traders you\u2019re copying',
+      '▸ Find & follow whales',
+      '/whales — browse traders you can copy',
+      '/follow 0xabc... 50 — start copying a trader, risk at most $50 per trade',
+      '/mirrors — list everyone you are copying',
       '',
-      '*Manage a trader*',
-      '/setcap `<address>` `<usd>` — change the per-trade size cap',
-      '/tp `<address>` `<bps|off>` — auto take-profit (100 bps = 1%)',
-      '/sl `<address>` `<bps|off>` — auto stop-loss (100 bps = 1%)',
-      '/unfollow `<address>` — stop copying that trader',
+      '▸ Tune a whale you follow',
+      '/setcap 0xabc... 100 — change the per-trade size cap',
+      '/tp 0xabc... 200 — auto take-profit at +2% (200 bps). Use "off" to disable.',
+      '/sl 0xabc... 100 — auto stop-loss at -1% (100 bps). Use "off" to disable.',
+      '/unfollow 0xabc... — stop copying that trader',
       '',
-      '*Control your account*',
-      '/wallet — show wallet, agent, fee',
+      '▸ Your account',
+      '/wallet — show wallet, agent, and fee',
       '/pause — temporarily stop ALL copying',
       '/resume — start copying again',
-      '/kill — emergency stop (same as pause, until /unkill)',
+      '/kill — emergency stop (active until /unkill)',
       '/unkill — clear the emergency stop',
-      '/disconnect — remove wallet & revoke the agent',
+      '/disconnect — remove wallet and revoke the agent',
       '',
-      '*See how you\u2019re doing*',
+      '▸ Track performance',
       '/pnl — profit & loss across your mirrors',
       '/leaderboard — top WhalePod users this week',
       '',
-      '*Notifications & sharing*',
-      '/notify on|off — turn fill alerts on/off',
-      '/notify compact|full — short vs. detailed alerts',
-      '/share — get your invite link',
+      '▸ Alerts & invites',
+      '/notify on — turn fill alerts on (off to silence)',
+      '/notify compact — short alerts (or "full" for detailed)',
+      '/share — your personal invite link',
     ].join('\n'),
   };
 }
@@ -333,8 +332,8 @@ async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
   const lines = [
     `👛 Your WhalePod account`,
     ``,
-    `Wallet:  \`${user.mainWallet}\``,
-    `Agent:   \`${user.agentAddress}\`  (signs trades on your behalf)`,
+    `Wallet:  ${user.mainWallet}`,
+    `Agent:   ${user.agentAddress}  (signs trades on your behalf)`,
     `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}  (charged by Hyperliquid per fill)`,
     `Kill switch: ${user.killSwitch ? '🛑 ON — mirrors paused' : '✅ off'}`,
     `Mirrors: ${active.toString()} active / ${subs.length.toString()} total`,
@@ -384,7 +383,7 @@ async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
   whales.forEach((w, i) => {
     const label = w.alias && w.alias.length > 0 ? w.alias : 'Whale';
     lines.push(`${(i + 1).toString()}. ${label}`);
-    lines.push(`   \`${w.address}\``);
+    lines.push(`   ${w.address}`);
     lines.push(`   /follow ${w.address}`);
     lines.push('');
   });
@@ -447,7 +446,7 @@ async function handleFollow(
   if (!ADDRESS_RE.test(target)) {
     return [
       {
-        text: `\`${target}\` is not a 0x address. Alias resolution lands later — paste the whale's 0x… address for now.`,
+        text: `${target} is not a 0x address. Alias resolution lands later — paste the whale's 0x… address for now.`,
       },
     ];
   }
@@ -455,7 +454,7 @@ async function handleFollow(
   const whale = await ctx.repo.upsertWhaleByAddress(address);
   const existing = await ctx.repo.listSubscriptions(user.id);
   if (existing.some((s) => s.whaleId === whale.id)) {
-    return [{ text: `You're already mirroring \`${whale.address}\`. Use /setcap ${whale.address} <usd> to change the size, or /unfollow ${whale.address} to stop.` }];
+    return [{ text: `You're already mirroring ${whale.address}. Use /setcap ${whale.address} <usd> to change the size, or /unfollow ${whale.address} to stop.` }];
   }
   const capStr = maxSizeUsd !== null ? maxSizeUsd.toFixed(2) : undefined;
   const sub = await ctx.repo.subscribe(user.id, whale.id, capStr);
@@ -470,7 +469,7 @@ async function handleFollow(
     {
       text: [
         `✅ You're now mirroring this whale:`,
-        `\`${whale.address}\``,
+        `${whale.address}`,
         ``,
         `Per-trade size cap: $${cap.toFixed(2)}`,
         `(Every time the whale opens a trade, WhalePod copies it on your wallet, sized so your notional risk on that trade stays at or below this cap.)`,
@@ -493,7 +492,7 @@ async function handleSetCap(
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
-    return [{ text: `\`${target}\` is not a 0x address.` }];
+    return [{ text: `${target} is not a 0x address.` }];
   }
   const address = target.toLowerCase();
   const whale = await ctx.repo.getWhaleByAddress(address);
@@ -512,7 +511,7 @@ async function handleSetCap(
     before: { maxSizeUsd: before },
     after: { maxSizeUsd: capStr },
   });
-  return [{ text: `✅ Size cap for whale \`${whale.address}\` set to $${maxSizeUsd.toFixed(2)} per trade.` }];
+  return [{ text: `✅ Size cap for whale ${whale.address} set to $${maxSizeUsd.toFixed(2)} per trade.` }];
 }
 
 async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
@@ -548,7 +547,7 @@ async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
     const tp = s.tpBps !== null ? `TP +${(s.tpBps / 100).toFixed(2)}%` : 'TP off';
     const sl = s.slBps !== null ? `SL -${(s.slBps / 100).toFixed(2)}%` : 'SL off';
     lines.push(`${(i + 1).toString()}. ${alias}`);
-    lines.push(`   \`${addr}\``);
+    lines.push(`   ${addr}`);
     lines.push(`   Cap: $${cap.toFixed(2)} per trade   •   ${status}`);
     lines.push(`   ${tp}  |  ${sl}`);
     lines.push('');
@@ -566,7 +565,7 @@ async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]>
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
-    return [{ text: `\`${target}\` is not a 0x address.` }];
+    return [{ text: `${target} is not a 0x address.` }];
   }
   const address = target.toLowerCase();
   const whale = await ctx.repo.getWhaleByAddress(address);
@@ -578,7 +577,7 @@ async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]>
     action: 'unsubscribe',
     target: `whale:${whale.address}`,
   });
-  return [{ text: `✅ Stopped mirroring whale \`${whale.address}\`.\n\nAny open positions you copied stay on your account — close them manually on Hyperliquid if you don't want them.` }];
+  return [{ text: `✅ Stopped mirroring whale ${whale.address}.\n\nAny open positions you copied stay on your account — close them manually on Hyperliquid if you don't want them.` }];
 }
 
 async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[]> {
@@ -660,7 +659,7 @@ async function handleSetTpSl(
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
-    return [{ text: `\`${target}\` is not a 0x address.` }];
+    return [{ text: `${target} is not a 0x address.` }];
   }
   // Belt-and-braces: router already enforces [1, 10000] or null.
   if (offsetBps !== null && (offsetBps < TPSL_MIN_BPS || offsetBps > TPSL_MAX_BPS)) {

@@ -142,10 +142,13 @@ export function summarizePnl(fills: readonly PnlFill[], markPrice: MarkPriceFn):
     for (const [coin, pos] of e.positions) {
       // Float residuals from buy/sell sum-cancellation: treat as closed.
       if (Math.abs(pos.netSz) < 1e-8) continue;
-      openCoins.push(coin);
       const m = markPrice(coin);
-      if (m === null) continue;
-      const mark = Number(m);
+      const mark = m === null ? NaN : Number(m);
+      // Hide dust positions worth less than $1 notional (rounding leftovers
+      // after the whale has closed). Keep them if we can't price them, so
+      // we never silently swallow a real position.
+      if (Number.isFinite(mark) && Math.abs(pos.netSz * mark) < 1) continue;
+      openCoins.push(coin);
       if (!Number.isFinite(mark)) continue;
       unrealized += unrealizedFor(pos, mark);
     }

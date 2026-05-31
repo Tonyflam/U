@@ -19,6 +19,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -163,13 +164,19 @@ export const fills = pgTable(
 );
 
 // ─── referrals ───────────────────────────────────────────────────────────────
-export const referrals = pgTable('referrals', {
-  code: text('code').primaryKey(),
-  ownerUserId: uuid('owner_user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const referrals = pgTable(
+  'referrals',
+  {
+    code: text('code').primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    ownerUnique: unique('referrals_owner_user_id_unique').on(t.ownerUserId),
+  }),
+);
 
 export const referralsAttribution = pgTable('referrals_attribution', {
   referredUserId: uuid('referred_user_id')
