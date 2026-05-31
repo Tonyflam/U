@@ -31,6 +31,13 @@ export default function HomePage({
           backdropFilter: 'blur(8px)',
         }}
       >
+        <img
+          src="/logo.png"
+          alt="WhalePod"
+          width={64}
+          height={64}
+          style={{ width: 64, height: 64, borderRadius: 14, margin: '0 auto 16px', display: 'block' }}
+        />
         <h1 style={{ fontSize: 36, margin: 0, letterSpacing: '-0.02em' }}>
           Whale
           <span

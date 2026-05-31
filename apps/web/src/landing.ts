@@ -47,7 +47,8 @@ img{max-width:100%;display:block}
 /* ── nav ── */
 .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,9,16,.6);border-bottom:1px solid rgba(255,255,255,.04)}
 .nav-inner{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:-.01em}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:17px}
+.brand img{width:32px;height:32px;border-radius:8px;display:block}
 .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(59,213,181,.18);animation:pulse 2.4s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(59,213,181,.18)}50%{box-shadow:0 0 0 8px rgba(59,213,181,.04)}}
 .nav-links{display:flex;gap:24px;align-items:center;font-size:14px;color:var(--muted)}
@@ -179,6 +180,8 @@ export function buildLandingHtml(env: LandingEnv): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#070910">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png">
 <title>WhalePod — copy-trade Hyperliquid in Telegram</title>
 <meta name="description" content="Mirror Hyperliquid perp whales directly from Telegram. Non-custodial. Builder fee capped at ${capFee}.">
 <meta name="robots" content="index, follow">
@@ -195,7 +198,7 @@ export function buildLandingHtml(env: LandingEnv): string {
 
 <nav class="nav">
   <div class="nav-inner">
-    <a href="/" class="brand"><span class="dot"></span><span>WhalePod</span></a>
+    <a href="/" class="brand"><img src="/logo.png" alt="WhalePod" width="32" height="32"><span>WhalePod</span></a>
     <div class="nav-links">
       <a href="#how">How it works</a>
       <a href="#fees">Fees</a>
@@ -285,7 +288,7 @@ export function buildLandingHtml(env: LandingEnv): string {
 <footer>
   <div class="foot-inner">
     <div>
-      <div class="brand" style="margin-bottom:6px"><span class="dot"></span><span>WhalePod</span></div>
+      <div class="brand" style="margin-bottom:6px"><img src="/logo.png" alt="WhalePod" width="28" height="28" style="width:28px;height:28px"><span>WhalePod</span></div>
       <div>Copy-trade Hyperliquid perps from Telegram. Non-custodial.</div>
       <div style="margin-top:8px;font-size:12px">Trading derivatives carries risk of loss. WhalePod is a tool, not investment advice.</div>
     </div>

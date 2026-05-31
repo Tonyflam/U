@@ -36,7 +36,9 @@ export default function OnboardPage(): JSX.Element {
   const { switchChainAsync } = useSwitchChain();
   const { open } = useAppKit();
 
-  const [maxFeeBps, setMaxFeeBps] = useState(5);
+  // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
+  // Users do not choose this — it's the WhalePod take rate.
+  const maxFeeTenthsBp = 50;
   const [equityFloorUsd, setEquityFloorUsd] = useState('0');
   const [state, setState] = useState<State>({ step: 'connect' });
   const [busy, setBusy] = useState(false);
@@ -67,7 +69,7 @@ export default function OnboardPage(): JSX.Element {
           tgUserId,
           mainWallet: address,
           equityFloorUsd,
-          approvedMaxFeeTenthsBp: maxFeeBps * 10,
+          approvedMaxFeeTenthsBp: maxFeeTenthsBp,
         }),
       });
       if (!startRes.ok) {
@@ -150,7 +152,7 @@ export default function OnboardPage(): JSX.Element {
       <div className="card">
         <header className="hd">
           <div className="logo">
-            <span className="dot" />
+            <img src="/logo.png" alt="WhalePod" width={28} height={28} />
             <span>WhalePod</span>
           </div>
           {isConnected && address ? (
@@ -218,21 +220,11 @@ export default function OnboardPage(): JSX.Element {
             <h2>Set your guardrails</h2>
             <p className="muted">These are enforced on every mirrored order.</p>
 
-            <label className="row">
-              <span className="lbl">Max builder fee</span>
-              <span className="ctrl">
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={maxFeeBps}
-                  disabled={busy}
-                  onChange={(e) => setMaxFeeBps(Number(e.target.value))}
-                />
-                <span className="suffix">bps</span>
-              </span>
-            </label>
-            <p className="hint">Hyperliquid&apos;s hard cap is 10 bps. Default 5 bps.</p>
+            <div className="feeBox">
+              <span className="feeLbl">Builder fee</span>
+              <span className="feeVal">5.0 bps <span className="feeMeta">per fill</span></span>
+            </div>
+            <p className="hint">Hyperliquid&apos;s hard cap is 10 bps. No subscription, no withdrawal fee.</p>
 
             <label className="row">
               <span className="lbl">Equity floor</span>
@@ -392,16 +384,30 @@ const styles = `
   .logo {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     font-weight: 700;
     letter-spacing: -0.01em;
+    font-size: 16px;
   }
-  .dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: #3bd5b5;
-    box-shadow: 0 0 0 4px rgba(59, 213, 181, 0.18);
-    animation: pulse 2.4s infinite;
+  .logo img {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: block;
   }
+  .feeBox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(59,213,181,0.08), rgba(99,102,241,0.06));
+    border: 1px solid rgba(59,213,181,0.2);
+    border-radius: 10px;
+    margin: 8px 0 4px;
+  }
+  .feeLbl { color: #9ca3af; font-size: 13px; font-weight: 500; }
+  .feeVal { font-size: 16px; font-weight: 700; color: #3bd5b5; font-variant-numeric: tabular-nums; }
+  .feeMeta { color: #6b7280; font-size: 12px; font-weight: 400; margin-left: 4px; }
   @keyframes pulse {
     0%, 100% { box-shadow: 0 0 0 4px rgba(59, 213, 181, 0.18); }
     50% { box-shadow: 0 0 0 8px rgba(59, 213, 181, 0.04); }
