@@ -72,7 +72,14 @@ const botEnv = commonEnv.extend({
   RISK_MAX_SLIPPAGE_BPS: z.coerce.number().int().positive().default(200),
   RISK_MAX_DAILY_NOTIONAL_USD: z.coerce.number().positive().default(1_000_000),
   RISK_BLOCKED_COUNTRIES: z.string().default(''),
-  RISK_REQUIRE_KNOWN_GEO: z.coerce.boolean().default(false),
+  RISK_REQUIRE_KNOWN_GEO: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      const s = v.trim().toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+    })
+    .default(false),
   HL_ASSET_REFRESH_MS: z.coerce
     .number()
     .int()

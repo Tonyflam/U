@@ -184,14 +184,20 @@ async function handleEntry(
   }
   const decision = await evaluateMirror(intent.data, options.engineDeps);
   const outcome = await submitMirror(decision, options.submitDeps);
-  options.log.info(
-    {
-      entryId: entry.id,
-      idempotencyKey: intent.data.idempotencyKey,
-      subscriberId: intent.data.subscriberId,
-      outcome: outcome.kind,
-    },
-    'mirror-consumer: processed',
-  );
+  const detail: Record<string, unknown> = {
+    entryId: entry.id,
+    idempotencyKey: intent.data.idempotencyKey,
+    subscriberId: intent.data.subscriberId,
+    outcome: outcome.kind,
+  };
+  if (outcome.kind === 'skipped') detail['skipReason'] = outcome.reason;
+  if (outcome.kind === 'risk_blocked') {
+    detail['riskReason'] = outcome.reason;
+    if (outcome.detail !== undefined) detail['riskDetail'] = outcome.detail;
+  }
+  if (outcome.kind === 'exchange_error' || outcome.kind === 'transport_error') {
+    detail['errorMessage'] = outcome.message;
+  }
+  options.log.info(detail, 'mirror-consumer: processed');
   return outcome;
 }
