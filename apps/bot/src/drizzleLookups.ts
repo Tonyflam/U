@@ -80,6 +80,7 @@ export class DrizzleAgentKeyLookup implements AgentKeyLookup {
         iv: schema.users.agentKeyIv,
         tag: schema.users.agentKeyTag,
         dekCt: schema.users.agentDekCt,
+        mainWallet: schema.users.mainWallet,
       })
       .from(schema.users)
       .where(eq(schema.users.id, userId))
@@ -92,7 +93,7 @@ export class DrizzleAgentKeyLookup implements AgentKeyLookup {
       tag: toUint8(row.tag),
       dekCt: toUint8(row.dekCt),
     };
-    return { sealed };
+    return { sealed, mainWallet: row.mainWallet };
   }
 }
 

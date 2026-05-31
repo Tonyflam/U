@@ -19,9 +19,9 @@ describe('KmsAgentSigner', () => {
     const sealed = await sealAgentKey({
       privateKey: key.privateKey,
       kms,
-      encryptionContext: { userId: 'u1', purpose: 'agent-key' },
+      encryptionContext: { mainWallet: '0xaaaa', purpose: 'agent-key' },
     });
-    const keys: AgentKeyLookup = { forUser: async () => ({ sealed }) };
+    const keys: AgentKeyLookup = { forUser: async () => ({ sealed, mainWallet: '0xaaaa' }) };
     const signer = new KmsAgentSigner({ kms, keys, isMainnet: true });
 
     const sig = await signer.sign({
@@ -75,9 +75,9 @@ describe('KmsAgentSigner', () => {
     const sealed = await sealAgentKey({
       privateKey: key.privateKey,
       kms,
-      encryptionContext: { userId: 'u1', purpose: 'agent-key' },
+      encryptionContext: { mainWallet: '0xbbbb', purpose: 'agent-key' },
     });
-    const keys: AgentKeyLookup = { forUser: async () => ({ sealed }) };
+    const keys: AgentKeyLookup = { forUser: async () => ({ sealed, mainWallet: '0xbbbb' }) };
     const signer = new KmsAgentSigner({ kms, keys, isMainnet: true });
     await expect(
       signer.sign({

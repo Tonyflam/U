@@ -17,6 +17,7 @@ import type { AgentSigner } from './submitMirror.js';
 
 export interface AgentKeyRow {
   readonly sealed: SealedAgentKey;
+  readonly mainWallet: string;
 }
 
 export interface AgentKeyLookup {
@@ -55,7 +56,7 @@ export class KmsAgentSigner implements AgentSigner {
       {
         sealed: row.sealed,
         kms: this.kms,
-        encryptionContext: { userId: input.userId, purpose: 'agent-key' },
+        encryptionContext: { mainWallet: row.mainWallet.toLowerCase(), purpose: 'agent-key' },
       },
       async (account) => {
         if (account.address.toLowerCase() !== input.agentAddress) {

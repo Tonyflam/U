@@ -142,7 +142,7 @@ export async function onboardStartHandler(
     sealed = await sealAgentKey({
       privateKey: key.privateKey,
       kms: deps.kms,
-      encryptionContext: { provisionalId, purpose: 'agent-key' },
+      encryptionContext: { mainWallet: req.mainWallet.toLowerCase(), purpose: 'agent-key' },
     });
   } finally {
     zeroize(key.privateKey);
