@@ -208,23 +208,28 @@ export function renderPnl(summary: PnlSummary, prefs: PnlRenderPrefs = {}): Repl
   const shown = sorted.slice(0, maxWhales);
   const hiddenCount = sorted.length - shown.length;
 
-  const lines: string[] = ['PnL summary'];
+  const lines: string[] = [
+    'PnL summary',
+    '_Realized = profit/loss on trades you\u2019ve already closed._',
+    '_Unrealized = profit/loss on positions still open at the current mark price._',
+    '',
+  ];
   for (const w of shown) {
     const label = w.whaleAlias ?? fmtAddr(w.whaleAddress);
     const total = w.realizedUsd + w.unrealizedUsd;
     lines.push(`${pnlEmoji(total)} ${label}: ${fmtSignedUsd(total)}`);
     lines.push(
-      `  realized ${fmtSignedUsd(w.realizedUsd)} · unrealized ${fmtSignedUsd(w.unrealizedUsd)} · fees ${fmtUsd(w.feesUsd)}`,
+      `  realized ${fmtSignedUsd(w.realizedUsd)} \u00b7 unrealized ${fmtSignedUsd(w.unrealizedUsd)} \u00b7 fees ${fmtUsd(w.feesUsd)}`,
     );
     if (w.openCoins.length > 0) {
       lines.push(`  open: ${w.openCoins.join(', ')}`);
     }
   }
   if (hiddenCount > 0) {
-    lines.push(`…and ${String(hiddenCount)} more`);
+    lines.push(`\u2026and ${String(hiddenCount)} more`);
   }
   const grand = summary.totalRealizedUsd + summary.totalUnrealizedUsd;
-  lines.push('—');
+  lines.push('\u2014');
   lines.push(
     `Total: ${pnlEmoji(grand)} ${fmtSignedUsd(grand)}  (fees ${fmtUsd(summary.totalFeesUsd)})`,
   );

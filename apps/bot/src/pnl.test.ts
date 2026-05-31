@@ -180,6 +180,9 @@ describe('renderPnl', () => {
     const r = renderPnl(s);
     expect(r.text).toMatchInlineSnapshot(`
       "PnL summary
+      _Realized = profit/loss on trades you’ve already closed._
+      _Unrealized = profit/loss on positions still open at the current mark price._
+
       🟢 AlphaCat: +$300.00
         realized +$100.00 · unrealized +$200.00 · fees $3.80
         open: BTC
@@ -216,6 +219,9 @@ describe('renderPnl', () => {
     const r = renderPnl(s);
     expect(r.text).toMatchInlineSnapshot(`
       "PnL summary
+      _Realized = profit/loss on trades you’ve already closed._
+      _Unrealized = profit/loss on positions still open at the current mark price._
+
       🔴 AlphaCat: -$300.00
         realized -$100.00 · unrealized -$200.00 · fees $3.70
         open: BTC

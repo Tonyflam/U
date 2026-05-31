@@ -120,7 +120,7 @@ describe('handleCommand /pause /resume', () => {
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'follow', target: WHALE2, maxSizeUsd: null }, ctx);
     const replies = await handleCommand({ kind: 'pause' }, ctx);
-    expect(replies[0]?.text).toBe('Paused 2 subscriptions.');
+    expect(replies[0]?.text).toMatch(/^⏸ Paused 2 mirrors\./);
     expect(repo.subscriptions.every((s) => s.paused)).toBe(true);
     expect(repo.audit.at(-1)?.action).toBe('pause_all');
   });
@@ -130,7 +130,7 @@ describe('handleCommand /pause /resume', () => {
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'pause' }, ctx);
     const replies = await handleCommand({ kind: 'resume' }, ctx);
-    expect(replies[0]?.text).toBe('Resumed 1 subscriptions.');
+    expect(replies[0]?.text).toMatch(/^▶ Resumed 1 mirror\./);
     expect(repo.subscriptions[0]?.paused).toBe(false);
   });
 });

@@ -278,25 +278,38 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
 function helpReply(): Reply {
   return {
     text: [
-      'WhalePod commands:',
-      '/wallet — show connected wallet',
-      '/follow <0x…> [usd] — mirror a whale (optional per-trade size cap, default $100)',
-      '/unfollow <0x…> — stop mirroring',
-      '/setcap <0x…> <usd> — change per-trade size cap for a whale',
-      '/mirrors — list your active mirrors',
-      '/pause — pause all subscriptions',
-      '/resume — resume all subscriptions',
-      '/tp <0x…> <bps|off> — set take-profit offset for a whale (1–9999 bps)',
-      '/sl <0x…> <bps|off> — set stop-loss offset for a whale (1–9999 bps)',
-      '/kill — emergency stop (no mirrors will be sent)',
-      '/unkill — clear emergency stop',
-      '/disconnect — disconnect wallet & revoke agent (you can re-onboard after)',
+      '🐋 *WhalePod commands*',
+      '',
+      '_Mirror trades from top Hyperliquid traders, automatically._',
+      '',
+      '*Getting started*',
+      '/whales — see traders you can copy',
+      '/follow `<address>` `[usd]` — start copying a trader',
+      '   _example:_ `/follow 0xabc... 50` (risk at most $50 per copied trade)',
+      '/mirrors — list traders you\u2019re copying',
+      '',
+      '*Manage a trader*',
+      '/setcap `<address>` `<usd>` — change the per-trade size cap',
+      '/tp `<address>` `<bps|off>` — auto take-profit (100 bps = 1%)',
+      '/sl `<address>` `<bps|off>` — auto stop-loss (100 bps = 1%)',
+      '/unfollow `<address>` — stop copying that trader',
+      '',
+      '*Control your account*',
+      '/wallet — show wallet, agent, fee',
+      '/pause — temporarily stop ALL copying',
+      '/resume — start copying again',
+      '/kill — emergency stop (same as pause, until /unkill)',
+      '/unkill — clear the emergency stop',
+      '/disconnect — remove wallet & revoke the agent',
+      '',
+      '*See how you\u2019re doing*',
+      '/pnl — profit & loss across your mirrors',
+      '/leaderboard — top WhalePod users this week',
+      '',
+      '*Notifications & sharing*',
+      '/notify on|off — turn fill alerts on/off',
+      '/notify compact|full — short vs. detailed alerts',
       '/share — get your invite link',
-      '/pnl — show realized + unrealized PnL across your mirrors',
-      '/leaderboard — top traders by realized PnL',
-      '/whales — browse curated whales to mirror',
-      '/notify on|off — enable or mute mirror-fill push notifications',
-      '/notify compact|full — switch between one-line and detailed format',
     ].join('\n'),
   };
 }
@@ -403,6 +416,12 @@ function describeNotifyPrefs(p: NotifyPrefs): string {
   const lines = [
     `Notifications: ${muted ? 'OFF (muted)' : 'ON'}`,
     `Format: ${compact ? 'compact' : 'full'}`,
+    '',
+    muted
+      ? 'You won\u2019t get a Telegram message when a mirror trade fills. Turn back on with /notify on.'
+      : compact
+        ? 'One-line alerts on every fill. Switch to detailed with /notify full.'
+        : 'Detailed alerts with size, price, fee. Switch to short with /notify compact.',
   ];
   return lines.join('\n');
 }
@@ -562,7 +581,11 @@ async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[
     after: { count: n },
   });
   return [
-    { text: paused ? `Paused ${String(n)} subscriptions.` : `Resumed ${String(n)} subscriptions.` },
+    {
+      text: paused
+        ? `⏸ Paused ${String(n)} mirror${n === 1 ? '' : 's'}. WhalePod won\u2019t copy any new trades until you /resume.`
+        : `▶ Resumed ${String(n)} mirror${n === 1 ? '' : 's'}. New whale trades will be copied to your account.`,
+    },
   ];
 }
 
@@ -583,8 +606,8 @@ async function handleKill(killSwitch: boolean, ctx: HandlerCtx): Promise<Reply[]
   return [
     {
       text: killSwitch
-        ? 'Kill switch ON. No further mirrors will be sent until /unkill.'
-        : 'Kill switch cleared. Mirrors will resume on next whale fill.',
+        ? '🛑 Kill switch ON.\n\nAll copying is hard-stopped until you send /unkill. Any open positions stay on your Hyperliquid account — close them there if you want to.'
+        : '✅ Kill switch cleared.\n\nMirroring will resume on the next whale trade. Use /mirrors to see what\u2019s active.',
     },
   ];
 }
