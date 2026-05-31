@@ -10,11 +10,7 @@
  * write through the same repo, in one transaction conceptually. Keeping
  * handlers pure means we can test the audit invariant exhaustively.
  */
-import {
-  TPSL_MAX_BPS,
-  TPSL_MIN_BPS,
-  type TpSl,
-} from '@whalepod/sdk';
+import { TPSL_MAX_BPS, TPSL_MIN_BPS, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { computeLeaderboard, renderLeaderboard, type LeaderboardEntry } from './referral.js';
 import type { NotifyPrefs } from './notify.js';
@@ -155,7 +151,12 @@ export type CloseExecOutcome =
   | { readonly kind: 'closed'; readonly results: readonly CloseExecResult[] };
 
 export type CloseExecResult =
-  | { readonly coin: string; readonly kind: 'submitted'; readonly sz: string; readonly isBuy: boolean }
+  | {
+      readonly coin: string;
+      readonly kind: 'submitted';
+      readonly sz: string;
+      readonly isBuy: boolean;
+    }
   | { readonly coin: string; readonly kind: 'no_mark' }
   | { readonly coin: string; readonly kind: 'exchange_error'; readonly message: string }
   | { readonly coin: string; readonly kind: 'transport_error'; readonly message: string }
@@ -241,7 +242,12 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   const code = await ctx.repo.getOrMintReferralCode(user.id);
-  const url = `https://t.me/${ctx.botUsername}?start=ref_${code}`;
+  const inviteUrl = `https://t.me/${ctx.botUsername}?start=ref_${code}`;
+  // Share via the miniapp page so Telegram/Twitter unfurl the dynamic
+  // PnL card from /api/og/share. Recipients who tap through land on the
+  // bot via the Launch button.
+  const base = ctx.miniAppUrl.replace(/\/+$/u, '');
+  const shareUrl = `${base}/share/${code}`;
   const pitch = 'Mirror top Hyperliquid whales on autopilot with WhalePod.';
   return [
     {
@@ -249,7 +255,10 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
         '📨 Invite friends to WhalePod',
         '',
         'Your invite link:',
-        url,
+        inviteUrl,
+        '',
+        'Share card (unfurls your live PnL):',
+        shareUrl,
         '',
         'How referrals work:',
         '  1. Share the link (tap the button below).',
@@ -260,7 +269,7 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
         [
           {
             label: 'Share on Telegram',
-            url: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(pitch)}`,
+            url: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(pitch)}`,
           },
         ],
       ],
@@ -271,7 +280,8 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
 async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
-  if (!ctx.closer) return [{ text: 'Closing positions is temporarily unavailable. Try again shortly.' }];
+  if (!ctx.closer)
+    return [{ text: 'Closing positions is temporarily unavailable. Try again shortly.' }];
 
   const outcome = await ctx.closer({ user, coin });
   if (outcome.kind === 'no_positions') {
@@ -450,7 +460,9 @@ async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
     lines.push(`   /follow ${w.address}`);
     lines.push('');
   });
-  lines.push('After following, use /mirrors to see your list, /setcap to change the size, /unfollow to stop.');
+  lines.push(
+    'After following, use /mirrors to see your list, /setcap to change the size, /unfollow to stop.',
+  );
   return [{ text: lines.join('\n') }];
 }
 
@@ -517,7 +529,11 @@ async function handleFollow(
   const whale = await ctx.repo.upsertWhaleByAddress(address);
   const existing = await ctx.repo.listSubscriptions(user.id);
   if (existing.some((s) => s.whaleId === whale.id)) {
-    return [{ text: `You're already mirroring ${whale.address}. Use /setcap ${whale.address} <usd> to change the size, or /unfollow ${whale.address} to stop.` }];
+    return [
+      {
+        text: `You're already mirroring ${whale.address}. Use /setcap ${whale.address} <usd> to change the size, or /unfollow ${whale.address} to stop.`,
+      },
+    ];
   }
   const capStr = maxSizeUsd !== null ? maxSizeUsd.toFixed(2) : undefined;
   const sub = await ctx.repo.subscribe(user.id, whale.id, capStr);
@@ -531,8 +547,8 @@ async function handleFollow(
   return [
     {
       text: [
-        `✅ You're now mirroring this whale:`,
-        `${whale.address}`,
+        "✅ You're now mirroring this whale:",
+        whale.address,
         ``,
         `Per-trade size cap: $${cap.toFixed(2)}`,
         `(Every time the whale opens a trade, WhalePod copies it on your wallet, sized so your notional risk on that trade stays at or below this cap.)`,
@@ -547,11 +563,7 @@ async function handleFollow(
   ];
 }
 
-async function handleSetCap(
-  target: string,
-  maxSizeUsd: number,
-  ctx: HandlerCtx,
-): Promise<Reply[]> {
+async function handleSetCap(target: string, maxSizeUsd: number, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
@@ -574,7 +586,9 @@ async function handleSetCap(
     before: { maxSizeUsd: before },
     after: { maxSizeUsd: capStr },
   });
-  return [{ text: `✅ Size cap for whale ${whale.address} set to $${maxSizeUsd.toFixed(2)} per trade.` }];
+  return [
+    { text: `✅ Size cap for whale ${whale.address} set to $${maxSizeUsd.toFixed(2)} per trade.` },
+  ];
 }
 
 async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
@@ -640,7 +654,11 @@ async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]>
     action: 'unsubscribe',
     target: `whale:${whale.address}`,
   });
-  return [{ text: `✅ Stopped mirroring whale ${whale.address}.\n\nAny open positions you copied stay on your account — close them manually on Hyperliquid if you don't want them.` }];
+  return [
+    {
+      text: `✅ Stopped mirroring whale ${whale.address}.\n\nAny open positions you copied stay on your account — close them manually on Hyperliquid if you don't want them.`,
+    },
+  ];
 }
 
 async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[]> {

@@ -251,10 +251,11 @@ describe('handleCommand /share', () => {
     if (!user) throw new Error('seeded user missing');
     const code = await repo.getOrMintReferralCode(user.id);
     expect(replies[0]?.text).toContain(`https://t.me/WhalePodBot?start=ref_${code}`);
+    expect(replies[0]?.text).toContain(`${MINIAPP}/share/${code}`);
     const btn = replies[0]?.buttons?.[0]?.[0];
     expect(btn?.label).toBe('Share on Telegram');
     expect(btn?.url).toContain('https://t.me/share/url?url=');
-    expect(btn?.url).toContain(encodeURIComponent(`ref_${code}`));
+    expect(btn?.url).toContain(encodeURIComponent(`${MINIAPP}/share/${code}`));
   });
 
   it('returns the same code on repeated calls', async () => {

@@ -25,7 +25,7 @@ fi
 echo "→ eslint (changed ts/tsx)"
 STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$STAGED_TS" ]; then
-  echo "$STAGED_TS" | xargs npx --no-install eslint --max-warnings=0
+  echo "$STAGED_TS" | xargs npx --no-install eslint --max-warnings=0 --no-warn-ignored
 fi
 
 echo "✓ pre-commit clean"

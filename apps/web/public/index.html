@@ -3,62 +3,266 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#070910">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png">
 <title>WhalePod — copy-trade Hyperliquid in Telegram</title>
 <meta name="description" content="Mirror Hyperliquid perp whales directly from Telegram. Non-custodial. Builder fee capped at 10.0 bps.">
 <meta name="robots" content="index, follow">
-<meta property="og:title" content="WhalePod">
-<meta property="og:description" content="Copy-trade Hyperliquid perps from Telegram. Non-custodial. Fee capped at 10.0 bps.">
+<meta property="og:title" content="WhalePod — copy-trade Hyperliquid in Telegram">
+<meta property="og:description" content="Mirror Hyperliquid perp whales directly from Telegram. Non-custodial. Fee capped at 10.0 bps.">
 <meta property="og:type" content="website">
-<style>:root{--bg:#0b0d10;--fg:#e6edf3;--accent:#3bd5b5;--muted:#8b949e;--card:#161b22}
-*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-main{max-width:720px;margin:0 auto;padding:48px 24px}
-h1{font-size:40px;margin:0 0 8px;letter-spacing:-0.02em}
-h1 span{color:var(--accent)}
-.lede{color:var(--muted);font-size:18px;margin:0 0 32px}
-.cta{display:inline-block;background:var(--accent);color:#04201a;font-weight:600;text-decoration:none;padding:12px 20px;border-radius:8px}
-.cta:focus{outline:2px solid #fff;outline-offset:3px}
-section{background:var(--card);border-radius:12px;padding:20px 24px;margin:24px 0}
-h2{font-size:18px;margin:0 0 12px}
-ul{margin:0;padding-left:18px}
-li{margin:6px 0}
-.fee{font-variant-numeric:tabular-nums}
-.notice{font-size:13px;color:var(--muted);margin-top:32px;border-top:1px solid #21262d;padding-top:16px}
-.notice a{color:var(--muted)}</style>
+<meta property="og:url" content="https://whalepod.trade">
+<meta property="og:image" content="https://whalepod.trade/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@whalepodapp">
+<meta name="twitter:image" content="https://whalepod.trade/og-card.png">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0;padding:0;background:#070910;color:#e6edf3;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+:root{--bg:#070910;--fg:#e6edf3;--accent:#3bd5b5;--accent2:#6366f1;--muted:#8b949e;--card:rgba(22,27,34,.6);--card-border:#1e2530}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+/* ── cursor glow that follows pointer ── */
+.cursor-glow{position:fixed;top:0;left:0;width:600px;height:600px;border-radius:50%;background:radial-gradient(closest-side,rgba(59,213,181,.18),transparent);transform:translate(-50%,-50%);pointer-events:none;z-index:0;transition:opacity .3s;mix-blend-mode:screen;will-change:transform}
+@media(hover:none){.cursor-glow{display:none}}
+
+/* ── nav ── */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,9,16,.6);border-bottom:1px solid rgba(255,255,255,.04)}
+.nav-inner{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:17px}
+.brand img{width:32px;height:32px;border-radius:8px;display:block}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(59,213,181,.18);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(59,213,181,.18)}50%{box-shadow:0 0 0 8px rgba(59,213,181,.04)}}
+.nav-links{display:flex;gap:24px;align-items:center;font-size:14px;color:var(--muted)}
+.nav-links a{transition:color .15s}
+.nav-links a:hover{color:var(--fg)}
+.btn{display:inline-block;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;border:none;transition:transform .08s,filter .2s,box-shadow .2s}
+.btn-primary{background:linear-gradient(180deg,var(--accent),#2bb89a);color:#04201a;box-shadow:0 8px 20px -8px rgba(59,213,181,.5)}
+.btn-primary:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.btn-ghost{background:rgba(255,255,255,.04);color:var(--fg);border:1px solid rgba(255,255,255,.08)}
+.btn-ghost:hover{background:rgba(255,255,255,.07)}
+
+/* ── hero ── */
+.hero{position:relative;padding:80px 20px 100px;text-align:center;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(60% 50% at 50% 0%,rgba(59,213,181,.15),transparent 70%),radial-gradient(40% 50% at 100% 100%,rgba(99,102,241,.12),transparent 70%)}
+.hero-grid{position:absolute;inset:0;z-index:-1;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 50% at 50% 30%,black 40%,transparent 80%)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(59,213,181,.08);border:1px solid rgba(59,213,181,.2);border-radius:999px;color:var(--accent);font-size:13px;font-weight:500;margin-bottom:20px;animation:fadeUp .5s ease-out both}
+.eyebrow .live{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+h1{font-size:clamp(40px,7vw,72px);line-height:1.05;letter-spacing:-.03em;margin:0 auto 20px;max-width:880px;font-weight:700;animation:fadeUp .6s ease-out both}
+.grad{background:linear-gradient(90deg,#3bd5b5 0%,#6366f1 50%,#3bd5b5 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 6s linear infinite}
+@keyframes shimmer{to{background-position:200% center}}
+.lede{font-size:clamp(16px,2.2vw,20px);color:var(--muted);max-width:640px;margin:0 auto 36px;animation:fadeUp .7s ease-out both}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:fadeUp .8s ease-out both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── stats strip ── */
+.stats{display:flex;justify-content:center;gap:48px;flex-wrap:wrap;margin-top:64px;padding-top:32px;border-top:1px solid rgba(255,255,255,.06);animation:fadeUp .9s ease-out both}
+.stat{text-align:center}
+.stat-num{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fg)}
+.stat-num .grad{font-size:inherit}
+.stat-lbl{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ── sections ── */
+section.feature{max-width:1100px;margin:0 auto;padding:80px 20px;position:relative}
+.section-eyebrow{font-size:13px;color:var(--accent);font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+h2{font-size:clamp(28px,4vw,44px);line-height:1.15;letter-spacing:-.02em;margin:0 0 16px;font-weight:700;max-width:720px}
+.section-lede{color:var(--muted);font-size:17px;max-width:600px;margin:0 0 48px}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{position:relative;padding:28px;background:linear-gradient(180deg,rgba(22,27,34,.7),rgba(15,18,24,.7));border:1px solid var(--card-border);border-radius:16px;transition:transform .25s,border-color .25s,box-shadow .25s;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%),rgba(59,213,181,.08),transparent 40%);opacity:0;transition:opacity .3s;pointer-events:none}
+.card:hover::before{opacity:1}
+.card:hover{transform:translateY(-3px);border-color:rgba(59,213,181,.25);box-shadow:0 20px 40px -20px rgba(0,0,0,.5)}
+.card-icon{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,rgba(59,213,181,.18),rgba(99,102,241,.18));display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:20px}
+.card h3{font-size:18px;margin:0 0 8px;letter-spacing:-.01em}
+.card p{font-size:14px;color:var(--muted);margin:0;line-height:1.6}
+
+/* ── how it works ── */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:32px;counter-reset:s}
+.step{position:relative;padding:28px;background:var(--card);border:1px solid var(--card-border);border-radius:16px;counter-increment:s}
+.step::before{content:counter(s,decimal-leading-zero);position:absolute;top:20px;right:24px;font-size:48px;font-weight:700;color:rgba(255,255,255,.04);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.step h3{font-size:17px;margin:0 0 8px}
+.step p{font-size:14px;color:var(--muted);margin:0;line-height:1.6}
+
+/* ── fee callout ── */
+.fee-card{background:linear-gradient(135deg,rgba(59,213,181,.08),rgba(99,102,241,.08));border:1px solid rgba(59,213,181,.2);border-radius:20px;padding:48px;text-align:center;max-width:720px;margin:0 auto}
+.fee-card .big{font-size:clamp(48px,8vw,80px);font-weight:700;letter-spacing:-.03em;line-height:1;margin:8px 0;font-variant-numeric:tabular-nums}
+.fee-row{display:flex;justify-content:center;gap:48px;margin-top:24px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.fee-row .v{font-size:22px;font-weight:600}
+.fee-row .l{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ── trust ── */
+.trust ul{list-style:none;padding:0;margin:24px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.trust li{padding:18px 22px;background:var(--card);border:1px solid var(--card-border);border-radius:12px;display:flex;gap:14px;align-items:flex-start}
+.trust li::before{content:"✓";color:var(--accent);font-weight:700;font-size:16px;flex-shrink:0;margin-top:2px}
+
+/* ── final cta ── */
+.final{text-align:center;padding:100px 20px;max-width:720px;margin:0 auto}
+.final h2{margin-left:auto;margin-right:auto;text-align:center}
+
+/* ── footer ── */
+footer{padding:48px 20px 32px;border-top:1px solid rgba(255,255,255,.05);font-size:13px;color:var(--muted)}
+.foot-inner{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;align-items:center}
+.socials{display:flex;gap:14px}
+.socials a{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .15s;color:var(--muted)}
+.socials a:hover{background:rgba(59,213,181,.12);color:var(--accent);transform:translateY(-2px)}
+.socials svg{width:16px;height:16px}
+
+/* mobile tweaks */
+@media(max-width:640px){
+.nav-links a:not(.btn){display:none}
+.hero{padding:60px 20px 80px}
+.stats{gap:24px;margin-top:40px;padding-top:24px}
+.fee-card{padding:32px 20px}
+.fee-row{gap:24px}
+}
+</style>
 </head>
 <body>
-<main>
-<h1>Whale<span>Pod</span></h1>
-<p class="lede">Copy-trade Hyperliquid perps from Telegram. Your keys, your agent, your kill switch.</p>
-<a class="cta" href="https://t.me/WhalePodBot" rel="noopener">Launch in Telegram</a>
+<div class="cursor-glow" aria-hidden="true"></div>
 
-<section>
-<h2>How it works</h2>
-<ul>
-<li>Connect your Hyperliquid wallet in the WhalePod Telegram app.</li>
-<li>WhalePod generates an <strong>agent key</strong> on Hyperliquid for execution. The agent <strong>cannot withdraw</strong>; only place and cancel orders.</li>
-<li>Pick whales to mirror. Set your size cap, take-profit, stop-loss, and kill switch.</li>
-</ul>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="brand"><img src="/logo.png" alt="WhalePod" width="32" height="32"><span>WhalePod</span></a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#fees">Fees</a>
+      <a href="#trust">Security</a>
+      <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch app</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-grid" aria-hidden="true"></div>
+  <div class="eyebrow"><span class="live"></span> Live on Hyperliquid testnet</div>
+  <h1>Copy the <span class="grad">whales</span>.<br>From your Telegram chat.</h1>
+  <p class="lede">WhalePod mirrors top Hyperliquid perp traders into your account, in real time. Non-custodial — your keys stay with you, the agent can trade but never withdraw.</p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch in Telegram →</a>
+    <a class="btn btn-ghost" href="#how">How it works</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num"><span class="grad">5.0 bps</span></div><div class="stat-lbl">Default builder fee</div></div>
+    <div class="stat"><div class="stat-num">10.0 bps</div><div class="stat-lbl">Hard cap (Hyperliquid)</div></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Custody, ever</div></div>
+    <div class="stat"><div class="stat-num">~30s</div><div class="stat-lbl">From start to mirroring</div></div>
+  </div>
+</header>
+
+<section id="features" class="feature reveal">
+  <div class="section-eyebrow">Why WhalePod</div>
+  <h2>Built for traders who don't want to babysit a screen.</h2>
+  <p class="section-lede">Pick whales, set guardrails, get back to your day. WhalePod handles the rest with deterministic risk caps and an instant kill switch.</p>
+  <div class="cards">
+    <div class="card"><div class="card-icon">⚡</div><h3>Sub-second mirrors</h3><p>Whale fills are detected via Hyperliquid's WebSocket and translated into your account within a second.</p></div>
+    <div class="card"><div class="card-icon">🛡️</div><h3>Risk caps you set</h3><p>Per-whale size cap, max leverage, optional take-profit, stop-loss. Equity floor blocks new orders below your number.</p></div>
+    <div class="card"><div class="card-icon">🔑</div><h3>Agent keys, not yours</h3><p>WhalePod signs trades with a Hyperliquid agent key — scoped to trading only. Your main wallet never leaves your device.</p></div>
+    <div class="card"><div class="card-icon">🟥</div><h3>Instant kill switch</h3><p>One <code>/kill</code> in Telegram halts every mirror across every whale. From any device. No support ticket.</p></div>
+    <div class="card"><div class="card-icon">📊</div><h3>PnL & leaderboard</h3><p>Realized + unrealized PnL across your mirrors. See who else is winning with which whales.</p></div>
+    <div class="card"><div class="card-icon">🔔</div><h3>Notifications, your way</h3><p>Compact one-liners, full breakdowns, or muted. Toggle anytime from <code>/notify</code>.</p></div>
+  </div>
 </section>
 
-<section>
-<h2>Fees</h2>
-<ul>
-<li class="fee">Default builder fee: <strong>5.0 bps</strong> per fill.</li>
-<li class="fee">Protocol cap: <strong>10.0 bps</strong> per fill (hard ceiling enforced by Hyperliquid).</li>
-<li>No deposit, no subscription, no custody — we never hold your funds.</li>
-</ul>
+<section id="how" class="feature reveal">
+  <div class="section-eyebrow">How it works</div>
+  <h2>Three steps. Two signatures. No deposits.</h2>
+  <div class="steps">
+    <div class="step"><h3>Connect your wallet</h3><p>MetaMask, Rabby, Coinbase, Trust, or any of 380+ wallets via WalletConnect. Inside Telegram, on your phone.</p></div>
+    <div class="step"><h3>Approve agent + fee</h3><p>Two off-chain EIP-712 signatures register a Hyperliquid agent for trading and authorize a small builder fee. No on-chain transaction, no gas.</p></div>
+    <div class="step"><h3>Pick your whales</h3><p>Browse the curated list, set per-whale caps, and you're mirroring. Pause, resume, or kill anytime.</p></div>
+  </div>
 </section>
 
-<section>
-<h2>What WhalePod will never do</h2>
-<ul>
-<li>Move funds off Hyperliquid. Agent keys are scoped to trading.</li>
-<li>Change your fee above the on-chain approval you signed.</li>
-<li>Sell your data or run third-party analytics on this page.</li>
-</ul>
+<section id="fees" class="feature reveal">
+  <div class="section-eyebrow">Fees</div>
+  <div class="fee-card">
+    <div class="section-eyebrow" style="color:var(--muted);margin-bottom:0">Default builder fee</div>
+    <div class="big grad">5.0 bps</div>
+    <p style="color:var(--muted);margin:0">per fill, paid to the protocol. That's it.</p>
+    <div class="fee-row">
+      <div><div class="v">10.0 bps</div><div class="l">Hard cap on-chain</div></div>
+      <div><div class="v">$0</div><div class="l">Subscription</div></div>
+      <div><div class="v">$0</div><div class="l">Withdrawal fee</div></div>
+    </div>
+  </div>
 </section>
 
-<p class="notice">Trading derivatives carries risk of loss. WhalePod is a tool, not investment advice. Open source: <a href="https://github.com/whalepod" rel="noopener">github.com/whalepod</a>.</p>
-</main>
+<section id="trust" class="feature trust reveal">
+  <div class="section-eyebrow">Security</div>
+  <h2>What WhalePod will never do.</h2>
+  <p class="section-lede">Non-custodial means non-custodial. We engineer it so we can't betray you even if we wanted to.</p>
+  <ul>
+    <li><div><strong>Move funds off Hyperliquid.</strong> Agent keys are scoped to placing and canceling orders. Withdraw is impossible by protocol design.</div></li>
+    <li><div><strong>Charge above the cap.</strong> The fee is fixed at 5.0 bps per fill and enforced on-chain — it cannot exceed Hyperliquid's 10.0 bps hard cap, ever.</div></li>
+    <li><div><strong>Hold your funds.</strong> Your equity stays in your Hyperliquid account. WhalePod never has a balance to drain.</div></li>
+    <li><div><strong>Hide the code.</strong> Open-source on <a href="https://github.com/Tonyflam/U" rel="noopener" style="color:var(--accent)">GitHub</a>. Audit the verifier, the risk caps, the kill path.</div></li>
+  </ul>
+</section>
+
+<section class="final reveal">
+  <h2>Ready when you are.</h2>
+  <p class="section-lede" style="margin-left:auto;margin-right:auto;text-align:center">30 seconds in Telegram. No app to download.</p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch in Telegram →</a>
+    <a class="btn btn-ghost" href="https://app.whalepod.trade" rel="noopener">Open mini-app</a>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-inner">
+    <div>
+      <div class="brand" style="margin-bottom:6px"><img src="/logo.png" alt="WhalePod" width="28" height="28" style="width:28px;height:28px"><span>WhalePod</span></div>
+      <div>Copy-trade Hyperliquid perps from Telegram. Non-custodial.</div>
+      <div style="margin-top:8px;font-size:12px">Trading derivatives carries risk of loss. WhalePod is a tool, not investment advice.</div>
+    </div>
+    <div class="socials" aria-label="Social links">
+      <a href="https://x.com/whalepodapp" rel="noopener" aria-label="X / Twitter" title="X / Twitter"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+      <a href="https://t.me/whalepod_news" rel="noopener" aria-label="Telegram channel" title="Telegram announcements"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.05 2.555 1.95 10.39c-1.366.535-1.358 1.27-.25 1.61l5.156 1.61L18.78 6.087c.564-.343 1.078-.158.656.218l-9.668 8.728-.371 5.51c.534 0 .77-.245 1.07-.535l2.572-2.498 5.34 3.943c.984.543 1.69.264 1.935-.913l3.502-16.5c.36-1.444-.547-2.098-1.766-1.485z"/></svg></a>
+      <a href="https://t.me/whalepod_chat" rel="noopener" aria-label="Telegram group" title="Telegram chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
+      <a href="https://github.com/Tonyflam/U" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.7 5.5.7 11.8c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.7 1.2 3.4.9.1-.7.4-1.2.7-1.5-2.5-.3-5.2-1.3-5.2-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.2 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.3 5.5 18.3.5 12 .5z"/></svg></a>
+    </div>
+  </div>
+  <div style="max-width:1100px;margin:24px auto 0;text-align:center;font-size:12px;color:var(--muted)">© 2026 WhalePod · Open source under AGPL-3.0</div>
+</footer>
+
+<script>
+(function(){
+  // Cursor glow
+  var glow = document.querySelector('.cursor-glow');
+  if (glow && window.matchMedia('(hover:hover)').matches) {
+    var rx = 0, ry = 0, cx = 0, cy = 0;
+    document.addEventListener('mousemove', function(e){ rx = e.clientX; ry = e.clientY; });
+    function loop(){ cx += (rx-cx)*0.12; cy += (ry-cy)*0.12; glow.style.transform = 'translate('+cx+'px,'+cy+'px) translate(-50%,-50%)'; requestAnimationFrame(loop); }
+    loop();
+  }
+  // Card pointer-tracked highlight
+  document.querySelectorAll('.card').forEach(function(c){
+    c.addEventListener('mousemove', function(e){
+      var r = c.getBoundingClientRect();
+      c.style.setProperty('--mx', (e.clientX-r.left)+'px');
+      c.style.setProperty('--my', (e.clientY-r.top)+'px');
+    });
+  });
+  // Reveal on scroll
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){ en.target.style.opacity='1'; en.target.style.transform='translateY(0)'; io.unobserve(en.target); }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(function(el){
+      el.style.opacity='0'; el.style.transform='translateY(20px)'; el.style.transition='opacity .6s ease,transform .6s ease';
+      io.observe(el);
+    });
+  }
+})();
+</script>
 </body>
 </html>
