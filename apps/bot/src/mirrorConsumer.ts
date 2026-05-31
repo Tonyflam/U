@@ -40,6 +40,18 @@ export interface MirrorConsumerOptions {
   readonly batchSize?: number;
   /** Idle poll delay when the stream returns no entries (ms). */
   readonly idleDelayMs?: number;
+  /** Optional sink used to notify users via Telegram when a mirror fails. */
+  readonly alerter?: MirrorAlerter;
+}
+
+export interface MirrorAlerter {
+  alert(input: {
+    readonly userId: string;
+    readonly whaleAddress: string;
+    readonly coin: string | number;
+    readonly side: 'B' | 'S';
+    readonly outcome: MirrorOutcome;
+  }): Promise<void>;
 }
 
 export interface ConsumerController {
@@ -199,5 +211,25 @@ async function handleEntry(
     detail['errorMessage'] = outcome.message;
   }
   options.log.info(detail, 'mirror-consumer: processed');
+
+  if (
+    options.alerter !== undefined &&
+    (outcome.kind === 'risk_blocked' ||
+      outcome.kind === 'transport_error' ||
+      outcome.kind === 'exchange_error')
+  ) {
+    try {
+      await options.alerter.alert({
+        userId: intent.data.subscriberId,
+        whaleAddress: intent.data.whaleAddress,
+        coin: intent.data.coin,
+        side: intent.data.side,
+        outcome,
+      });
+    } catch (err) {
+      options.log.warn({ err, entryId: entry.id }, 'mirror-consumer: alerter failed');
+    }
+  }
+
   return outcome;
 }

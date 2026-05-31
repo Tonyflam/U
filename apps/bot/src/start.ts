@@ -37,6 +37,7 @@ import { DrizzleSubscriptionSnapshotLookup, DrizzleUserSnapshotLookup } from './
 import { HlAssetIndex } from './hlAssetIndex.js';
 import { HlInfoEquity } from './hlInfoEquity.js';
 import { KmsAgentSigner } from './kmsAgentSigner.js';
+import { TelegramMirrorAlerter } from './mirrorAlerter.js';
 import { RedisDailyNotional } from './redisDailyNotional.js';
 import { RedisGeoCache } from './redisGeoCache.js';
 import { runMirrorConsumer, type ConsumerController } from './mirrorConsumer.js';
@@ -158,10 +159,16 @@ async function main(): Promise<void> {
     .filter((c) => c.length > 0);
 
   let nonceCounter = 0;
+  const tgResolver = new DrizzleTgUserIdResolver(db);
   const fillPublisher = new RedisFillPublisher({
     redis,
-    resolver: new DrizzleTgUserIdResolver(db),
+    resolver: tgResolver,
     log: log.child({ component: 'fill-publisher' }),
+  });
+  const mirrorAlerter = new TelegramMirrorAlerter({
+    api: bot.api,
+    resolver: tgResolver,
+    log: log.child({ component: 'mirror-alerter' }),
   });
   const fillSink = new RealizedPnlFillSink({
     inner: new DrizzleFillSink({
@@ -200,6 +207,7 @@ async function main(): Promise<void> {
       log: log.child({ component: 'mirror-consumer' }),
       consumerName: env.MIRROR_CONSUMER_NAME,
       batchSize: env.MIRROR_BATCH_SIZE,
+      alerter: mirrorAlerter,
     },
     controller,
   ).catch((err: unknown) => {
