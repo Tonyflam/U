@@ -158,7 +158,7 @@ async function main(): Promise<void> {
     .map((c) => c.trim().toUpperCase())
     .filter((c) => c.length > 0);
 
-  let nonceCounter = 0;
+  let lastNonce = 0;
   const tgResolver = new DrizzleTgUserIdResolver(db);
   const fillPublisher = new RedisFillPublisher({
     redis,
@@ -195,7 +195,11 @@ async function main(): Promise<void> {
     publisher: fillPublisher,
     fillSink,
     now: () => Date.now(),
-    nonce: () => Date.now() * 1000 + (nonceCounter++ % 1000),
+    nonce: () => {
+      const n = Math.max(Date.now(), lastNonce + 1);
+      lastNonce = n;
+      return n;
+    },
   };
 
   const controller: ConsumerController = { stopped: false };

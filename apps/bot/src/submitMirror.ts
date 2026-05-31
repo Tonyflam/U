@@ -69,7 +69,9 @@ export interface SubmitMirrorDeps {
   readonly fillSink?: FillSink;
   /** Wall-clock now (ms). Injected so tests are deterministic. */
   readonly now: () => number;
-  /** Monotonic nonce factory. Typically `() => Date.now() * 1000 + counter`. */
+  /** Monotonic nonce factory. HL requires ms-since-epoch; typically
+   * `() => Math.max(Date.now(), last + 1)`. Microseconds will be rejected
+   * with "nonce too high". */
   readonly nonce: () => number;
 }
 
