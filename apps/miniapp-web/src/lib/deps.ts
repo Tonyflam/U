@@ -65,11 +65,29 @@ class HybridOnboardRepo implements OnboardRepo {
     if (!prov) throw new Error(`provisional row missing during finalize: ${provisionalId}`);
 
     const existing = await this.db
-      .select({ id: schema.users.id })
+      .select({ id: schema.users.id, revokedAt: schema.users.revokedAt })
       .from(schema.users)
       .where(eq(schema.users.tgUserId, prov.tgUserId))
       .limit(1);
     if (existing[0]) {
+      // Re-onboard: overwrite wallet/agent/sealed key, clear revocation + kill.
+      await this.db
+        .update(schema.users)
+        .set({
+          tgUsername: prov.tgUsername,
+          mainWallet: prov.mainWallet,
+          agentAddress: prov.agentAddress,
+          agentKeyCt: prov.sealed.ct,
+          agentKeyIv: prov.sealed.iv,
+          agentKeyTag: prov.sealed.tag,
+          agentDekCt: prov.sealed.dekCt,
+          approvedMaxFeeTenthsBp: prov.approvedMaxFeeTenthsBp,
+          currentFeeTenthsBp: prov.currentFeeTenthsBp,
+          equityFloorUsd: prov.equityFloorUsd,
+          revokedAt: null,
+          killSwitch: false,
+        })
+        .where(eq(schema.users.id, existing[0].id));
       await this.redis.del(`onboard:prov:${provisionalId}`);
       return { userId: existing[0].id };
     }
