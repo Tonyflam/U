@@ -212,14 +212,25 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
   if (!user) return [onboardReply(ctx)];
   const code = await ctx.repo.getOrMintReferralCode(user.id);
   const url = `https://t.me/${ctx.botUsername}?start=ref_${code}`;
+  const pitch = 'Mirror top Hyperliquid whales on autopilot with WhalePod.';
   return [
     {
-      text: ['Invite friends to mirror whales on WhalePod.', '', `Your link: ${url}`].join('\n'),
+      text: [
+        '📨 Invite friends to WhalePod',
+        '',
+        `Your invite link:`,
+        '`' + url + '`',
+        '',
+        'How referrals work:',
+        '  1. Share the link (tap the button below).',
+        '  2. When a friend opens it and finishes /start, they are linked to you.',
+        '  3. You get credit on the /leaderboard for every friend that mirrors a whale.',
+      ].join('\n'),
       buttons: [
         [
           {
             label: 'Share on Telegram',
-            url: `https://t.me/share/url?url=${encodeURIComponent(url)}`,
+            url: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(pitch)}`,
           },
         ],
       ],

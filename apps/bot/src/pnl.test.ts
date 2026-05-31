@@ -179,15 +179,18 @@ describe('renderPnl', () => {
     const s = summarizePnl(fills, markFn({ BTC: '52000' }));
     const r = renderPnl(s);
     expect(r.text).toMatchInlineSnapshot(`
-      "PnL summary
-      _Realized = profit/loss on trades you’ve already closed._
-      _Unrealized = profit/loss on positions still open at the current mark price._
+      "📊 Your PnL
 
-      🟢 AlphaCat: +$300.00
-        realized +$100.00 · unrealized +$200.00 · fees $3.80
-        open: BTC
-      —
-      Total: 🟢 +$300.00  (fees $3.80)"
+      Total: 🟢 +$300.00
+        • Closed trades: +$100.00
+        • Still open:    +$200.00
+        • Fees paid:     $3.80
+
+      By whale:
+
+      🟢 AlphaCat  →  +$300.00
+         closed +$100.00  ·  open +$200.00  ·  fees $3.80
+         still holding: BTC"
     `);
   });
 
@@ -218,15 +221,18 @@ describe('renderPnl', () => {
     const s = summarizePnl(fills, markFn({ BTC: '48000' }));
     const r = renderPnl(s);
     expect(r.text).toMatchInlineSnapshot(`
-      "PnL summary
-      _Realized = profit/loss on trades you’ve already closed._
-      _Unrealized = profit/loss on positions still open at the current mark price._
+      "📊 Your PnL
 
-      🔴 AlphaCat: -$300.00
-        realized -$100.00 · unrealized -$200.00 · fees $3.70
-        open: BTC
-      —
-      Total: 🔴 -$300.00  (fees $3.70)"
+      Total: 🔴 -$300.00
+        • Closed trades: -$100.00
+        • Still open:    -$200.00
+        • Fees paid:     $3.70
+
+      By whale:
+
+      🔴 AlphaCat  →  -$300.00
+         closed -$100.00  ·  open -$200.00  ·  fees $3.70
+         still holding: BTC"
     `);
   });
 
@@ -287,7 +293,7 @@ describe('renderPnl invariants', () => {
           const s = summarizePnl(fills, markFn({ BTC: '1' }));
           const r = renderPnl(s);
           expect(r.text).toMatch(formattedLine);
-          expect(r.text).toMatch(/^PnL summary/);
+          expect(r.text).toMatch(/^📊 Your PnL/u);
           expect(r.text).toMatch(/Total:/);
         },
       ),

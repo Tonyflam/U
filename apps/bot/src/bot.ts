@@ -90,6 +90,7 @@ async function sendReply(ctx: Context, reply: Reply, log: Logger): Promise<void>
   try {
     if (reply.buttons && reply.buttons.length > 0) {
       await ctx.reply(reply.text, {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: reply.buttons.map((row) =>
             row.map((b) => ({ text: b.label, url: b.url })),
@@ -97,7 +98,7 @@ async function sendReply(ctx: Context, reply: Reply, log: Logger): Promise<void>
         },
       });
     } else {
-      await ctx.reply(reply.text);
+      await ctx.reply(reply.text, { parse_mode: 'Markdown' });
     }
   } catch (err) {
     log.error({ err }, 'bot.reply.failed');

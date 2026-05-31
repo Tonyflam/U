@@ -366,7 +366,7 @@ describe('handleCommand /pnl', () => {
     const ctxWithMark: HandlerCtx = { ...ctx, markPrice: () => '3200' };
     const replies = await handleCommand({ kind: 'pnl' }, ctxWithMark);
     const text = replies[0]?.text ?? '';
-    expect(text).toMatch(/PnL summary/);
+    expect(text).toMatch(/Your PnL/);
     expect(text).toMatch(/WhaleOne/);
     expect(text).toMatch(/Total:/);
   });

@@ -140,7 +140,8 @@ export function summarizePnl(fills: readonly PnlFill[], markPrice: MarkPriceFn):
     let unrealized = 0;
     const openCoins: CoinValue[] = [];
     for (const [coin, pos] of e.positions) {
-      if (pos.netSz === 0) continue;
+      // Float residuals from buy/sell sum-cancellation: treat as closed.
+      if (Math.abs(pos.netSz) < 1e-8) continue;
       openCoins.push(coin);
       const m = markPrice(coin);
       if (m === null) continue;
@@ -175,9 +176,7 @@ function fmtAddr(addr: string): string {
 
 function fmtUsd(n: number): string {
   if (!Number.isFinite(n)) return '$?';
-  const abs = Math.abs(n);
-  const fixed = abs >= 1 ? abs.toFixed(2) : abs.toFixed(4);
-  return `${n < 0 ? '-' : ''}$${fixed}`;
+  return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
 }
 
 function fmtSignedUsd(n: number): string {
@@ -208,30 +207,32 @@ export function renderPnl(summary: PnlSummary, prefs: PnlRenderPrefs = {}): Repl
   const shown = sorted.slice(0, maxWhales);
   const hiddenCount = sorted.length - shown.length;
 
+  const grand = summary.totalRealizedUsd + summary.totalUnrealizedUsd;
   const lines: string[] = [
-    'PnL summary',
-    '_Realized = profit/loss on trades you\u2019ve already closed._',
-    '_Unrealized = profit/loss on positions still open at the current mark price._',
+    '\ud83d\udcca Your PnL',
     '',
+    `Total: ${pnlEmoji(grand)} ${fmtSignedUsd(grand)}`,
+    `  \u2022 Closed trades: ${fmtSignedUsd(summary.totalRealizedUsd)}`,
+    `  \u2022 Still open:    ${fmtSignedUsd(summary.totalUnrealizedUsd)}`,
+    `  \u2022 Fees paid:     ${fmtUsd(summary.totalFeesUsd)}`,
+    '',
+    'By whale:',
   ];
   for (const w of shown) {
     const label = w.whaleAlias ?? fmtAddr(w.whaleAddress);
     const total = w.realizedUsd + w.unrealizedUsd;
-    lines.push(`${pnlEmoji(total)} ${label}: ${fmtSignedUsd(total)}`);
+    lines.push('');
+    lines.push(`${pnlEmoji(total)} ${label}  \u2192  ${fmtSignedUsd(total)}`);
     lines.push(
-      `  realized ${fmtSignedUsd(w.realizedUsd)} \u00b7 unrealized ${fmtSignedUsd(w.unrealizedUsd)} \u00b7 fees ${fmtUsd(w.feesUsd)}`,
+      `   closed ${fmtSignedUsd(w.realizedUsd)}  \u00b7  open ${fmtSignedUsd(w.unrealizedUsd)}  \u00b7  fees ${fmtUsd(w.feesUsd)}`,
     );
     if (w.openCoins.length > 0) {
-      lines.push(`  open: ${w.openCoins.join(', ')}`);
+      lines.push(`   still holding: ${w.openCoins.join(', ')}`);
     }
   }
   if (hiddenCount > 0) {
+    lines.push('');
     lines.push(`\u2026and ${String(hiddenCount)} more`);
   }
-  const grand = summary.totalRealizedUsd + summary.totalUnrealizedUsd;
-  lines.push('\u2014');
-  lines.push(
-    `Total: ${pnlEmoji(grand)} ${fmtSignedUsd(grand)}  (fees ${fmtUsd(summary.totalFeesUsd)})`,
-  );
   return { text: lines.join('\n') };
 }
