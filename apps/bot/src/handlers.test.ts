@@ -41,7 +41,7 @@ describe('handleCommand /help', () => {
     const { ctx } = setup();
     const replies = await handleCommand({ kind: 'help' }, ctx);
     const text = replies[0]?.text ?? '';
-    for (const cmd of ['/wallet', '/follow', '/unfollow', '/pause', '/resume', '/fee', '/kill']) {
+    for (const cmd of ['/wallet', '/follow', '/unfollow', '/pause', '/resume', '/kill']) {
       expect(text).toContain(cmd);
     }
   });
@@ -54,7 +54,7 @@ describe('handleCommand /wallet', () => {
     const text = replies[0]?.text ?? '';
     expect(text).toMatch(/Wallet:/);
     expect(text).toMatch(/Agent:/);
-    expect(text).toMatch(/Current fee:/);
+    expect(text).toMatch(/Builder fee:/);
     expect(text).toMatch(/Kill switch:/);
   });
 
@@ -154,40 +154,6 @@ describe('handleCommand /kill /unkill', () => {
   });
 });
 
-describe('handleCommand /fee', () => {
-  it('updates the fee and writes audit', async () => {
-    const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'fee', tenthsBp: 40 }, ctx);
-    expect(replies[0]?.text).toMatch(/Fee set to 4.0 bps/);
-    expect([...repo.users.values()][0]?.currentFeeTenthsBp).toBe(40);
-    expect(repo.audit.at(-1)?.action).toBe('set_fee');
-  });
-
-  it('refuses to exceed the on-chain approval and offers re-approve link', async () => {
-    const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'fee', tenthsBp: 75 }, ctx);
-    expect(replies[0]?.text).toMatch(/exceeds your on-chain approval/);
-    expect(replies[0]?.buttons?.[0]?.[0]?.url).toBe(MINIAPP);
-    expect([...repo.users.values()][0]?.currentFeeTenthsBp).toBe(30);
-  });
-
-  it('refuses to exceed the protocol cap even if approval would allow it', async () => {
-    const { repo, ctx } = setup();
-    // raise approval to cap; still refuse > cap
-    repo.users.forEach((u, id) => repo.users.set(id, { ...u, approvedMaxFeeTenthsBp: 100 }));
-    const replies = await handleCommand({ kind: 'fee', tenthsBp: 101 }, ctx);
-    expect(replies[0]?.text).toMatch(/exceeds protocol cap/);
-  });
-
-  it('no-ops when fee equals current', async () => {
-    const { repo, ctx } = setup();
-    const before = repo.audit.length;
-    const replies = await handleCommand({ kind: 'fee', tenthsBp: 30 }, ctx);
-    expect(replies[0]?.text).toMatch(/already at 3.0 bps/);
-    expect(repo.audit.length).toBe(before);
-  });
-});
-
 describe('handleCommand /unknown', () => {
   it('returns a help hint', async () => {
     const { ctx } = setup();
@@ -200,13 +166,11 @@ describe('mutation handlers always write audit when they mutate', () => {
   it('every successful mutation appends one audit entry', async () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE }, ctx);
-    await handleCommand({ kind: 'fee', tenthsBp: 40 }, ctx);
     await handleCommand({ kind: 'kill' }, ctx);
     await handleCommand({ kind: 'pause' }, ctx);
     await handleCommand({ kind: 'unfollow', target: WHALE }, ctx);
     expect(repo.audit.map((a) => a.action)).toStrictEqual([
       'subscribe',
-      'set_fee',
       'kill_on',
       'pause_all',
       'unsubscribe',

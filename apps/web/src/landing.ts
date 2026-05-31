@@ -26,8 +26,8 @@ function fmtBps(tenthsBp: number): string {
   return `${(tenthsBp / 10).toFixed(1)} bps`;
 }
 
-const X_URL = 'https://x.com/whalepod_xyz';
-const TG_CHANNEL = 'https://t.me/whalepod_announce';
+const X_URL = 'https://x.com/whalepodapp';
+const TG_CHANNEL = 'https://t.me/whalepod_news';
 const TG_GROUP = 'https://t.me/whalepod_chat';
 const APP_URL = 'https://app.whalepod.trade';
 const GH_URL = 'https://github.com/Tonyflam/U';
@@ -190,7 +190,7 @@ export function buildLandingHtml(env: LandingEnv): string {
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://whalepod.trade">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@whalepod_xyz">
+<meta name="twitter:site" content="@whalepodapp">
 <style>${CSS}</style>
 </head>
 <body>
@@ -270,7 +270,7 @@ export function buildLandingHtml(env: LandingEnv): string {
   <p class="section-lede">Non-custodial means non-custodial. We engineer it so we can't betray you even if we wanted to.</p>
   <ul>
     <li><div><strong>Move funds off Hyperliquid.</strong> Agent keys are scoped to placing and canceling orders. Withdraw is impossible by protocol design.</div></li>
-    <li><div><strong>Charge above your cap.</strong> The fee you signed is enforced on-chain. We can lower it; raising it requires your signature.</div></li>
+    <li><div><strong>Charge above the cap.</strong> The fee is fixed at ${defaultFee} per fill and enforced on-chain — it cannot exceed Hyperliquid's ${capFee} hard cap, ever.</div></li>
     <li><div><strong>Hold your funds.</strong> Your equity stays in your Hyperliquid account. WhalePod never has a balance to drain.</div></li>
     <li><div><strong>Hide the code.</strong> Open-source on <a href="${GH_URL}" rel="noopener" style="color:var(--accent)">GitHub</a>. Audit the verifier, the risk caps, the kill path.</div></li>
   </ul>

@@ -15,7 +15,6 @@ export type Command =
   | { readonly kind: 'resume' }
   | { readonly kind: 'kill' }
   | { readonly kind: 'unkill' }
-  | { readonly kind: 'fee'; readonly tenthsBp: number }
   | { readonly kind: 'tp'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'sl'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'share' }
@@ -70,11 +69,9 @@ export function parseCommand(text: string): Command | null {
       return { kind: 'unknown', raw: trimmed };
     }
     case 'fee': {
-      const n = Number(args);
-      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > 100) {
-        return { kind: 'unknown', raw: trimmed };
-      }
-      return { kind: 'fee', tenthsBp: n };
+      // /fee is no longer user-controllable. The builder fee is fixed at the
+      // protocol default and is the WhalePod take rate.
+      return { kind: 'unknown', raw: trimmed };
     }
     case 'tp':
     case 'sl': {

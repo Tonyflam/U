@@ -30,17 +30,12 @@ describe('parseCommand', () => {
     expect(parseCommand('/follow')).toStrictEqual({ kind: 'unknown', raw: '/follow' });
   });
 
-  it('parses /fee with an in-range integer', () => {
-    expect(parseCommand('/fee 50')).toStrictEqual({ kind: 'fee', tenthsBp: 50 });
-    expect(parseCommand('/fee 0')).toStrictEqual({ kind: 'fee', tenthsBp: 0 });
-    expect(parseCommand('/fee 100')).toStrictEqual({ kind: 'fee', tenthsBp: 100 });
-  });
-
-  it('marks /fee with out-of-range or non-integer as unknown', () => {
+  it('rejects /fee (no longer a user-facing command)', () => {
+    expect(parseCommand('/fee 50')).toMatchObject({ kind: 'unknown' });
+    expect(parseCommand('/fee 0')).toMatchObject({ kind: 'unknown' });
+    expect(parseCommand('/fee 100')).toMatchObject({ kind: 'unknown' });
     expect(parseCommand('/fee 101')).toMatchObject({ kind: 'unknown' });
-    expect(parseCommand('/fee -1')).toMatchObject({ kind: 'unknown' });
     expect(parseCommand('/fee abc')).toMatchObject({ kind: 'unknown' });
-    expect(parseCommand('/fee 1.5')).toMatchObject({ kind: 'unknown' });
   });
 
   it('parses pause / resume / kill / unkill / wallet', () => {

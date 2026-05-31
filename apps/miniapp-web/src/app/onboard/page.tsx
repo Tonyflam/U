@@ -11,18 +11,35 @@ interface StartResponse {
   approveBuilderFee: { typedData: Record<string, unknown> };
 }
 
-type Step = 'connect' | 'config' | 'sign' | 'done' | 'error';
+type Step = 'loading' | 'connect' | 'config' | 'sign' | 'done' | 'already' | 'error';
+
+interface OnboardedInfo {
+  mainWallet: string;
+  agentAddress: string;
+  feeBps: number;
+}
 
 interface State {
   step: Step;
   error?: string;
   start?: StartResponse;
   userId?: string;
+  info?: OnboardedInfo;
 }
 
 function getTgUserId(): string | null {
   if (typeof window === 'undefined') return null;
-  return new URL(window.location.href).searchParams.get('tg');
+  const urlTg = new URL(window.location.href).searchParams.get('tg');
+  if (urlTg) return urlTg;
+  // Fall back to Telegram WebApp init data — set when launched via menu button.
+  const tg = (window as unknown as {
+    Telegram?: {
+      WebApp?: { initDataUnsafe?: { user?: { id?: number | string } } };
+    };
+  }).Telegram?.WebApp;
+  const id = tg?.initDataUnsafe?.user?.id;
+  if (id != null) return String(id);
+  return null;
 }
 
 function shortAddr(a: string): string {
@@ -40,7 +57,7 @@ export default function OnboardPage(): JSX.Element {
   // Users do not choose this — it's the WhalePod take rate.
   const maxFeeTenthsBp = 50;
   const [equityFloorUsd, setEquityFloorUsd] = useState('0');
-  const [state, setState] = useState<State>({ step: 'connect' });
+  const [state, setState] = useState<State>({ step: 'loading' });
   const [busy, setBusy] = useState(false);
   const [signStep, setSignStep] = useState<0 | 1 | 2>(0);
 
@@ -51,6 +68,70 @@ export default function OnboardPage(): JSX.Element {
     tg?.expand?.();
     tg?.setHeaderColor?.('#0b0e14');
   }, []);
+
+  // Check if this TG user is already onboarded; if so, show the "already" state.
+  useEffect(() => {
+    const tgUserId = getTgUserId();
+    if (!tgUserId) {
+      setState({ step: 'connect' });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/onboarding/status?tg=${encodeURIComponent(tgUserId)}`, {
+          cache: 'no-store',
+        });
+        if (!r.ok) {
+          if (!cancelled) setState({ step: 'connect' });
+          return;
+        }
+        const j = (await r.json()) as { onboarded: boolean } & OnboardedInfo;
+        if (cancelled) return;
+        if (j.onboarded) {
+          setState({
+            step: 'already',
+            info: {
+              mainWallet: j.mainWallet,
+              agentAddress: j.agentAddress,
+              feeBps: j.feeBps,
+            },
+          });
+        } else {
+          setState({ step: 'connect' });
+        }
+      } catch {
+        if (!cancelled) setState({ step: 'connect' });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function disconnectAndRestart(): Promise<void> {
+    const tgUserId = getTgUserId();
+    if (!tgUserId) return;
+    setBusy(true);
+    try {
+      await fetch('/api/onboarding/disconnect', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tgUserId }),
+      });
+      try {
+        disconnect();
+      } catch {
+        // ignore wallet disconnect errors
+      }
+      setState({ step: 'connect' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setState({ step: 'error', error: `Disconnect failed: ${msg}` });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function beginOnboarding(): Promise<void> {
     if (!address) return;
@@ -162,7 +243,39 @@ export default function OnboardPage(): JSX.Element {
           ) : null}
         </header>
 
-        {!isConnected ? (
+        {state.step === 'loading' ? (
+          <section className="intro" style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div className="spinner" />
+            <p className="muted small">Checking your account…</p>
+          </section>
+        ) : state.step === 'already' && state.info ? (
+          <section className="done">
+            <div className="check">✓</div>
+            <h2>You&apos;re already set up.</h2>
+            <p>
+              Wallet <code>{shortAddr(state.info.mainWallet)}</code>
+              <br />
+              Agent <code>{shortAddr(state.info.agentAddress)}</code>
+              <br />
+              Builder fee <code>{state.info.feeBps.toFixed(1)} bps</code>
+            </p>
+            <button className="cta" type="button" onClick={returnToTg}>
+              Back to Telegram
+            </button>
+            <button
+              className="ghostBtn"
+              type="button"
+              disabled={busy}
+              onClick={() => void disconnectAndRestart()}
+            >
+              {busy ? 'Disconnecting…' : 'Disconnect & connect another wallet'}
+            </button>
+            <p className="muted small" style={{ marginTop: 10 }}>
+              This revokes the current agent and pauses all mirrors. You can re-onboard with a
+              different wallet right after.
+            </p>
+          </section>
+        ) : !isConnected ? (
           <section className="intro">
             <h1>
               Mirror Hyperliquid <span className="grad">whales</span> from Telegram.
@@ -266,11 +379,15 @@ export default function OnboardPage(): JSX.Element {
       </div>
 
       <footer className="ft">
-        <a href="https://t.me/WhalePodBot" target="_blank" rel="noopener">
-          Telegram
+        <a href="https://t.me/whalepod_news" target="_blank" rel="noopener">
+          Channel
         </a>
         <span>·</span>
-        <a href="https://x.com/whalepod_xyz" target="_blank" rel="noopener">
+        <a href="https://t.me/whalepod_chat" target="_blank" rel="noopener">
+          Chat
+        </a>
+        <span>·</span>
+        <a href="https://x.com/whalepodapp" target="_blank" rel="noopener">
           X
         </a>
         <span>·</span>
@@ -477,6 +594,30 @@ const styles = `
   .cta:hover { transform: translateY(-1px); filter: brightness(1.05); }
   .cta:active { transform: translateY(0); }
   .cta:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .ghostBtn {
+    width: 100%;
+    margin-top: 10px;
+    background: transparent;
+    color: #9ca3af;
+    border: 1px solid #2a3344;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .ghostBtn:hover { color: #fca5a5; border-color: #7f1d1d; background: rgba(127,29,29,0.08); }
+  .ghostBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .spinner {
+    width: 32px; height: 32px; margin: 0 auto 12px;
+    border: 3px solid #1f2937;
+    border-top-color: #3bd5b5;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .row {
     display: flex; align-items: center; justify-content: space-between;

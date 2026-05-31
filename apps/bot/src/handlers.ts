@@ -11,7 +11,6 @@
  * handlers pure means we can test the audit invariant exhaustively.
  */
 import {
-  BUILDER_FEE_PERP_CAP_TENTHS_BP,
   TPSL_MAX_BPS,
   TPSL_MIN_BPS,
   type TpSl,
@@ -169,8 +168,6 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handleKill(true, ctx);
     case 'unkill':
       return handleKill(false, ctx);
-    case 'fee':
-      return handleFee(command.tenthsBp, ctx);
     case 'tp':
       return handleSetTpSl('tp', command.target, command.offsetBps, ctx);
     case 'sl':
@@ -253,12 +250,11 @@ function helpReply(): Reply {
   return {
     text: [
       'WhalePod commands:',
-      '/wallet — show connected wallet and current fee',
+      '/wallet — show connected wallet',
       '/follow <0x… or alias> — mirror a whale',
       '/unfollow <0x… or alias> — stop mirroring',
       '/pause — pause all subscriptions',
       '/resume — resume all subscriptions',
-      '/fee <0–100> — set current builder fee (tenths of a bp; cap 100)',
       '/tp <0x…> <bps|off> — set take-profit offset for a whale (1–9999 bps)',
       '/sl <0x…> <bps|off> — set stop-loss offset for a whale (1–9999 bps)',
       '/kill — emergency stop (no mirrors will be sent)',
@@ -278,7 +274,7 @@ async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
   const lines = [
     `Wallet: ${fmtAddr(user.mainWallet)}`,
     `Agent: ${fmtAddr(user.agentAddress)}`,
-    `Current fee: ${fmtFeeBps(user.currentFeeTenthsBp)} (approved up to ${fmtFeeBps(user.approvedMaxFeeTenthsBp)})`,
+    `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}`,
     `Kill switch: ${user.killSwitch ? 'ON' : 'off'}`,
   ];
   return [{ text: lines.join('\n') }];
@@ -421,38 +417,6 @@ async function handleKill(killSwitch: boolean, ctx: HandlerCtx): Promise<Reply[]
         : 'Kill switch cleared. Mirrors will resume on next whale fill.',
     },
   ];
-}
-
-async function handleFee(tenthsBp: number, ctx: HandlerCtx): Promise<Reply[]> {
-  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx)];
-  if (tenthsBp > BUILDER_FEE_PERP_CAP_TENTHS_BP) {
-    return [
-      {
-        text: `Fee ${String(tenthsBp)} exceeds protocol cap ${String(BUILDER_FEE_PERP_CAP_TENTHS_BP)}. Refused.`,
-      },
-    ];
-  }
-  if (tenthsBp > user.approvedMaxFeeTenthsBp) {
-    return [
-      {
-        text: `Fee ${String(tenthsBp)} exceeds your on-chain approval (${String(user.approvedMaxFeeTenthsBp)}). Re-approve in the WhalePod app to raise it.`,
-        buttons: [[{ label: 'Open WhalePod', url: `${ctx.miniAppUrl}${ctx.miniAppUrl.includes('?') ? '&' : '?'}tg=${ctx.tgUser.id.toString()}` }]],
-      },
-    ];
-  }
-  if (tenthsBp === user.currentFeeTenthsBp) {
-    return [{ text: `Fee already at ${fmtFeeBps(tenthsBp)}.` }];
-  }
-  await ctx.repo.setCurrentFee(user.id, tenthsBp);
-  await ctx.repo.appendAudit({
-    actor: `tg:${ctx.tgUser.id.toString()}`,
-    action: 'set_fee',
-    target: `user:${user.id}`,
-    before: { currentFeeTenthsBp: user.currentFeeTenthsBp },
-    after: { currentFeeTenthsBp: tenthsBp },
-  });
-  return [{ text: `Fee set to ${fmtFeeBps(tenthsBp)}.` }];
 }
 
 async function handleSetTpSl(
