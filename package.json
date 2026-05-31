@@ -28,7 +28,7 @@
     "prepare": "node -e \"if (process.env.CI !== 'true') { try { require('child_process').execSync('git config core.hooksPath .githooks', { stdio: 'inherit' }) } catch (_) {} }\""
   },
   "devDependencies": {
-    "@eslint/js": "9.14.0",
+    "@eslint/js": "10.0.1",
     "@types/node": "22.9.0",
     "@vitest/coverage-v8": "2.1.4",
     "eslint": "9.14.0",
