@@ -51,6 +51,19 @@ describe('parseCommand', () => {
     expect(parseCommand('/SHARE')?.kind).toBe('share');
   });
 
+  it('parses /close <coin>', () => {
+    expect(parseCommand('/close ETH')).toStrictEqual({ kind: 'close', coin: 'ETH' });
+    expect(parseCommand('/close btc')).toStrictEqual({ kind: 'close', coin: 'BTC' });
+    expect(parseCommand('/close')).toMatchObject({ kind: 'unknown' });
+    expect(parseCommand('/close ETH BTC')).toMatchObject({ kind: 'unknown' });
+    expect(parseCommand('/close not-a-coin')).toMatchObject({ kind: 'unknown' });
+  });
+
+  it('parses /closeall', () => {
+    expect(parseCommand('/closeall')).toStrictEqual({ kind: 'closeall' });
+    expect(parseCommand('/CLOSEALL')).toStrictEqual({ kind: 'closeall' });
+  });
+
   it('parses /pnl', () => {
     expect(parseCommand('/pnl')?.kind).toBe('pnl');
     expect(parseCommand('/PNL')?.kind).toBe('pnl');

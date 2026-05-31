@@ -21,6 +21,8 @@ export type Command =
   | { readonly kind: 'tp'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'sl'; readonly target: string; readonly offsetBps: number | null }
   | { readonly kind: 'share' }
+  | { readonly kind: 'close'; readonly coin: string }
+  | { readonly kind: 'closeall' }
   | { readonly kind: 'pnl' }
   | { readonly kind: 'leaderboard' }
   | { readonly kind: 'whales' }
@@ -80,6 +82,16 @@ export function parseCommand(text: string): Command | null {
       return { kind: 'disconnect' };
     case 'share':
       return { kind: 'share' };
+    case 'close': {
+      if (!args) return { kind: 'unknown', raw: trimmed };
+      const parts = args.split(/\s+/u).filter(Boolean);
+      if (parts.length !== 1) return { kind: 'unknown', raw: trimmed };
+      const coin = (parts[0] ?? '').toUpperCase();
+      if (!/^[A-Z0-9]{1,10}$/u.test(coin)) return { kind: 'unknown', raw: trimmed };
+      return { kind: 'close', coin };
+    }
+    case 'closeall':
+      return { kind: 'closeall' };
     case 'pnl':
       return { kind: 'pnl' };
     case 'leaderboard':

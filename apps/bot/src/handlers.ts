@@ -133,7 +133,33 @@ export interface HandlerCtx {
    * shows the open size and realized PnL.
    */
   readonly markPrice?: MarkPriceFn;
+  /**
+   * Optional /close + /closeall executor. When omitted, those commands
+   * reply with a "feature unavailable" message rather than crashing.
+   */
+  readonly closer?: PositionCloseFn;
 }
+
+/**
+ * Executes a reduce-only close. `coin === null` means /closeall.
+ * Resolves with a human-readable result line per coin, ready to render.
+ */
+export type PositionCloseFn = (input: {
+  readonly user: BotUser;
+  readonly coin: string | null;
+}) => Promise<CloseExecOutcome>;
+
+export type CloseExecOutcome =
+  | { readonly kind: 'no_positions' }
+  | { readonly kind: 'coin_not_open'; readonly coin: string }
+  | { readonly kind: 'closed'; readonly results: readonly CloseExecResult[] };
+
+export type CloseExecResult =
+  | { readonly coin: string; readonly kind: 'submitted'; readonly sz: string; readonly isBuy: boolean }
+  | { readonly coin: string; readonly kind: 'no_mark' }
+  | { readonly coin: string; readonly kind: 'exchange_error'; readonly message: string }
+  | { readonly coin: string; readonly kind: 'transport_error'; readonly message: string }
+  | { readonly coin: string; readonly kind: 'asset_unknown' };
 
 export interface Reply {
   readonly text: string;
@@ -194,6 +220,10 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handleSetTpSl('sl', command.target, command.offsetBps, ctx);
     case 'share':
       return handleShare(ctx);
+    case 'close':
+      return handleClose(command.coin, ctx);
+    case 'closeall':
+      return handleClose(null, ctx);
     case 'pnl':
       return handlePnl(ctx);
     case 'leaderboard':
@@ -236,6 +266,35 @@ async function handleShare(ctx: HandlerCtx): Promise<Reply[]> {
       ],
     },
   ];
+}
+
+async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[]> {
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  if (!ctx.closer) return [{ text: 'Closing positions is temporarily unavailable. Try again shortly.' }];
+
+  const outcome = await ctx.closer({ user, coin });
+  if (outcome.kind === 'no_positions') {
+    return [{ text: 'You have no open positions to close.' }];
+  }
+  if (outcome.kind === 'coin_not_open') {
+    return [{ text: `You have no open ${outcome.coin} position.` }];
+  }
+  const lines = ['Close requests submitted:', ''];
+  for (const r of outcome.results) {
+    if (r.kind === 'submitted') {
+      const side = r.isBuy ? 'buy' : 'sell';
+      lines.push(`  ✅ ${r.coin}: ${side} ${r.sz} (reduce-only IOC)`);
+    } else if (r.kind === 'no_mark') {
+      lines.push(`  ❌ ${r.coin}: no mark price available, try again in a moment`);
+    } else if (r.kind === 'asset_unknown') {
+      lines.push(`  ❌ ${r.coin}: asset not on Hyperliquid`);
+    } else {
+      lines.push(`  ❌ ${r.coin}: ${r.message}`);
+    }
+  }
+  lines.push('', 'Use /pnl to confirm the position closed.');
+  return [{ text: lines.join('\n') }];
 }
 
 async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<Reply[]> {
@@ -311,6 +370,10 @@ function helpReply(): Reply {
       '/kill — emergency stop (active until /unkill)',
       '/unkill — clear the emergency stop',
       '/disconnect — remove wallet and revoke the agent',
+      '',
+      '▸ Close open positions',
+      '/close ETH — close your open ETH position (reduce-only IOC)',
+      '/closeall — close every open position you have',
       '',
       '▸ Track performance',
       '/pnl — profit & loss across your mirrors',

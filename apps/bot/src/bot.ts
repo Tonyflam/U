@@ -21,7 +21,7 @@
  */
 import { Bot, type Context } from 'grammy';
 import type { Logger } from 'pino';
-import { handleCommand, type BotRepo, type Reply } from './handlers.js';
+import { handleCommand, type BotRepo, type PositionCloseFn, type Reply } from './handlers.js';
 import type { MarkPriceFn } from './pnl.js';
 import { parseCommand } from './router.js';
 
@@ -33,6 +33,8 @@ export interface BotDeps {
   readonly log: Logger;
   /** Optional live mark-price source; injected when available. */
   readonly markPrice?: MarkPriceFn;
+  /** Optional reduce-only position closer for /close + /closeall. */
+  readonly closer?: PositionCloseFn;
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -72,6 +74,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       miniAppUrl: deps.miniAppUrl,
       botUsername: deps.botUsername,
       ...(deps.markPrice ? { markPrice: deps.markPrice } : {}),
+      ...(deps.closer ? { closer: deps.closer } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');

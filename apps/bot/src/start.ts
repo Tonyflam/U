@@ -36,6 +36,8 @@ import {
 import { DrizzleSubscriptionSnapshotLookup, DrizzleUserSnapshotLookup } from './mirrorSnapshots.js';
 import { HlAssetIndex } from './hlAssetIndex.js';
 import { HlInfoEquity } from './hlInfoEquity.js';
+import { HlLivePositions } from './hlLivePositions.js';
+import { closePositions } from './positionCloser.js';
 import { KmsAgentSigner } from './kmsAgentSigner.js';
 import { TelegramMirrorAlerter } from './mirrorAlerter.js';
 import { RedisDailyNotional } from './redisDailyNotional.js';
@@ -115,6 +117,19 @@ async function main(): Promise<void> {
   });
   markPrices.start();
 
+  // The /close + /closeall handlers need signer/assets/audit which are built
+  // further down (because they depend on `bot.api`). Hand the bot a proxy
+  // that calls into a holder we fill in once those deps exist. Until then,
+  // /close replies "temporarily unavailable" because the holder is undefined
+  // and `createBot` only passes `closer` when truthy.
+  let livePositionCloser: import('./handlers.js').PositionCloseFn | undefined;
+  const closerProxy: import('./handlers.js').PositionCloseFn = (input) => {
+    if (!livePositionCloser) {
+      return Promise.resolve({ kind: 'no_positions' as const });
+    }
+    return livePositionCloser(input);
+  };
+
   const bot = createBot({
     token: env.TELEGRAM_BOT_TOKEN,
     repo,
@@ -122,6 +137,7 @@ async function main(): Promise<void> {
     botUsername: env.TELEGRAM_BOT_USERNAME,
     log,
     markPrice: markPrices.get(),
+    closer: closerProxy,
   });
 
   const userSnapshots = new DrizzleUserSnapshotLookup(db);
@@ -201,6 +217,31 @@ async function main(): Promise<void> {
       return n;
     },
   };
+
+  const livePositions = new HlLivePositions(transport);
+  livePositionCloser = async ({ user, coin }) =>
+    closePositions(
+      {
+        id: user.id,
+        mainWallet: user.mainWallet as `0x${string}`,
+        agentAddress: user.agentAddress as `0x${string}`,
+        currentFeeTenthsBp: user.currentFeeTenthsBp,
+        approvedMaxFeeTenthsBp: user.approvedMaxFeeTenthsBp,
+      },
+      coin,
+      {
+        positions: livePositions,
+        assets,
+        markPrice: markPrices.get(),
+        signer,
+        transport,
+        audit: repo,
+        builderAddress: env.BUILDER_ADDRESS.toLowerCase() as `0x${string}`,
+        nonce: submitDeps.nonce,
+        now: submitDeps.now,
+        slippageBps: env.RISK_MAX_SLIPPAGE_BPS,
+      },
+    );
 
   const controller: ConsumerController = { stopped: false };
   const consumerPromise = runMirrorConsumer(
