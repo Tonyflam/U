@@ -66,6 +66,11 @@ export class InMemoryBotRepo implements BotRepo {
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
+  async getWhaleById(whaleId: string): Promise<Whale | null> {
+    return this.whales.get(whaleId) ?? null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
   async upsertWhaleByAddress(address: string): Promise<Whale> {
     const key = address.toLowerCase();
     const existing = this.whalesByAddress.get(key);
@@ -118,19 +123,37 @@ export class InMemoryBotRepo implements BotRepo {
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async subscribe(userId: string, whaleId: string): Promise<Subscription> {
+  async subscribe(userId: string, whaleId: string, maxSizeUsd?: string): Promise<Subscription> {
     const existing = this.subscriptions.find((s) => s.userId === userId && s.whaleId === whaleId);
     if (existing) return existing;
     const sub: Subscription = {
       id: uid('s'),
       userId,
       whaleId,
+      maxSizeUsd: maxSizeUsd ?? '100.00',
       paused: false,
       tpBps: null,
       slBps: null,
     };
     this.subscriptions.push(sub);
     return sub;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async setSubscriptionMaxSize(
+    userId: string,
+    whaleId: string,
+    maxSizeUsd: string,
+  ): Promise<Subscription | null> {
+    for (let i = 0; i < this.subscriptions.length; i++) {
+      const s = this.subscriptions[i];
+      if (s && s.userId === userId && s.whaleId === whaleId) {
+        const next: Subscription = { ...s, maxSizeUsd };
+        this.subscriptions[i] = next;
+        return next;
+      }
+    }
+    return null;
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await

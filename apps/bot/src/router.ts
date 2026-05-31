@@ -9,8 +9,10 @@ export type Command =
   | { readonly kind: 'start'; readonly startParam: string | null }
   | { readonly kind: 'help' }
   | { readonly kind: 'wallet' }
-  | { readonly kind: 'follow'; readonly target: string }
+  | { readonly kind: 'follow'; readonly target: string; readonly maxSizeUsd: number | null }
   | { readonly kind: 'unfollow'; readonly target: string }
+  | { readonly kind: 'setcap'; readonly target: string; readonly maxSizeUsd: number }
+  | { readonly kind: 'mirrors' }
   | { readonly kind: 'pause' }
   | { readonly kind: 'resume' }
   | { readonly kind: 'kill' }
@@ -40,12 +42,31 @@ export function parseCommand(text: string): Command | null {
       return { kind: 'help' };
     case 'wallet':
       return { kind: 'wallet' };
-    case 'follow':
+    case 'follow': {
       if (!args) return { kind: 'unknown', raw: trimmed };
-      return { kind: 'follow', target: args };
+      const parts = args.split(/\s+/u).filter(Boolean);
+      const target = parts[0] ?? '';
+      if (parts.length === 1) return { kind: 'follow', target, maxSizeUsd: null };
+      if (parts.length !== 2) return { kind: 'unknown', raw: trimmed };
+      const n = Number(parts[1]);
+      if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return { kind: 'unknown', raw: trimmed };
+      return { kind: 'follow', target, maxSizeUsd: n };
+    }
     case 'unfollow':
       if (!args) return { kind: 'unknown', raw: trimmed };
       return { kind: 'unfollow', target: args };
+    case 'setcap':
+    case 'cap': {
+      const parts = args.split(/\s+/u).filter(Boolean);
+      if (parts.length !== 2) return { kind: 'unknown', raw: trimmed };
+      const target = parts[0] ?? '';
+      const n = Number(parts[1]);
+      if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return { kind: 'unknown', raw: trimmed };
+      return { kind: 'setcap', target, maxSizeUsd: n };
+    }
+    case 'mirrors':
+    case 'subs':
+      return { kind: 'mirrors' };
     case 'pause':
       return { kind: 'pause' };
     case 'resume':

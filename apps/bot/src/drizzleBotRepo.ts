@@ -57,6 +57,19 @@ export class DrizzleBotRepo implements BotRepo {
     return rows[0] ?? null;
   }
 
+  async getWhaleById(whaleId: string): Promise<Whale | null> {
+    const rows = await this.db
+      .select({
+        id: schema.whales.id,
+        address: schema.whales.address,
+        alias: schema.whales.alias,
+      })
+      .from(schema.whales)
+      .where(eq(schema.whales.id, whaleId))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
   async upsertWhaleByAddress(address: string): Promise<Whale> {
     const addr = address.toLowerCase();
     const [row] = await this.db
@@ -96,6 +109,7 @@ export class DrizzleBotRepo implements BotRepo {
         id: schema.subscriptions.id,
         userId: schema.subscriptions.userId,
         whaleId: schema.subscriptions.whaleId,
+        maxSizeUsd: schema.subscriptions.maxSizeUsd,
         paused: schema.subscriptions.paused,
         tpBps: schema.subscriptions.tpBps,
         slBps: schema.subscriptions.slBps,
@@ -105,19 +119,14 @@ export class DrizzleBotRepo implements BotRepo {
     return rows;
   }
 
-  async subscribe(userId: string, whaleId: string): Promise<Subscription> {
-    // The Drizzle impl mirrors the in-memory contract: "subscribe is idempotent;
-    // returns the existing row if already subscribed". `maxSizeUsd` and
-    // `maxLeverage` get conservative defaults here — the miniapp is the
-    // intended path for fine-grained sizing, but a `/follow` from the bot
-    // should still succeed end-to-end. Tighten later via a dedicated
-    // `setSubscriptionLimits` method.
+  async subscribe(userId: string, whaleId: string, maxSizeUsd?: string): Promise<Subscription> {
+    const cap = maxSizeUsd ?? '100.00';
     const [row] = await this.db
       .insert(schema.subscriptions)
       .values({
         userId,
         whaleId,
-        maxSizeUsd: '100.00',
+        maxSizeUsd: cap,
         maxLeverage: 3,
       })
       .onConflictDoNothing({
@@ -127,6 +136,7 @@ export class DrizzleBotRepo implements BotRepo {
         id: schema.subscriptions.id,
         userId: schema.subscriptions.userId,
         whaleId: schema.subscriptions.whaleId,
+        maxSizeUsd: schema.subscriptions.maxSizeUsd,
         paused: schema.subscriptions.paused,
         tpBps: schema.subscriptions.tpBps,
         slBps: schema.subscriptions.slBps,
@@ -138,6 +148,7 @@ export class DrizzleBotRepo implements BotRepo {
         id: schema.subscriptions.id,
         userId: schema.subscriptions.userId,
         whaleId: schema.subscriptions.whaleId,
+        maxSizeUsd: schema.subscriptions.maxSizeUsd,
         paused: schema.subscriptions.paused,
         tpBps: schema.subscriptions.tpBps,
         slBps: schema.subscriptions.slBps,
@@ -150,6 +161,29 @@ export class DrizzleBotRepo implements BotRepo {
     const found = existing[0];
     if (!found) throw new Error(`subscribe: row vanished for (${userId}, ${whaleId})`);
     return found;
+  }
+
+  async setSubscriptionMaxSize(
+    userId: string,
+    whaleId: string,
+    maxSizeUsd: string,
+  ): Promise<Subscription | null> {
+    const [row] = await this.db
+      .update(schema.subscriptions)
+      .set({ maxSizeUsd })
+      .where(
+        and(eq(schema.subscriptions.userId, userId), eq(schema.subscriptions.whaleId, whaleId)),
+      )
+      .returning({
+        id: schema.subscriptions.id,
+        userId: schema.subscriptions.userId,
+        whaleId: schema.subscriptions.whaleId,
+        maxSizeUsd: schema.subscriptions.maxSizeUsd,
+        paused: schema.subscriptions.paused,
+        tpBps: schema.subscriptions.tpBps,
+        slBps: schema.subscriptions.slBps,
+      });
+    return row ?? null;
   }
 
   async unsubscribe(userId: string, whaleId: string): Promise<boolean> {
@@ -193,6 +227,7 @@ export class DrizzleBotRepo implements BotRepo {
           id: schema.subscriptions.id,
           userId: schema.subscriptions.userId,
           whaleId: schema.subscriptions.whaleId,
+          maxSizeUsd: schema.subscriptions.maxSizeUsd,
           paused: schema.subscriptions.paused,
           tpBps: schema.subscriptions.tpBps,
           slBps: schema.subscriptions.slBps,
@@ -214,6 +249,7 @@ export class DrizzleBotRepo implements BotRepo {
         id: schema.subscriptions.id,
         userId: schema.subscriptions.userId,
         whaleId: schema.subscriptions.whaleId,
+        maxSizeUsd: schema.subscriptions.maxSizeUsd,
         paused: schema.subscriptions.paused,
         tpBps: schema.subscriptions.tpBps,
         slBps: schema.subscriptions.slBps,

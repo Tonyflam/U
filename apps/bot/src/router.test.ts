@@ -23,7 +23,7 @@ describe('parseCommand', () => {
   });
 
   it('parses /follow with target', () => {
-    expect(parseCommand('/follow 0xabc')).toStrictEqual({ kind: 'follow', target: '0xabc' });
+    expect(parseCommand('/follow 0xabc')).toStrictEqual({ kind: 'follow', target: '0xabc', maxSizeUsd: null });
   });
 
   it('marks /follow with no arg as unknown', () => {

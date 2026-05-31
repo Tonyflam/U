@@ -41,6 +41,7 @@ export interface Subscription {
   readonly id: string;
   readonly userId: string;
   readonly whaleId: string;
+  readonly maxSizeUsd: string;
   readonly paused: boolean;
   readonly tpBps: number | null;
   readonly slBps: number | null;
@@ -49,13 +50,19 @@ export interface Subscription {
 export interface BotRepo {
   getUserByTgId(tgUserId: bigint): Promise<BotUser | null>;
   getWhaleByAddress(address: string): Promise<Whale | null>;
+  getWhaleById(whaleId: string): Promise<Whale | null>;
   upsertWhaleByAddress(address: string): Promise<Whale>;
   listSubscriptions(userId: string): Promise<readonly Subscription[]>;
   /** Featured whales (curated). Ordered by most recent fill first. */
   listFeaturedWhales(limit: number): Promise<readonly Whale[]>;
-  subscribe(userId: string, whaleId: string): Promise<Subscription>;
+  subscribe(userId: string, whaleId: string, maxSizeUsd?: string): Promise<Subscription>;
   unsubscribe(userId: string, whaleId: string): Promise<boolean>;
   setAllSubscriptionsPaused(userId: string, paused: boolean): Promise<number>;
+  setSubscriptionMaxSize(
+    userId: string,
+    whaleId: string,
+    maxSizeUsd: string,
+  ): Promise<Subscription | null>;
   setSubscriptionTpSl(
     userId: string,
     whaleId: string,
@@ -164,9 +171,13 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
     case 'wallet':
       return handleWallet(ctx);
     case 'follow':
-      return handleFollow(command.target, ctx);
+      return handleFollow(command.target, command.maxSizeUsd, ctx);
     case 'unfollow':
       return handleUnfollow(command.target, ctx);
+    case 'setcap':
+      return handleSetCap(command.target, command.maxSizeUsd, ctx);
+    case 'mirrors':
+      return handleMirrors(ctx);
     case 'pause':
       return handleSetPaused(true, ctx);
     case 'resume':
@@ -262,8 +273,10 @@ function helpReply(): Reply {
     text: [
       'WhalePod commands:',
       '/wallet — show connected wallet',
-      '/follow <0x… or alias> — mirror a whale',
-      '/unfollow <0x… or alias> — stop mirroring',
+      '/follow <0x…> [usd] — mirror a whale (optional per-trade size cap, default $100)',
+      '/unfollow <0x…> — stop mirroring',
+      '/setcap <0x…> <usd> — change per-trade size cap for a whale',
+      '/mirrors — list your active mirrors',
       '/pause — pause all subscriptions',
       '/resume — resume all subscriptions',
       '/tp <0x…> <bps|off> — set take-profit offset for a whale (1–9999 bps)',
@@ -374,7 +387,11 @@ function describeNotifyPrefs(p: NotifyPrefs): string {
   return lines.join('\n');
 }
 
-async function handleFollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {
+async function handleFollow(
+  target: string,
+  maxSizeUsd: number | null,
+  ctx: HandlerCtx,
+): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
   if (!ADDRESS_RE.test(target)) {
@@ -388,16 +405,90 @@ async function handleFollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {
   const whale = await ctx.repo.upsertWhaleByAddress(address);
   const existing = await ctx.repo.listSubscriptions(user.id);
   if (existing.some((s) => s.whaleId === whale.id)) {
-    return [{ text: `Already following ${fmtAddr(whale.address)}.` }];
+    return [{ text: `Already following ${fmtAddr(whale.address)}. Use /setcap ${whale.address} <usd> to change size.` }];
   }
-  const sub = await ctx.repo.subscribe(user.id, whale.id);
+  const capStr = maxSizeUsd !== null ? maxSizeUsd.toFixed(2) : undefined;
+  const sub = await ctx.repo.subscribe(user.id, whale.id, capStr);
   await ctx.repo.appendAudit({
     actor: `tg:${ctx.tgUser.id.toString()}`,
     action: 'subscribe',
     target: `whale:${whale.address}`,
-    after: { subscriptionId: sub.id },
+    after: { subscriptionId: sub.id, maxSizeUsd: sub.maxSizeUsd },
   });
-  return [{ text: `Now mirroring ${fmtAddr(whale.address)}.` }];
+  const cap = Number(sub.maxSizeUsd);
+  return [
+    {
+      text: [
+        `✅ Mirroring ${fmtAddr(whale.address)}.`,
+        `Max size per trade: $${cap.toFixed(2)}`,
+        '',
+        `Change later with /setcap ${whale.address} <usd>.`,
+        'See all active mirrors with /mirrors.',
+      ].join('\n'),
+    },
+  ];
+}
+
+async function handleSetCap(
+  target: string,
+  maxSizeUsd: number,
+  ctx: HandlerCtx,
+): Promise<Reply[]> {
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  if (!ADDRESS_RE.test(target)) {
+    return [{ text: `\`${target}\` is not a 0x address.` }];
+  }
+  const address = target.toLowerCase();
+  const whale = await ctx.repo.getWhaleByAddress(address);
+  if (!whale) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  const sub = subs.find((s) => s.whaleId === whale.id);
+  if (!sub) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const before = sub.maxSizeUsd;
+  const capStr = maxSizeUsd.toFixed(2);
+  const updated = await ctx.repo.setSubscriptionMaxSize(user.id, whale.id, capStr);
+  if (!updated) return [{ text: 'Failed to update size cap.' }];
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'set_max_size',
+    target: `subscription:${sub.id}`,
+    before: { maxSizeUsd: before },
+    after: { maxSizeUsd: capStr },
+  });
+  return [{ text: `Size cap for ${fmtAddr(whale.address)} set to $${maxSizeUsd.toFixed(2)}.` }];
+}
+
+async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  if (subs.length === 0) {
+    return [
+      {
+        text: [
+          'No active mirrors yet.',
+          '',
+          'Browse curated whales with /whales, then /follow <0x…> to start.',
+        ].join('\n'),
+      },
+    ];
+  }
+  const lines = [`🔁 Active mirrors (${subs.length.toString()}):`, ''];
+  for (const s of subs) {
+    const whale = await ctx.repo.getWhaleById(s.whaleId);
+    const addr = whale?.address ?? s.whaleId;
+    const alias = whale?.alias ? ` (${whale.alias})` : '';
+    const cap = Number(s.maxSizeUsd);
+    const status = s.paused || user.killSwitch ? '⏸ paused' : '▶ active';
+    const tp = s.tpBps !== null ? `TP ${s.tpBps.toString()}bps` : 'TP off';
+    const sl = s.slBps !== null ? `SL ${s.slBps.toString()}bps` : 'SL off';
+    lines.push(`• ${fmtAddr(addr)}${alias} — $${cap.toFixed(2)} — ${status}`);
+    lines.push(`   ${tp} | ${sl}`);
+  }
+  lines.push('');
+  lines.push('Commands: /setcap <addr> <usd> | /tp <addr> <bps|off> | /sl <addr> <bps|off> | /unfollow <addr>');
+  return [{ text: lines.join('\n') }];
 }
 
 async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]> {

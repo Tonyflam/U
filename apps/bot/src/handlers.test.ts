@@ -68,23 +68,23 @@ describe('handleCommand /wallet', () => {
 describe('handleCommand /follow', () => {
   it('subscribes a new whale and writes audit', async () => {
     const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'follow', target: WHALE }, ctx);
-    expect(replies[0]?.text).toMatch(/Now mirroring/);
+    const replies = await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
+    expect(replies[0]?.text).toMatch(/Mirroring/);
     expect(repo.subscriptions).toHaveLength(1);
     expect(repo.audit.at(-1)?.action).toBe('subscribe');
   });
 
   it('is idempotent for the same whale', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
-    const replies = await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
+    const replies = await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     expect(replies[0]?.text).toMatch(/Already following/);
     expect(repo.subscriptions).toHaveLength(1);
   });
 
   it('rejects non-address targets', async () => {
     const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'follow', target: 'alice' }, ctx);
+    const replies = await handleCommand({ kind: 'follow', target: 'alice', maxSizeUsd: null }, ctx);
     expect(replies[0]?.text).toMatch(/not a 0x address/);
     expect(repo.subscriptions).toHaveLength(0);
   });
@@ -92,7 +92,7 @@ describe('handleCommand /follow', () => {
   it('normalizes the whale address to lowercase', async () => {
     const { repo, ctx } = setup();
     const upper = '0xABCD000000000000000000000000000000000003';
-    await handleCommand({ kind: 'follow', target: upper }, ctx);
+    await handleCommand({ kind: 'follow', target: upper, maxSizeUsd: null }, ctx);
     expect(repo.whales.values().next().value?.address).toBe(upper.toLowerCase());
   });
 });
@@ -100,7 +100,7 @@ describe('handleCommand /follow', () => {
 describe('handleCommand /unfollow', () => {
   it('removes a subscription and writes audit', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     const replies = await handleCommand({ kind: 'unfollow', target: WHALE }, ctx);
     expect(replies[0]?.text).toMatch(/Stopped mirroring/);
     expect(repo.subscriptions).toHaveLength(0);
@@ -117,8 +117,8 @@ describe('handleCommand /unfollow', () => {
 describe('handleCommand /pause /resume', () => {
   it('pauses all subscriptions and counts them', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
-    await handleCommand({ kind: 'follow', target: WHALE2 }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE2, maxSizeUsd: null }, ctx);
     const replies = await handleCommand({ kind: 'pause' }, ctx);
     expect(replies[0]?.text).toBe('Paused 2 subscriptions.');
     expect(repo.subscriptions.every((s) => s.paused)).toBe(true);
@@ -127,7 +127,7 @@ describe('handleCommand /pause /resume', () => {
 
   it('resume only counts subs that were actually paused', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'pause' }, ctx);
     const replies = await handleCommand({ kind: 'resume' }, ctx);
     expect(replies[0]?.text).toBe('Resumed 1 subscriptions.');
@@ -165,7 +165,7 @@ describe('handleCommand /unknown', () => {
 describe('mutation handlers always write audit when they mutate', () => {
   it('every successful mutation appends one audit entry', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'kill' }, ctx);
     await handleCommand({ kind: 'pause' }, ctx);
     await handleCommand({ kind: 'unfollow', target: WHALE }, ctx);
@@ -181,7 +181,7 @@ describe('mutation handlers always write audit when they mutate', () => {
 describe('handleCommand /tp /sl', () => {
   it('sets tp on an existing subscription and writes audit', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
     expect(replies[0]?.text).toMatch(/TP set to 500 bps/);
     expect(repo.subscriptions[0]?.tpBps).toBe(500);
@@ -190,7 +190,7 @@ describe('handleCommand /tp /sl', () => {
 
   it('sets sl independently of tp', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
     await handleCommand({ kind: 'sl', target: WHALE, offsetBps: 200 }, ctx);
     expect(repo.subscriptions[0]?.tpBps).toBe(500);
@@ -199,7 +199,7 @@ describe('handleCommand /tp /sl', () => {
 
   it('clears tp when offsetBps is null', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
     const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: null }, ctx);
     expect(replies[0]?.text).toMatch(/TP cleared/);
@@ -222,7 +222,7 @@ describe('handleCommand /tp /sl', () => {
 
   it('no-ops when value already equals current', async () => {
     const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE }, ctx);
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
     const before = repo.audit.length;
     const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
