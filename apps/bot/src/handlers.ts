@@ -263,7 +263,14 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
 
   return [
     {
-      text: `Welcome back. Wallet ${fmtAddr(user.mainWallet)} connected. Use /help to see commands.`,
+      text: [
+        `👋 Welcome back!`,
+        ``,
+        `Wallet: \`${user.mainWallet}\``,
+        `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}`,
+        ``,
+        `Tap /whales to browse traders, /mirrors to see what you're copying, or /help for everything.`,
+      ].join('\n'),
     },
   ];
 }
@@ -297,11 +304,18 @@ function helpReply(): Reply {
 async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  const active = subs.filter((s) => !s.paused).length;
   const lines = [
-    `Wallet: ${fmtAddr(user.mainWallet)}`,
-    `Agent: ${fmtAddr(user.agentAddress)}`,
-    `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}`,
-    `Kill switch: ${user.killSwitch ? 'ON' : 'off'}`,
+    `👛 Your WhalePod account`,
+    ``,
+    `Wallet:  \`${user.mainWallet}\``,
+    `Agent:   \`${user.agentAddress}\`  (signs trades on your behalf)`,
+    `Builder fee: ${fmtFeeBps(user.currentFeeTenthsBp)}  (charged by Hyperliquid per fill)`,
+    `Kill switch: ${user.killSwitch ? '🛑 ON — mirrors paused' : '✅ off'}`,
+    `Mirrors: ${active.toString()} active / ${subs.length.toString()} total`,
+    ``,
+    `Use /mirrors to manage them, /disconnect to revoke this wallet.`,
   ];
   return [{ text: lines.join('\n') }];
 }
@@ -329,22 +343,28 @@ async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
     return [
       {
         text: [
-          '🐋 No featured whales yet.',
+          '🐋 No featured whales right now.',
           '',
-          'You can still mirror any Hyperliquid address directly:',
-          '`/follow 0x…`',
+          'You can still mirror any Hyperliquid address directly. Just send:',
+          '/follow 0x… 50    (50 = max $50 per trade)',
         ].join('\n'),
       },
     ];
   }
-  const lines = ['🐋 Featured whales — tap a command to mirror:', ''];
+  const lines = [
+    '🐋 Featured whales',
+    '',
+    'Tap a /follow line to mirror that trader. You can add a per-trade size cap, e.g. /follow 0x… 25 to risk at most $25 per copied trade. Default cap is $100.',
+    '',
+  ];
   whales.forEach((w, i) => {
-    const label = w.alias && w.alias.length > 0 ? w.alias : fmtAddr(w.address);
+    const label = w.alias && w.alias.length > 0 ? w.alias : 'Whale';
     lines.push(`${(i + 1).toString()}. ${label}`);
+    lines.push(`   \`${w.address}\``);
     lines.push(`   /follow ${w.address}`);
+    lines.push('');
   });
-  lines.push('');
-  lines.push('Use /unfollow <address> to stop mirroring. /leaderboard ranks live performers.');
+  lines.push('After following, use /mirrors to see your list, /setcap to change the size, /unfollow to stop.');
   return [{ text: lines.join('\n') }];
 }
 
@@ -405,7 +425,7 @@ async function handleFollow(
   const whale = await ctx.repo.upsertWhaleByAddress(address);
   const existing = await ctx.repo.listSubscriptions(user.id);
   if (existing.some((s) => s.whaleId === whale.id)) {
-    return [{ text: `Already following ${fmtAddr(whale.address)}. Use /setcap ${whale.address} <usd> to change size.` }];
+    return [{ text: `You're already mirroring \`${whale.address}\`. Use /setcap ${whale.address} <usd> to change the size, or /unfollow ${whale.address} to stop.` }];
   }
   const capStr = maxSizeUsd !== null ? maxSizeUsd.toFixed(2) : undefined;
   const sub = await ctx.repo.subscribe(user.id, whale.id, capStr);
@@ -419,11 +439,17 @@ async function handleFollow(
   return [
     {
       text: [
-        `✅ Mirroring ${fmtAddr(whale.address)}.`,
-        `Max size per trade: $${cap.toFixed(2)}`,
-        '',
-        `Change later with /setcap ${whale.address} <usd>.`,
-        'See all active mirrors with /mirrors.',
+        `✅ You're now mirroring this whale:`,
+        `\`${whale.address}\``,
+        ``,
+        `Per-trade size cap: $${cap.toFixed(2)}`,
+        `(Every time the whale opens a trade, WhalePod copies it on your wallet, sized so your notional risk on that trade stays at or below this cap.)`,
+        ``,
+        `• Change the cap:   /setcap ${whale.address} <usd>`,
+        `• Set take-profit:  /tp ${whale.address} <bps>`,
+        `• Set stop-loss:    /sl ${whale.address} <bps>`,
+        `• Stop mirroring:   /unfollow ${whale.address}`,
+        `• See everything:   /mirrors`,
       ].join('\n'),
     },
   ];
@@ -456,7 +482,7 @@ async function handleSetCap(
     before: { maxSizeUsd: before },
     after: { maxSizeUsd: capStr },
   });
-  return [{ text: `Size cap for ${fmtAddr(whale.address)} set to $${maxSizeUsd.toFixed(2)}.` }];
+  return [{ text: `✅ Size cap for whale \`${whale.address}\` set to $${maxSizeUsd.toFixed(2)} per trade.` }];
 }
 
 async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
@@ -474,20 +500,35 @@ async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
       },
     ];
   }
-  const lines = [`🔁 Active mirrors (${subs.length.toString()}):`, ''];
-  for (const s of subs) {
+  const lines = [
+    `🔁 Active mirrors (${subs.length.toString()})`,
+    ``,
+    `Each line shows: whale address — per-trade size cap — status.`,
+    `The cap is the max USD notional WhalePod will copy on a single trade.`,
+    ``,
+  ];
+  for (let i = 0; i < subs.length; i++) {
+    const s = subs[i];
+    if (!s) continue;
     const whale = await ctx.repo.getWhaleById(s.whaleId);
     const addr = whale?.address ?? s.whaleId;
-    const alias = whale?.alias ? ` (${whale.alias})` : '';
+    const alias = whale?.alias && whale.alias.length > 0 ? whale.alias : 'Whale';
     const cap = Number(s.maxSizeUsd);
     const status = s.paused || user.killSwitch ? '⏸ paused' : '▶ active';
-    const tp = s.tpBps !== null ? `TP ${s.tpBps.toString()}bps` : 'TP off';
-    const sl = s.slBps !== null ? `SL ${s.slBps.toString()}bps` : 'SL off';
-    lines.push(`• ${fmtAddr(addr)}${alias} — $${cap.toFixed(2)} — ${status}`);
-    lines.push(`   ${tp} | ${sl}`);
+    const tp = s.tpBps !== null ? `TP +${(s.tpBps / 100).toFixed(2)}%` : 'TP off';
+    const sl = s.slBps !== null ? `SL -${(s.slBps / 100).toFixed(2)}%` : 'SL off';
+    lines.push(`${(i + 1).toString()}. ${alias}`);
+    lines.push(`   \`${addr}\``);
+    lines.push(`   Cap: $${cap.toFixed(2)} per trade   •   ${status}`);
+    lines.push(`   ${tp}  |  ${sl}`);
+    lines.push('');
   }
-  lines.push('');
-  lines.push('Commands: /setcap <addr> <usd> | /tp <addr> <bps|off> | /sl <addr> <bps|off> | /unfollow <addr>');
+  lines.push('Quick commands (copy the address above):');
+  lines.push('  /setcap <addr> <usd>   change per-trade size cap');
+  lines.push('  /tp <addr> <bps|off>   set take-profit  (100 bps = 1%)');
+  lines.push('  /sl <addr> <bps|off>   set stop-loss');
+  lines.push('  /unfollow <addr>       stop mirroring this whale');
+  lines.push('  /pause  /resume        toggle ALL mirrors');
   return [{ text: lines.join('\n') }];
 }
 
@@ -507,7 +548,7 @@ async function handleUnfollow(target: string, ctx: HandlerCtx): Promise<Reply[]>
     action: 'unsubscribe',
     target: `whale:${whale.address}`,
   });
-  return [{ text: `Stopped mirroring ${fmtAddr(whale.address)}.` }];
+  return [{ text: `✅ Stopped mirroring whale \`${whale.address}\`.\n\nAny open positions you copied stay on your account — close them manually on Hyperliquid if you don't want them.` }];
 }
 
 async function handleSetPaused(paused: boolean, ctx: HandlerCtx): Promise<Reply[]> {

@@ -69,7 +69,7 @@ describe('handleCommand /follow', () => {
   it('subscribes a new whale and writes audit', async () => {
     const { repo, ctx } = setup();
     const replies = await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
-    expect(replies[0]?.text).toMatch(/Mirroring/);
+    expect(replies[0]?.text).toMatch(/mirroring/i);
     expect(repo.subscriptions).toHaveLength(1);
     expect(repo.audit.at(-1)?.action).toBe('subscribe');
   });
@@ -78,7 +78,7 @@ describe('handleCommand /follow', () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     const replies = await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
-    expect(replies[0]?.text).toMatch(/Already following/);
+    expect(replies[0]?.text).toMatch(/already mirroring/i);
     expect(repo.subscriptions).toHaveLength(1);
   });
 
