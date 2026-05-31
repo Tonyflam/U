@@ -7,20 +7,25 @@ export const runtime = 'nodejs';
 async function notifyBot(tgUserId: string | undefined): Promise<void> {
   if (!tgUserId) return;
   const token = process.env['TELEGRAM_BOT_TOKEN'];
-  if (!token) return;
+  if (!token) {
+    console.warn('telegram notify skipped: TELEGRAM_BOT_TOKEN not set');
+    return;
+  }
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: tgUserId,
         text:
-          '✅ Wallet connected & authorized.\n\nYou\'re ready to mirror whales. Try /whales to browse, or /wallet to see your setup.',
-        parse_mode: 'Markdown',
+          "✅ Wallet connected & authorized.\n\nYou're ready to mirror whales. Try /whales to browse, or /wallet to see your setup.",
       }),
     });
+    if (!res.ok) {
+      console.error('telegram notify failed', res.status, await res.text().catch(() => ''));
+    }
   } catch (e) {
-    console.error('telegram notify failed', e);
+    console.error('telegram notify error', e);
   }
 }
 
@@ -37,7 +42,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       body && typeof body === 'object' && 'tgUserId' in body
         ? String((body as { tgUserId: unknown }).tgUserId)
         : undefined;
-    void notifyBot(tgUserId);
+    await notifyBot(tgUserId);
     return NextResponse.json(out);
   } catch (err) {
     if (err instanceof OnboardError) {

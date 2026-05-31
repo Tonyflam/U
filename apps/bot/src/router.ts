@@ -21,6 +21,7 @@ export type Command =
   | { readonly kind: 'share' }
   | { readonly kind: 'pnl' }
   | { readonly kind: 'leaderboard' }
+  | { readonly kind: 'whales' }
   | { readonly kind: 'notify'; readonly action: 'show' | 'on' | 'off' | 'compact' | 'full' }
   | { readonly kind: 'unknown'; readonly raw: string };
 
@@ -63,6 +64,9 @@ export function parseCommand(text: string): Command | null {
     case 'leaderboard':
     case 'lb':
       return { kind: 'leaderboard' };
+    case 'whales':
+    case 'browse':
+      return { kind: 'whales' };
     case 'notify': {
       if (!args) return { kind: 'notify', action: 'show' };
       const sub = args.toLowerCase();

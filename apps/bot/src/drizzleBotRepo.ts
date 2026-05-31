@@ -76,6 +76,20 @@ export class DrizzleBotRepo implements BotRepo {
     return row;
   }
 
+  async listFeaturedWhales(limit: number): Promise<readonly Whale[]> {
+    const rows = await this.db
+      .select({
+        id: schema.whales.id,
+        address: schema.whales.address,
+        alias: schema.whales.alias,
+      })
+      .from(schema.whales)
+      .where(eq(schema.whales.isFeatured, true))
+      .orderBy(sql`${schema.whales.lastFillAt} DESC NULLS LAST`)
+      .limit(limit);
+    return rows;
+  }
+
   async listSubscriptions(userId: string): Promise<readonly Subscription[]> {
     const rows = await this.db
       .select({

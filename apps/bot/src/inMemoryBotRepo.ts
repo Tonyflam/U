@@ -80,6 +80,38 @@ export class InMemoryBotRepo implements BotRepo {
     return whale;
   }
 
+  readonly featuredWhaleIds = new Set<string>();
+
+  seedFeaturedWhale(address: string, alias: string | null = null): Whale {
+    const key = address.toLowerCase();
+    const existing = this.whalesByAddress.get(key);
+    let whale: Whale;
+    if (existing) {
+      const found = this.whales.get(existing);
+      whale = found ?? { id: existing, address: key, alias };
+      if (alias !== null) whale = { ...whale, alias };
+      this.whales.set(whale.id, whale);
+    } else {
+      const id = uid('w');
+      whale = { id, address: key, alias };
+      this.whales.set(id, whale);
+      this.whalesByAddress.set(key, id);
+    }
+    this.featuredWhaleIds.add(whale.id);
+    return whale;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async listFeaturedWhales(limit: number): Promise<readonly Whale[]> {
+    const out: Whale[] = [];
+    for (const id of this.featuredWhaleIds) {
+      const w = this.whales.get(id);
+      if (w) out.push(w);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async listSubscriptions(userId: string): Promise<readonly Subscription[]> {
     return this.subscriptions.filter((s) => s.userId === userId);

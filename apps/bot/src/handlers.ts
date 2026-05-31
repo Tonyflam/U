@@ -51,6 +51,8 @@ export interface BotRepo {
   getWhaleByAddress(address: string): Promise<Whale | null>;
   upsertWhaleByAddress(address: string): Promise<Whale>;
   listSubscriptions(userId: string): Promise<readonly Subscription[]>;
+  /** Featured whales (curated). Ordered by most recent fill first. */
+  listFeaturedWhales(limit: number): Promise<readonly Whale[]>;
   subscribe(userId: string, whaleId: string): Promise<Subscription>;
   unsubscribe(userId: string, whaleId: string): Promise<boolean>;
   setAllSubscriptionsPaused(userId: string, paused: boolean): Promise<number>;
@@ -185,6 +187,8 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handlePnl(ctx);
     case 'leaderboard':
       return handleLeaderboard(ctx);
+    case 'whales':
+      return handleWhales(ctx);
     case 'notify':
       return handleNotify(command.action, ctx);
     case 'unknown':
@@ -270,6 +274,7 @@ function helpReply(): Reply {
       '/share — get your invite link',
       '/pnl — show realized + unrealized PnL across your mirrors',
       '/leaderboard — top traders by realized PnL',
+      '/whales — browse curated whales to mirror',
       '/notify on|off — enable or mute mirror-fill push notifications',
       '/notify compact|full — switch between one-line and detailed format',
     ].join('\n'),
@@ -303,6 +308,31 @@ async function handleLeaderboard(ctx: HandlerCtx): Promise<Reply[]> {
   const result = computeLeaderboard(entries, { topN: 10 });
   const reply = renderLeaderboard(result, user ? { viewerUserId: user.id } : {});
   return [reply];
+}
+
+async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
+  const whales = await ctx.repo.listFeaturedWhales(10);
+  if (whales.length === 0) {
+    return [
+      {
+        text: [
+          '🐋 No featured whales yet.',
+          '',
+          'You can still mirror any Hyperliquid address directly:',
+          '`/follow 0x…`',
+        ].join('\n'),
+      },
+    ];
+  }
+  const lines = ['🐋 Featured whales — tap a command to mirror:', ''];
+  whales.forEach((w, i) => {
+    const label = w.alias && w.alias.length > 0 ? w.alias : fmtAddr(w.address);
+    lines.push(`${(i + 1).toString()}. ${label}`);
+    lines.push(`   /follow ${w.address}`);
+  });
+  lines.push('');
+  lines.push('Use /unfollow <address> to stop mirroring. /leaderboard ranks live performers.');
+  return [{ text: lines.join('\n') }];
 }
 
 async function handleNotify(
