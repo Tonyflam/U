@@ -17,6 +17,11 @@ export const revalidate = 300;
 const W = 1200;
 const H = 630;
 
+const BG = '#05070d';
+const FG = '#f8fafc';
+const MUTED = '#64748b';
+const SUBTLE = 'rgba(148,163,184,0.12)';
+
 function fmtSignedUsd(n: number): string {
   const sign = n > 0 ? '+' : n < 0 ? '−' : '';
   const abs = Math.abs(n);
@@ -28,7 +33,6 @@ function fmtSignedUsd(n: number): string {
 }
 
 function fmtPx(n: number): string {
-  // Adaptive precision: small prices (alt-coins) keep more decimals.
   const digits = n >= 1000 ? 2 : n >= 10 ? 3 : n >= 1 ? 4 : 6;
   return n.toLocaleString('en-US', {
     minimumFractionDigits: digits,
@@ -50,9 +54,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const fonts = await loadOgFonts();
 
-  if (!payload) {
-    return renderNeutral(url, fonts);
-  }
+  if (!payload) return renderNeutral(fonts);
 
   const pnlUsd = Number(payload.pnlUsd);
   const pnlPct = Number(payload.pnlPct);
@@ -75,6 +77,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const sideLabel = payload.side === 'long' ? 'LONG' : 'SHORT';
   const sideColor = payload.side === 'long' ? '#5eead4' : '#fb7185';
+  const sideBorder = payload.side === 'long' ? 'rgba(94,234,212,0.40)' : 'rgba(251,113,133,0.40)';
   const inviteUrl = `t.me/whalepod_bot?start=ref_${payload.code}`;
 
   return new ImageResponse(
@@ -84,133 +87,129 @@ export async function GET(req: Request): Promise<Response> {
           width: W,
           height: H,
           display: 'flex',
+          flexDirection: 'column',
           position: 'relative',
           fontFamily: 'Inter',
-          color: '#f8fafc',
-          background: '#05070d',
+          color: FG,
+          background: BG,
+          padding: '56px 72px',
         }}
       >
-        <img
-          src={`${url.protocol}//${url.host}/pnl-share-card.png`}
-          alt=""
-          width={W}
-          height={H}
-          style={{ position: 'absolute', inset: 0, width: W, height: H }}
-        />
-
+        {/* Accent glow behind body */}
         <div
           style={{
             position: 'absolute',
-            top: 120,
-            left: -120,
-            width: 720,
-            height: 420,
+            top: 140,
+            left: -160,
+            width: 760,
+            height: 380,
             background: accent,
-            opacity: 0.1,
-            filter: 'blur(120px)',
+            opacity: 0.09,
+            filter: 'blur(140px)',
             borderRadius: 9999,
+            display: 'flex',
           }}
         />
 
-        {/* Top-left status pill */}
+        {/* Top row: status pill + coin/side chips */}
         <div
           style={{
-            position: 'absolute',
-            top: 56,
-            left: 64,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
-            padding: '10px 18px 10px 14px',
-            borderRadius: 999,
-            background: accentSoft,
-            border: `1px solid ${accentBorder}`,
-            color: accent,
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: 1.6,
-            textTransform: 'uppercase',
-          }}
-        >
-          <span style={{ width: 10, height: 10, borderRadius: 999, background: accent }} />
-          Trade Closed
-        </div>
-
-        {/* Top-right: coin + side chip pair */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 56,
-            right: 64,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
+            justifyContent: 'space-between',
+            width: '100%',
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '10px 18px',
+              gap: 10,
+              padding: '8px 16px 8px 12px',
               borderRadius: 999,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              color: '#f1f5f9',
-              fontSize: 24,
+              background: accentSoft,
+              border: `1px solid ${accentBorder}`,
+              color: accent,
+              fontSize: 18,
               fontWeight: 700,
-              letterSpacing: 1.2,
+              letterSpacing: 1.6,
+              textTransform: 'uppercase',
             }}
           >
-            {payload.coin}-PERP
+            <span
+              style={{
+                display: 'flex',
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: accent,
+              }}
+            />
+            Trade Closed
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '10px 18px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.02)',
-              border: `1px solid ${sideColor === '#5eead4' ? 'rgba(94,234,212,0.40)' : 'rgba(251,113,133,0.40)'}`,
-              color: sideColor,
-              fontSize: 22,
-              fontWeight: 800,
-              letterSpacing: 2,
-            }}
-          >
-            {sideLabel}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                color: '#e2e8f0',
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: 1.2,
+              }}
+            >
+              {payload.coin}-PERP
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.02)',
+                border: `1px solid ${sideBorder}`,
+                color: sideColor,
+                fontSize: 18,
+                fontWeight: 800,
+                letterSpacing: 2,
+              }}
+            >
+              {sideLabel}
+            </div>
           </div>
         </div>
 
-        {/* Body: PnL headline */}
+        {/* Body: PnL section */}
         <div
           style={{
-            position: 'absolute',
-            left: 64,
-            top: 158,
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
-            maxWidth: 1072,
+            marginTop: 64,
           }}
         >
           <div
             style={{
-              fontSize: 22,
+              display: 'flex',
+              fontSize: 18,
               fontWeight: 700,
               letterSpacing: 4,
-              color: '#64748b',
+              color: MUTED,
               textTransform: 'uppercase',
             }}
           >
             Realized PnL
           </div>
-
           <div
             style={{
               display: 'flex',
               alignItems: 'baseline',
-              gap: 24,
-              marginTop: 4,
+              gap: 20,
+              marginTop: 14,
               color: accent,
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -219,9 +218,9 @@ export async function GET(req: Request): Promise<Response> {
               style={{
                 display: 'flex',
                 fontWeight: 900,
-                fontSize: 168,
+                fontSize: 124,
                 lineHeight: 1.0,
-                letterSpacing: -4,
+                letterSpacing: -3,
               }}
             >
               {fmtSignedUsd(pnlUsd)}
@@ -230,55 +229,55 @@ export async function GET(req: Request): Promise<Response> {
               style={{
                 display: 'flex',
                 fontWeight: 700,
-                fontSize: 64,
+                fontSize: 48,
                 lineHeight: 1.0,
-                letterSpacing: -1,
+                letterSpacing: -0.5,
                 opacity: 0.85,
               }}
             >
               {fmtSignedPct(pnlPct)}
             </div>
           </div>
-
-          {/* Trade detail strip */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 48,
-              marginTop: 36,
-              paddingTop: 24,
-              borderTop: '1px solid rgba(148,163,184,0.12)',
-            }}
-          >
-            <Stat label="Size" value={payload.sz} suffix={payload.coin} />
-            <Stat label="Entry" value={`$${fmtPx(entryPx)}`} />
-            <Stat label="Exit" value={`$${fmtPx(exitPx)}`} />
-            <Stat
-              label="Mirrored"
-              value={payload.whaleAlias ?? 'whale'}
-              mono={payload.whaleAlias === null}
-            />
-          </div>
         </div>
 
-        {/* Bottom-right: invite */}
+        {/* Stat strip — pushed toward the bottom by marginTop:auto */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 56,
+            marginTop: 'auto',
+            paddingTop: 28,
+            borderTop: `1px solid ${SUBTLE}`,
+          }}
+        >
+          <Stat label="Size" value={payload.sz} suffix={payload.coin} />
+          <Stat label="Entry → Exit" value={`$${fmtPx(entryPx)} → $${fmtPx(exitPx)}`} />
+          <Stat
+            label="Mirrored"
+            value={payload.whaleAlias ?? 'whale'}
+            mono={payload.whaleAlias === null}
+          />
+        </div>
+
+        {/* Bottom-right invite */}
         <div
           style={{
             position: 'absolute',
-            right: 64,
+            right: 72,
             bottom: 56,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
-            gap: 2,
+            gap: 4,
           }}
         >
           <div
             style={{
-              fontSize: 16,
+              display: 'flex',
+              fontSize: 13,
               fontWeight: 700,
               letterSpacing: 3,
-              color: '#64748b',
+              color: MUTED,
               textTransform: 'uppercase',
             }}
           >
@@ -286,9 +285,10 @@ export async function GET(req: Request): Promise<Response> {
           </div>
           <div
             style={{
-              fontSize: 30,
+              display: 'flex',
+              fontSize: 22,
               fontWeight: 700,
-              color: '#f8fafc',
+              color: FG,
               letterSpacing: -0.2,
             }}
           >
@@ -317,13 +317,14 @@ function Stat({
   mono?: boolean;
 }): JSX.Element {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div
         style={{
-          fontSize: 16,
+          display: 'flex',
+          fontSize: 13,
           fontWeight: 700,
           letterSpacing: 2.4,
-          color: '#64748b',
+          color: MUTED,
           textTransform: 'uppercase',
         }}
       >
@@ -334,23 +335,25 @@ function Stat({
           display: 'flex',
           alignItems: 'baseline',
           gap: 8,
-          fontSize: 34,
+          fontSize: 28,
           fontWeight: 700,
-          color: '#f1f5f9',
-          letterSpacing: -0.4,
+          color: '#e2e8f0',
+          letterSpacing: -0.3,
           fontVariantNumeric: mono ? 'normal' : 'tabular-nums',
         }}
       >
-        <span>{value}</span>
+        <span style={{ display: 'flex' }}>{value}</span>
         {suffix ? (
-          <span style={{ fontSize: 20, color: '#64748b', fontWeight: 600 }}>{suffix}</span>
+          <span style={{ display: 'flex', fontSize: 18, color: MUTED, fontWeight: 600 }}>
+            {suffix}
+          </span>
         ) : null}
       </div>
     </div>
   );
 }
 
-function renderNeutral(url: URL, fonts: Awaited<ReturnType<typeof loadOgFonts>>): ImageResponse {
+function renderNeutral(fonts: Awaited<ReturnType<typeof loadOgFonts>>): ImageResponse {
   return new ImageResponse(
     (
       <div
@@ -358,53 +361,38 @@ function renderNeutral(url: URL, fonts: Awaited<ReturnType<typeof loadOgFonts>>)
           width: W,
           height: H,
           display: 'flex',
-          position: 'relative',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          padding: '56px 72px',
           fontFamily: 'Inter',
-          color: '#f8fafc',
-          background: '#05070d',
+          color: FG,
+          background: BG,
         }}
       >
-        <img
-          src={`${url.protocol}//${url.host}/pnl-share-card.png`}
-          alt=""
-          width={W}
-          height={H}
-          style={{ position: 'absolute', inset: 0, width: W, height: H }}
-        />
         <div
           style={{
-            position: 'absolute',
-            left: 64,
-            top: 200,
             display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            maxWidth: 1072,
+            fontSize: 18,
+            fontWeight: 700,
+            letterSpacing: 4,
+            color: MUTED,
+            textTransform: 'uppercase',
           }}
         >
-          <div
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: 4,
-              color: '#64748b',
-              textTransform: 'uppercase',
-            }}
-          >
-            Mirror top traders from Telegram
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              fontWeight: 900,
-              fontSize: 116,
-              lineHeight: 1.0,
-              letterSpacing: -3,
-              color: '#5eead4',
-            }}
-          >
-            Copy whales{'\n'}on autopilot
-          </div>
+          Mirror top traders from Telegram
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            fontWeight: 900,
+            fontSize: 108,
+            lineHeight: 1.05,
+            letterSpacing: -3,
+            color: '#5eead4',
+            marginTop: 12,
+          }}
+        >
+          Copy whales on autopilot
         </div>
       </div>
     ),

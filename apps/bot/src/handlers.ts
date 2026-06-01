@@ -139,6 +139,17 @@ export interface HandlerCtx {
    * the bot still sends close replies but skips the "Share this trade" button.
    */
   readonly shareTokenSecret?: string;
+  /**
+   * Optional sink to block further mirror orders on a coin right after
+   * the user manually closes it, so the next whale exit fill doesn't
+   * reopen an opposite-direction position. Block auto-expires.
+   */
+  readonly mirrorBlocks?: MirrorBlockSink;
+}
+
+/** Records that a (user, coin) pair should not be mirrored for a TTL window. */
+export interface MirrorBlockSink {
+  block(userId: string, coin: string): Promise<void>;
 }
 
 /**
@@ -311,6 +322,21 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
     return [{ text: `You have no open ${outcome.coin} position.` }];
   }
 
+  // Suppress future mirror orders on each successfully-closed coin so the
+  // whale's eventual exit fill doesn't open an opposite-direction position.
+  // TTL is owned by the sink (~24h by default).
+  if (ctx.mirrorBlocks) {
+    for (const r of outcome.results) {
+      if (r.kind === 'submitted') {
+        try {
+          await ctx.mirrorBlocks.block(user.id, r.coin);
+        } catch {
+          // Non-fatal — block is a defense-in-depth layer.
+        }
+      }
+    }
+  }
+
   const lines = ['Close requests submitted:', ''];
   const buttons: { readonly label: string; readonly url: string }[][] = [];
 
@@ -375,10 +401,17 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
         const pnl = Number(r.trade.pnlUsd);
         const emoji = pnl > 0 ? '🟢' : pnl < 0 ? '🔴' : '⚪';
         const pitch = `Closed ${r.trade.side} ${r.coin} on WhalePod.`;
+        // Row 1: coin label header (text button that opens landing page with
+        // its own share sheet). Row 2: explicit TG + X buttons side by side.
+        const xText = `${emoji} Closed ${r.trade.side.toUpperCase()} ${r.coin} on @whalepod_bot`;
         buttons.push([
           {
-            label: `${emoji} Share ${r.coin} trade`,
+            label: `${emoji} ${r.coin} — share on Telegram`,
             url: `https://t.me/share/url?url=${encodeURIComponent(tradeUrl)}&text=${encodeURIComponent(pitch)}`,
+          },
+          {
+            label: `𝕏 ${r.coin}`,
+            url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(tradeUrl)}`,
           },
         ]);
       } catch {

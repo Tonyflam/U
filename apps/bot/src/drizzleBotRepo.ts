@@ -428,16 +428,18 @@ export class DrizzleBotRepo implements BotRepo {
     });
   }
 
-  // Leaderboard prefers true closed-leg P&L from `realized_pnl_usd` when the
-  // fill has it; for legacy rows where it is NULL we fall back to a sign-
-  // adjusted notional proxy so older mirrors still contribute.
+  // Leaderboard sums realized closed-leg P&L only. Open legs (where
+  // realized_pnl_usd IS NULL) contribute zero — they are unrealized.
+  // An earlier version proxied cash flow (signed notional) for legacy
+  // rows; that conflated cash flow with profit and inflated/deflated
+  // scores. We now require an explicit realized value.
   async listLeaderboard(limit: number): Promise<readonly LeaderboardEntry[]> {
     const rows = await this.db
       .select({
         userId: schema.fills.userId,
         tgUsername: schema.users.tgUsername,
         mainWallet: schema.users.mainWallet,
-        net: sql<string>`SUM(COALESCE(${schema.fills.realizedPnlUsd}, CASE WHEN ${schema.fills.side} = 'B' THEN -${schema.fills.notionalUsd} ELSE ${schema.fills.notionalUsd} END))`,
+        net: sql<string>`SUM(COALESCE(${schema.fills.realizedPnlUsd}, 0))`,
       })
       .from(schema.fills)
       .innerJoin(schema.users, eq(schema.users.id, schema.fills.userId))

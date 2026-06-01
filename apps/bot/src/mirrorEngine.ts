@@ -59,6 +59,12 @@ export interface MirrorEngineDeps {
   readonly assets: AssetIndexResolver;
   readonly builderAddress: Address;
   /**
+   * Optional per-(user, coin) mirror suppression. Set by /close so the
+   * whale's eventual exit fill doesn't open an opposite-direction position
+   * for a user who already manually closed.
+   */
+  readonly mirrorBlocks?: { isBlocked(userId: string, coin: string): Promise<boolean> };
+  /**
    * Floor for derived sz before we refuse the order. Default 0 — meaning we
    * refuse if rounding nukes the size. Per-asset min-size lives in transport.
    */
@@ -80,7 +86,8 @@ export type SkipReason =
   | 'asset_unknown'
   | 'fee_exceeds_cap'
   | 'size_zero'
-  | 'invalid_price';
+  | 'invalid_price'
+  | 'user_closed_recently';
 
 export type MirrorDecision =
   | { readonly kind: 'skip'; readonly reason: SkipReason; readonly detail?: string }
@@ -128,6 +135,10 @@ export async function evaluateMirror(
 
   const asset = deps.assets.resolve(intent.coin);
   if (asset === undefined) return { kind: 'skip', reason: 'asset_unknown' };
+
+  if (deps.mirrorBlocks && (await deps.mirrorBlocks.isBlocked(user.id, intent.coin))) {
+    return { kind: 'skip', reason: 'user_closed_recently' };
+  }
 
   const px = Number(intent.px);
   if (!Number.isFinite(px) || px <= 0) return { kind: 'skip', reason: 'invalid_price' };

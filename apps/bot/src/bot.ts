@@ -21,7 +21,15 @@
  */
 import { Bot, type Context } from 'grammy';
 import type { Logger } from 'pino';
-import { handleCommand, type BotRepo, type PositionCloseFn, type Reply } from './handlers.js';
+import {
+  handleCommand,
+  type BotRepo,
+  type MirrorBlockSink,
+  type PositionCloseFn,
+  type Reply,
+} from './handlers.js';
+import type { MarkPriceFn } from './pnl.js';
+import { parseCommand } from './router.js';
 import type { MarkPriceFn } from './pnl.js';
 import { parseCommand } from './router.js';
 
@@ -37,6 +45,8 @@ export interface BotDeps {
   readonly closer?: PositionCloseFn;
   /** Optional HMAC secret for minting trade-share tokens. */
   readonly shareTokenSecret?: string;
+  /** Optional sink for blocking mirror orders on coins the user just closed. */
+  readonly mirrorBlocks?: MirrorBlockSink;
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -78,6 +88,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       ...(deps.markPrice ? { markPrice: deps.markPrice } : {}),
       ...(deps.closer ? { closer: deps.closer } : {}),
       ...(deps.shareTokenSecret ? { shareTokenSecret: deps.shareTokenSecret } : {}),
+      ...(deps.mirrorBlocks ? { mirrorBlocks: deps.mirrorBlocks } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');

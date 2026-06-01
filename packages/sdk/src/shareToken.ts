@@ -5,8 +5,9 @@
  * without an extra DB read.
  *
  * Wire format: `<base64url(json)>.<base64url(sigBytes)>`
- *   - json is the canonical JSON of the payload (no whitespace, keys in
- *     declared order)
+ *   - json is canonical compact JSON using SHORT keys (declared order) so
+ *     the encoded URL stays under ~200 chars — Telegram share buttons get
+ *     ugly fast above that. Public TS API still uses readable field names.
  *   - sigBytes is `HMAC_SHA256(secret, json)`
  *
  * The secret is shared between the bot and miniapp-web via the
@@ -43,23 +44,68 @@ export interface TradeSharePayload {
   readonly ts: number;
 }
 
-const FIELD_ORDER: readonly (keyof TradeSharePayload)[] = [
-  'code',
-  'coin',
-  'side',
-  'sz',
-  'entryPx',
-  'exitPx',
-  'pnlUsd',
-  'pnlPct',
-  'whaleAlias',
-  'ts',
-];
+// Short-key encoding on the wire. Single chars where possible. `w` is
+// omitted entirely when whaleAlias is null to save ~10 chars.
+interface Wire {
+  c: string;
+  o: string;
+  s: 'L' | 'S';
+  z: string;
+  e: string;
+  x: string;
+  p: string;
+  q: string;
+  w?: string;
+  t: number;
+}
 
-function canonicalJson(p: TradeSharePayload): string {
-  const ordered: Record<string, unknown> = {};
-  for (const k of FIELD_ORDER) ordered[k] = p[k];
-  return JSON.stringify(ordered);
+function toWire(p: TradeSharePayload): Wire {
+  const w: Wire = {
+    c: p.code,
+    o: p.coin,
+    s: p.side === 'long' ? 'L' : 'S',
+    z: p.sz,
+    e: p.entryPx,
+    x: p.exitPx,
+    p: p.pnlUsd,
+    q: p.pnlPct,
+    t: p.ts,
+  };
+  if (p.whaleAlias !== null) w.w = p.whaleAlias;
+  return w;
+}
+
+function fromWire(w: Wire): TradeSharePayload {
+  return {
+    code: w.c,
+    coin: w.o,
+    side: w.s === 'L' ? 'long' : 'short',
+    sz: w.z,
+    entryPx: w.e,
+    exitPx: w.x,
+    pnlUsd: w.p,
+    pnlPct: w.q,
+    whaleAlias: w.w ?? null,
+    ts: w.t,
+  };
+}
+
+// Stable key order for canonical JSON. We build the literal explicitly so
+// runtimes that don't preserve insertion order still produce identical bytes.
+function canonicalJson(w: Wire): string {
+  const o: Record<string, unknown> = {
+    c: w.c,
+    o: w.o,
+    s: w.s,
+    z: w.z,
+    e: w.e,
+    x: w.x,
+    p: w.p,
+    q: w.q,
+  };
+  if (w.w !== undefined) o['w'] = w.w;
+  o['t'] = w.t;
+  return JSON.stringify(o);
 }
 
 function b64urlEncode(bytes: Uint8Array): string {
@@ -77,7 +123,7 @@ function b64urlDecode(s: string): Buffer {
 
 export function signTradeShare(payload: TradeSharePayload, secret: string): string {
   if (!secret) throw new Error('SHARE_TOKEN_SECRET required');
-  const json = canonicalJson(payload);
+  const json = canonicalJson(toWire(payload));
   const jsonB64 = b64urlEncode(Buffer.from(json, 'utf8'));
   const sig = createHmac('sha256', secret).update(json, 'utf8').digest();
   return `${jsonB64}.${b64urlEncode(sig)}`;
@@ -106,24 +152,24 @@ export function verifyTradeShare(token: string, secret: string): TradeSharePaylo
   } catch {
     return null;
   }
-  if (!isPayload(parsed)) return null;
-  return parsed;
+  if (!isWire(parsed)) return null;
+  return fromWire(parsed);
 }
 
-function isPayload(v: unknown): v is TradeSharePayload {
+function isWire(v: unknown): v is Wire {
   if (typeof v !== 'object' || v === null) return false;
   const o = v as Record<string, unknown>;
   return (
-    typeof o['code'] === 'string' &&
-    typeof o['coin'] === 'string' &&
-    (o['side'] === 'long' || o['side'] === 'short') &&
-    typeof o['sz'] === 'string' &&
-    typeof o['entryPx'] === 'string' &&
-    typeof o['exitPx'] === 'string' &&
-    typeof o['pnlUsd'] === 'string' &&
-    typeof o['pnlPct'] === 'string' &&
-    (o['whaleAlias'] === null || typeof o['whaleAlias'] === 'string') &&
-    typeof o['ts'] === 'number' &&
-    Number.isFinite(o['ts'])
+    typeof o['c'] === 'string' &&
+    typeof o['o'] === 'string' &&
+    (o['s'] === 'L' || o['s'] === 'S') &&
+    typeof o['z'] === 'string' &&
+    typeof o['e'] === 'string' &&
+    typeof o['x'] === 'string' &&
+    typeof o['p'] === 'string' &&
+    typeof o['q'] === 'string' &&
+    (o['w'] === undefined || typeof o['w'] === 'string') &&
+    typeof o['t'] === 'number' &&
+    Number.isFinite(o['t'])
   );
 }

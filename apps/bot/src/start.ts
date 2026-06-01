@@ -47,6 +47,7 @@ import { runNotifyConsumer } from './notifyConsumer.js';
 import { RedisFillPublisher } from './fillPublisher.js';
 import { DrizzleFillSink } from './fillSink.js';
 import { RealizedPnlFillSink } from './realizedPnlSink.js';
+import { RedisMirrorBlockStore } from './mirrorBlocks.js';
 import { captureGeo, extractCountry, extractTgUserId } from './geoCapture.js';
 import type { MirrorEngineDeps } from './mirrorEngine.js';
 import type { SubmitMirrorDeps } from './submitMirror.js';
@@ -133,6 +134,8 @@ async function main(): Promise<void> {
     return livePositionCloser(input);
   };
 
+  const mirrorBlocks = new RedisMirrorBlockStore({ redis });
+
   const bot = createBot({
     token: env.TELEGRAM_BOT_TOKEN,
     repo,
@@ -142,6 +145,7 @@ async function main(): Promise<void> {
     markPrice: markPrices.get(),
     closer: closerProxy,
     ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
+    mirrorBlocks,
   });
 
   const userSnapshots = new DrizzleUserSnapshotLookup(db);
@@ -163,6 +167,7 @@ async function main(): Promise<void> {
     subscriptions: subSnapshots,
     assets,
     builderAddress: env.BUILDER_ADDRESS.toLowerCase() as `0x${string}`,
+    mirrorBlocks,
   };
 
   const signer = new KmsAgentSigner({
