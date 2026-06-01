@@ -153,9 +153,9 @@ export interface HandlerCtx {
   readonly shortLinks?: ShortLinkStore;
 }
 
-/** Records that a (user, coin) pair should not be mirrored for a TTL window. */
+/** Records that a (user, coin, side) tuple should not be mirrored for a TTL window. */
 export interface MirrorBlockSink {
-  block(userId: string, coin: string): Promise<void>;
+  block(userId: string, coin: string, side: 'B' | 'S'): Promise<void>;
 }
 
 /** Maps a long share token to a short, opaque id stored centrally. */
@@ -333,14 +333,19 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
     return [{ text: `You have no open ${outcome.coin} position.` }];
   }
 
-  // Suppress future mirror orders on each successfully-closed coin so the
-  // whale's eventual exit fill doesn't open an opposite-direction position.
-  // TTL is owned by the sink (~24h by default).
+  // Suppress the whale's incoming exit fill on each closed coin so it
+  // doesn't reopen an opposite-direction position. The block is
+  // directional (only the side matching our close action is blocked)
+  // and short-lived, so a fresh whale entry later isn't swallowed.
   if (ctx.mirrorBlocks) {
     for (const r of outcome.results) {
       if (r.kind === 'submitted') {
         try {
-          await ctx.mirrorBlocks.block(user.id, r.coin);
+          // r.isBuy is the side of OUR close order. The whale's exit fill
+          // arrives on that same side, which is exactly what we want to
+          // suppress. A fill in the opposite side is a fresh entry and is
+          // allowed through (and clears the block).
+          await ctx.mirrorBlocks.block(user.id, r.coin, r.isBuy ? 'B' : 'S');
         } catch {
           // Non-fatal — block is a defense-in-depth layer.
         }
