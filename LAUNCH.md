@@ -51,23 +51,23 @@ The user keeps custody. Worst case (your bot is compromised) the attacker can pl
 
 Create accounts (or confirm you already have them). Keep a password manager open.
 
-| # | Service | Why | Cost month 1 |
-|---|---|---|---|
-| 1 | **Hyperliquid mainnet account** (this is your **treasury** — receives builder-code fees) | Required to register builder code | ~$2 gas |
-| 2 | **Hyperliquid testnet account** | Smoke testing | free |
-| 3 | **AWS account** (us-east-1 region) | KMS for sealing agent keys | <$5 |
-| 4 | **Neon** (or Supabase/RDS) — Postgres 15+ | App DB | $0–$19 |
-| 5 | **Upstash Redis** — global, eviction off | Streams + caches | $0–$10 |
-| 6 | **Render / Fly.io / Railway** — Node 22 runtime | Host the bot process | $7–$25 |
-| 7 | **Vercel** | Host the mini-app (WebApp) | $0 |
-| 8 | **Cloudflare** | DNS + (optional) WAF for mini-app | $0 |
-| 9 | **Telegram account** + a throwaway dev account for testing | Bot ops | $0 |
-| 10 | **X (Twitter)** brand account `@whalepod` (or your name) | Marketing | $0 (or $8 for blue) |
-| 11 | **Discord** (optional — most users don't want it; TG group is enough) | Support | $0 |
-| 12 | **Domain** — `whalepod.trade` (or your pick) | Mini-app + landing | ~$15/yr |
-| 13 | **PostHog** or **Plausible** (analytics) | Funnel tracking | $0 |
-| 14 | **Sentry** (error tracking) | Crash visibility | $0 |
-| 15 | **GitHub** | Source + Actions for CI | $0 |
+| #   | Service                                                                                  | Why                               | Cost month 1        |
+| --- | ---------------------------------------------------------------------------------------- | --------------------------------- | ------------------- |
+| 1   | **Hyperliquid mainnet account** (this is your **treasury** — receives builder-code fees) | Required to register builder code | ~$2 gas             |
+| 2   | **Hyperliquid testnet account**                                                          | Smoke testing                     | free                |
+| 3   | **AWS account** (us-east-1 region)                                                       | KMS for sealing agent keys        | <$5                 |
+| 4   | **Neon** (or Supabase/RDS) — Postgres 15+                                                | App DB                            | $0–$19              |
+| 5   | **Upstash Redis** — global, eviction off                                                 | Streams + caches                  | $0–$10              |
+| 6   | **Render / Fly.io / Railway** — Node 22 runtime                                          | Host the bot process              | $7–$25              |
+| 7   | **Vercel**                                                                               | Host the mini-app (WebApp)        | $0                  |
+| 8   | **Cloudflare**                                                                           | DNS + (optional) WAF for mini-app | $0                  |
+| 9   | **Telegram account** + a throwaway dev account for testing                               | Bot ops                           | $0                  |
+| 10  | **X (Twitter)** brand account `@whalepod` (or your name)                                 | Marketing                         | $0 (or $8 for blue) |
+| 11  | **Discord** (optional — most users don't want it; TG group is enough)                    | Support                           | $0                  |
+| 12  | **Domain** — `whalepod.trade` (or your pick)                                             | Mini-app + landing                | ~$15/yr             |
+| 13  | **PostHog** or **Plausible** (analytics)                                                 | Funnel tracking                   | $0                  |
+| 14  | **Sentry** (error tracking)                                                              | Crash visibility                  | $0                  |
+| 15  | **GitHub**                                                                               | Source + Actions for CI           | $0                  |
 
 Total month-0 fixed cost: **~$50–$100**.
 
@@ -94,11 +94,13 @@ Create an IAM user `whalepod-bot` with **only** these KMS actions on that key AR
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"],
-    "Resource": "arn:aws:kms:us-east-1:<acct>:key/<KeyId>"
-  }]
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"],
+      "Resource": "arn:aws:kms:us-east-1:<acct>:key/<KeyId>"
+    }
+  ]
 }
 ```
 
@@ -237,6 +239,7 @@ DATABASE_URL=<prod_url> npx drizzle-kit push
 ```
 
 This applies all 4 migrations:
+
 - `0000_initial.sql`
 - `0001_check_constraints.sql`
 - `0002_subscriptions_tp_sl.sql`
@@ -244,6 +247,7 @@ This applies all 4 migrations:
 - `0004_users_notify_prefs.sql`
 
 Verify in psql:
+
 ```sql
 \dt
 SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position;
@@ -293,42 +297,61 @@ If anything fails — **do not proceed**. Fix it; reread §5; rerun §6.
 
 ## 7. Deploy to production
 
-### 7.1 Render (recommended for month 1)
+### 7.1 Railway (bot + ws-consumer)
 
-1. Connect GitHub repo `Tonyflam/U`.
-2. New **Web Service**:
-   - Runtime: Node 22.
-   - Build: `npm ci && npm run build -w packages/schema && npm run build -w apps/bot`
+1. Connect GitHub repo `Tonyflam/U` to your Railway project.
+2. Create service **whalepod-bot**:
+   - Root: repo root.
+   - Runtime: Node 22 (set `engines.node` or `NIXPACKS_NODE_VERSION=22`).
+   - Build: `npm ci && npm run build -w packages/schema && npm run build -w packages/sdk && npm run build -w packages/config && npm run build -w packages/vault && npm run build -w apps/bot`
    - Start: `node apps/bot/dist/start.js`
-   - Region: `Oregon` or `Virginia` (match infra).
-   - Instance: **Starter ($7)** is fine for first 200 users. Scale to **Standard ($25)** once you hit ~50 concurrent mirror events/min.
-   - Health check: `GET /healthz` (the fastify app responds 200).
+   - Health check path: `/healthz` (fastify returns 200).
+   - Region: closest to Upstash + Neon (us-east).
    - Auto-deploy: ON for `main`.
-3. Paste all env vars from §5.1.
-4. Click **Deploy**.
-5. After it's live: in BotFather `/setdomain` → `app.whalepod.trade`. Then set webhook:
+3. Create service **whalepod-ws** (same repo):
+   - Build: `npm ci && npm run build -w packages/schema && npm run build -w packages/sdk && npm run build -w apps/ws-consumer`
+   - Start: `node apps/ws-consumer/dist/start.js`
+   - No public port; no health check.
+4. Paste env vars (both services) from §5.1 with mainnet values:
+   - `HL_NETWORK=mainnet`
+   - `HL_API_URL=https://api.hyperliquid.xyz`
+   - `HL_WS_URL=wss://api.hyperliquid.xyz/ws`
+   - `BUILDER_ADDRESS=0x1CD2B147EfE092c3BdE0B474bCE3Bd33ae3dbB37`
+   - `DATABASE_URL=…neon mainnet…`
+   - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`
+   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (bot only)
+   - `BOT_MODE=webhook` (bot only)
+   - `SHARE_TOKEN_SECRET`, `MIRROR_VAULT_KEY`, `SENTRY_DSN`
+   - Optional safety: `MIRROR_USER_ALLOWLIST=<csv of user.id UUIDs>` to gate mirroring to specific users. Leave unset to allow all.
+5. Generate a public domain for **whalepod-bot** (Settings → Networking → Generate Domain).
+6. Set the Telegram webhook:
    ```bash
-   curl -F "url=https://<render-url>/tg/webhook" \
-        https://api.telegram.org/bot<TG_BOT_TOKEN>/setWebhook
+   curl -F "url=https://<railway-bot-domain>/tg/webhook" \
+        -F "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+        https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook
    ```
-6. Sanity:
+7. Verify:
    ```bash
-   curl https://api.telegram.org/bot<TG_BOT_TOKEN>/getWebhookInfo
+   curl https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo
    ```
    `pending_update_count` should be 0 and `last_error_date` should be null.
 
 ### 7.2 Vercel (mini-app)
 
-1. New project → import `apps/web` (or wherever your mini-app lives).
-2. Build: `npm run build`. Output: `dist`.
-3. Env: `VITE_API_BASE=https://<render-url>`, `VITE_BUILDER_ADDRESS=<your treasury>`, `VITE_NETWORK=mainnet`.
-4. Domain: `app.whalepod.trade`.
+Already live at `app.whalepod.trade`. Confirm env vars match the bot:
+
+- `NEXT_PUBLIC_HL_NETWORK=mainnet`
+- `NEXT_PUBLIC_BUILDER_ADDRESS=0x1CD2B147EfE092c3BdE0B474bCE3Bd33ae3dbB37`
+- `SHARE_TOKEN_SECRET` (must match the bot exactly — HMAC for short-link tokens)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (must match the bot — short-link store is shared)
+
+After updating envs in Vercel, redeploy.
 
 ### 7.3 First-canary
 
-Onboard yourself first. Connect a real wallet with **$200 max**. Follow one well-known active whale. Let it run for 2 hours. Tail logs.
+Onboard yourself first via `/start` on @whalepod_bot. Connect a real wallet with **$200 max-size** subscription. Follow one well-known active whale. Let it run for 2 hours. Tail Railway logs and watch the HL builder dashboard for fee accrual.
 
-If 2 hours pass with mirrored fills + zero errors + fees showing up in HL builder dashboard → you're live.
+If 2 hours pass with mirrored fills + zero errors + fees showing up → remove `MIRROR_USER_ALLOWLIST` from Railway and redeploy to open up to the public.
 
 ---
 
@@ -336,20 +359,20 @@ If 2 hours pass with mirrored fills + zero errors + fees showing up in HL builde
 
 Run all of these within 1 hour of going live. Save the screenshots — you'll post them.
 
-| # | Check | How | Pass criteria |
-|---|---|---|---|
-| 1 | DB writes | `SELECT count(*) FROM users` after you onboard | ≥1 |
-| 2 | Agent key sealed | `SELECT octet_length(agent_key_ct) FROM users LIMIT 1` | >0 |
-| 3 | Audit log | `SELECT action FROM audit_log ORDER BY id DESC LIMIT 5` | shows `onboard`, `subscribe`, `mirror_submitted` |
-| 4 | Fills row written | `SELECT * FROM fills WHERE is_mirror=true LIMIT 1` (after first mirror) | 1 row, `realized_pnl_usd` NULL until close |
-| 5 | Builder fee in HL | HL UI → builder dashboard for your treasury | shows your fill |
-| 6 | TG push received | The bot DM'd you the fill | yes |
-| 7 | `/pnl` | run command | renders without error |
-| 8 | `/leaderboard` | run command | shows you (entry of 1 is fine) |
-| 9 | Mute path | `/notify off`, force a mirror, no DM arrives | yes |
-| 10 | Kill switch | `/kill`, force a whale fill, **no mirror** placed | confirm in HL |
-| 11 | Geo block | (optional) curl onboarding endpoint via a blocked-country VPN | gets refused |
-| 12 | Sentry | force an error, confirm it lands | yes |
+| #   | Check             | How                                                                     | Pass criteria                                    |
+| --- | ----------------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| 1   | DB writes         | `SELECT count(*) FROM users` after you onboard                          | ≥1                                               |
+| 2   | Agent key sealed  | `SELECT octet_length(agent_key_ct) FROM users LIMIT 1`                  | >0                                               |
+| 3   | Audit log         | `SELECT action FROM audit_log ORDER BY id DESC LIMIT 5`                 | shows `onboard`, `subscribe`, `mirror_submitted` |
+| 4   | Fills row written | `SELECT * FROM fills WHERE is_mirror=true LIMIT 1` (after first mirror) | 1 row, `realized_pnl_usd` NULL until close       |
+| 5   | Builder fee in HL | HL UI → builder dashboard for your treasury                             | shows your fill                                  |
+| 6   | TG push received  | The bot DM'd you the fill                                               | yes                                              |
+| 7   | `/pnl`            | run command                                                             | renders without error                            |
+| 8   | `/leaderboard`    | run command                                                             | shows you (entry of 1 is fine)                   |
+| 9   | Mute path         | `/notify off`, force a mirror, no DM arrives                            | yes                                              |
+| 10  | Kill switch       | `/kill`, force a whale fill, **no mirror** placed                       | confirm in HL                                    |
+| 11  | Geo block         | (optional) curl onboarding endpoint via a blocked-country VPN           | gets refused                                     |
+| 12  | Sentry            | force an error, confirm it lands                                        | yes                                              |
 
 ---
 
@@ -368,6 +391,7 @@ Manually pick **10–15 whales** before launch. Criteria, in order:
 5. **Coin variety**: at least 4 different coins (don't have all 10 whales doing only BTC).
 
 Sources to find them:
+
 - HL leaderboard (sort by 30d PnL).
 - `@hyperliquid_news` on X — they post big winners.
 - Whale-tracker tools (HypurrScan etc.).
@@ -399,7 +423,7 @@ Every Sunday, prune whales who went cold or rugged. Add 2 new ones. Announce in 
 2. **Crypto Twitter / X** — slower compound but builds trust.
 3. **Whale shoutouts** — when a whale you mirror posts a win, quote-tweet with "WhalePod followers caught this auto."
 4. **Referral program** — `/share` mints a unique code. (Already built. See §10.6 for how to incentivize.)
-5. **Paid:** *skip in month 1.* Don't pay for ads until your onboarding-to-first-fill conversion >70%.
+5. **Paid:** _skip in month 1._ Don't pay for ads until your onboarding-to-first-fill conversion >70%.
 
 ### 10.2 X (Twitter) cadence
 
@@ -411,14 +435,14 @@ Every Sunday, prune whales who went cold or rugged. Add 2 new ones. Announce in 
 ### 10.3 Telegram cadence
 
 - **Post in your own group**: 1 update/day minimum. New whales, fee numbers, fixes shipped.
-- **Cross-post in Hyperliquid TG / chat groups**: only when it's *useful* (a new whale you added, a feature). Spamming = ban.
+- **Cross-post in Hyperliquid TG / chat groups**: only when it's _useful_ (a new whale you added, a feature). Spamming = ban.
 
 ### 10.4 Reach out to whales personally (DM)
 
 This is unglamorous, high-ROI work. For the 10 whales you seed:
 
 - Find their TG/X via on-chain detective work (HL leaderboard sometimes links).
-- Send a short DM: *"Hi. We built a tool that lets people mirror your trades on HL. We don't take a cut from you; users pay a 5 bps fee on their own fills. ~30 mirror followers so far. If you tweet/post about us, we'll send the first 100 referrals to your bag (or a payout) — happy to discuss."*
+- Send a short DM: _"Hi. We built a tool that lets people mirror your trades on HL. We don't take a cut from you; users pay a 5 bps fee on their own fills. ~30 mirror followers so far. If you tweet/post about us, we'll send the first 100 referrals to your bag (or a payout) — happy to discuss."_
 
 If even 2 say yes and post once, you get free distribution into thousands of whale-follower eyeballs. **This alone can hit $5k.**
 
@@ -444,16 +468,18 @@ Announce at launch (X post template A.3). Track via `referrals_attribution` tabl
 
 A. **The fee comparison table** — post one image:
 
-| Platform | Fee | Custody |
-|---|---|---|
-| Centralized copy-trader X | 20% of profits | They hold |
-| Hyperliquid + manual copy | gas + slip + your time | You |
-| **WhalePod** | **5 bps (0.05%) of notional** | **You (agent key only)** |
+| Platform                  | Fee                           | Custody                  |
+| ------------------------- | ----------------------------- | ------------------------ |
+| Centralized copy-trader X | 20% of profits                | They hold                |
+| Hyperliquid + manual copy | gas + slip + your time        | You                      |
+| **WhalePod**              | **5 bps (0.05%) of notional** | **You (agent key only)** |
 
 B. **The "we caught this" win post** — every time a mirrored whale closes a big win, tweet:
+
 > Whale `0xabc…1234` just closed +$45k on ETH long. WhalePod followers auto-mirrored at proportional size. 27 followers, avg $185 P&L per follower, 0.05% fee. No subscription. No custody.
 
 C. **The transparency post** (weekly) — Sunday evening:
+
 > Week N WhalePod stats:
 > · Active users: NNN
 > · Mirrored notional: $X.XXm
@@ -566,20 +592,20 @@ Same time every day. Discipline > heroics.
 
 Track these in a simple Google Sheet, updated daily.
 
-| Metric | Target end of month 1 | Why |
-|---|---|---|
-| Active users | 120 | Direct revenue driver |
-| Active subscriptions / user | 2.0 | Diversification = retention |
-| Mirrored notional / day | $333k | Math to $5k |
-| Builder fees earned / day | $167 | Same |
-| **Builder fees earned, month total** | **$5,000** | The goal |
-| Onboarding completion rate | >70% | Otherwise marketing wastes spend |
-| Day-7 retention | >50% | Otherwise the funnel leaks |
-| Day-30 retention | >35% | Otherwise no compounding |
-| Push notification delivery latency p95 | <5s | UX feel |
-| Mirror submission latency p95 | <3s | Catch the price |
-| /pnl renders without error | 100% | Trust |
-| Errors per 1000 mirror attempts | <5 | Engineering health |
+| Metric                                 | Target end of month 1 | Why                              |
+| -------------------------------------- | --------------------- | -------------------------------- |
+| Active users                           | 120                   | Direct revenue driver            |
+| Active subscriptions / user            | 2.0                   | Diversification = retention      |
+| Mirrored notional / day                | $333k                 | Math to $5k                      |
+| Builder fees earned / day              | $167                  | Same                             |
+| **Builder fees earned, month total**   | **$5,000**            | The goal                         |
+| Onboarding completion rate             | >70%                  | Otherwise marketing wastes spend |
+| Day-7 retention                        | >50%                  | Otherwise the funnel leaks       |
+| Day-30 retention                       | >35%                  | Otherwise no compounding         |
+| Push notification delivery latency p95 | <5s                   | UX feel                          |
+| Mirror submission latency p95          | <3s                   | Catch the price                  |
+| /pnl renders without error             | 100%                  | Trust                            |
+| Errors per 1000 mirror attempts        | <5                    | Engineering health               |
 
 Set up a Looker/Metabase dashboard against the read replica.
 
@@ -589,12 +615,12 @@ Set up a Looker/Metabase dashboard against the read replica.
 
 ### 14.1 Severity levels
 
-| Sev | Example | Response time |
-|---|---|---|
+| Sev                    | Example                              | Response time            |
+| ---------------------- | ------------------------------------ | ------------------------ |
 | **S0 — funds at risk** | KMS key disclosed, agent keys leaked | **immediate** — see 14.2 |
-| **S1 — trading down** | Bot crashing, no mirrors landing | <15 min |
-| **S2 — degraded** | High latency, push delays | <2h |
-| **S3 — cosmetic** | /pnl off-by-1 | next day |
+| **S1 — trading down**  | Bot crashing, no mirrors landing     | <15 min                  |
+| **S2 — degraded**      | High latency, push delays            | <2h                      |
+| **S3 — cosmetic**      | /pnl off-by-1                        | next day                 |
 
 ### 14.2 S0 runbook (memorize this)
 
@@ -626,6 +652,7 @@ Add to issue tracker, ship in the daily improvement slot.
 Hyperliquid blocks US users by default. WhalePod inherits that block via the `geoCapture` middleware. **Do not weaken it.**
 
 Set in env:
+
 ```
 GEOFENCE_BLOCKED_COUNTRIES=US,KP,IR,SY,CU,RU,BY
 ```
@@ -646,7 +673,7 @@ Link both from the mini-app footer **before** the connect-wallet button.
 
 ### 15.3 No financial advice
 
-In **every** TG message, X post, and mini-app screen, avoid words like *"guaranteed,"* *"risk-free,"* *"will moon,"* *"sure thing."* Stick to factual past performance ("whale X is up Y% over 30d on HL").
+In **every** TG message, X post, and mini-app screen, avoid words like _"guaranteed,"_ _"risk-free,"_ _"will moon,"_ _"sure thing."_ Stick to factual past performance ("whale X is up Y% over 30d on HL").
 
 ### 15.4 KYC/AML
 
@@ -671,6 +698,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.1 Pre-launch X posts
 
 #### A.1.1 (T-7: tease)
+
 > Building a thing.
 >
 > Copy-trade Hyperliquid whales from inside Telegram. 5 bps fee. You keep your keys (agent wallets only, no withdraw).
@@ -680,6 +708,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > Going live next week. Drop a 🐳 if you want early access.
 
 #### A.1.2 (T-6: product screenshot)
+
 > WhalePod /pnl, working on testnet 👇
 >
 > [image of /pnl reply]
@@ -689,6 +718,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > 6 days to mainnet.
 
 #### A.1.3 (T-5: a whale you'll seed)
+
 > Whale we're adding to WhalePod at launch:
 >
 > `0x...1234`
@@ -700,6 +730,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > Mirror them in 2 taps once we go live.
 
 #### A.1.4 (T-3)
+
 > WhalePod -3.
 >
 > Telegram bot. Copy whales on Hyperliquid. 5 bps. Non-custodial.
@@ -707,6 +738,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > Drop your TG handle in the replies for priority onboarding.
 
 #### A.1.5 (T-2)
+
 > Launch in 48 hours.
 >
 > 10 whales lined up. 5 bps fee. 0 custody.
@@ -716,6 +748,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.2 Launch-day hero thread
 
 #### A.2.1 (T-0: pin this)
+
 > WhalePod is live. 🐳
 >
 > Copy-trade Hyperliquid whales from your Telegram. Open the bot, connect wallet, /follow 0x... — every trade that whale makes, you make (scaled to your equity).
@@ -741,6 +774,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.3 Referral launch
 
 #### A.3.1
+
 > Referral program for week 1:
 >
 > Use `/share` in @WhalePodBot to get your invite link.
@@ -755,6 +789,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.4 Daily transparency
 
 #### A.4.1 (T-0 evening)
+
 > WhalePod day 1:
 > · Onboarded users: N
 > · Whales followed: N
@@ -767,6 +802,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > [t.me link]
 
 #### A.4.2 (weekly Sunday)
+
 > WhalePod week N:
 > · Active users: NNN (+M)
 > · Mirrored notional: $X.XXm
@@ -779,6 +815,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.5 New whale post
 
 #### A.5.1
+
 > New whale added to WhalePod:
 >
 > `0x...abcd` — alias `@<alias>`
@@ -793,6 +830,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.6 Trade replay
 
 #### A.6.1
+
 > @<whale alias> just closed +$X on ETH.
 >
 > Entry: $E
@@ -806,6 +844,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 ### A.7 Telegram group templates
 
 #### A.7.1 (group welcome — pinned)
+
 > 👋 Welcome to WhalePod.
 >
 > · Copy-trade HL whales. 5 bps. Non-custodial.
@@ -815,16 +854,19 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > · Bug? DM @<your_handle> with a screenshot.
 >
 > Rules:
+>
 > 1. No shilling other tools / projects.
 > 2. No financial advice. We post stats, not predictions.
 > 3. Be civil. One warning, then ban.
 
 #### A.7.2 (whenever a whale you mirror posts publicly)
+
 > 🚨 Whale @<alias> just posted about their HL setup → [link]
 >
 > If you mirror them via WhalePod, you'll auto-follow whatever they do next. /follow 0x... in @WhalePodBot.
 
 #### A.7.3 (after a clean week)
+
 > Quick week-end note 👇
 >
 > WhalePod has done $X.XXm of mirrored volume across N users this week. Zero security incidents. Zero downtime > 5min.

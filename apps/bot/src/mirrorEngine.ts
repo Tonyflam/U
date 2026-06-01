@@ -73,6 +73,14 @@ export interface MirrorEngineDeps {
   readonly minSz?: number;
   /** Global kill switch (settable by admin). Default false. */
   readonly globalKill?: boolean;
+  /**
+   * Optional canary allowlist. When set, only user IDs in this set are
+   * allowed to receive mirror orders; everyone else is skipped with
+   * reason `not_in_allowlist`. Used during the mainnet canary so only
+   * the operator (or a small group) takes real-money risk before the
+   * bot opens up to everyone.
+   */
+  readonly userAllowlist?: ReadonlySet<string>;
 }
 
 export type SkipReason =
@@ -89,7 +97,8 @@ export type SkipReason =
   | 'fee_exceeds_cap'
   | 'size_zero'
   | 'invalid_price'
-  | 'user_closed_recently';
+  | 'user_closed_recently'
+  | 'not_in_allowlist';
 
 export type MirrorDecision =
   | { readonly kind: 'skip'; readonly reason: SkipReason; readonly detail?: string }
@@ -122,6 +131,9 @@ export async function evaluateMirror(
 
   const user = await deps.users.byId(intent.subscriberId);
   if (user === undefined) return { kind: 'skip', reason: 'user_not_found' };
+  if (deps.userAllowlist && !deps.userAllowlist.has(user.id)) {
+    return { kind: 'skip', reason: 'not_in_allowlist' };
+  }
   if (user.killSwitch) return { kind: 'skip', reason: 'user_killed' };
   if (user.revoked) return { kind: 'skip', reason: 'user_revoked' };
 

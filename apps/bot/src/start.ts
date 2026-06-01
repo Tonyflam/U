@@ -92,6 +92,13 @@ const botEnv = commonEnv.extend({
     .positive()
     .default(60 * 60 * 1000),
   SHARE_TOKEN_SECRET: z.string().min(32).optional(),
+  /**
+   * Optional CSV of internal user IDs allowed to receive mirror orders.
+   * When set, all other users are skipped with reason `not_in_allowlist`.
+   * Used during the mainnet canary to keep blast radius small.
+   * Empty / unset = allow everyone (production default).
+   */
+  MIRROR_USER_ALLOWLIST: z.string().optional(),
 });
 
 async function main(): Promise<void> {
@@ -171,6 +178,15 @@ async function main(): Promise<void> {
     assets,
     builderAddress: env.BUILDER_ADDRESS.toLowerCase() as `0x${string}`,
     mirrorBlocks,
+    ...(env.MIRROR_USER_ALLOWLIST && env.MIRROR_USER_ALLOWLIST.trim().length > 0
+      ? {
+          userAllowlist: new Set(
+            env.MIRROR_USER_ALLOWLIST.split(',')
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0),
+          ),
+        }
+      : {}),
   };
 
   const signer = new KmsAgentSigner({
