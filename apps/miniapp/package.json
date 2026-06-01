@@ -17,7 +17,7 @@
     "@whalepod/schema": "0.0.0",
     "@whalepod/sdk": "0.0.0",
     "@whalepod/vault": "0.0.0",
-    "viem": "^2.21.0",
+    "viem": "^2.52.0",
     "zod": "^3.23.8"
   }
 }
