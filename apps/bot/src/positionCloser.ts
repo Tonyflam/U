@@ -151,6 +151,10 @@ export async function closePositions(
     const limitPx = isBuy ? mark + slip : mark - slip;
     const sz = formatSz(Math.abs(pos.szi));
     if (sz === '0') continue;
+    // Dust filter: HL sometimes shows microscopic residuals after an
+    // open-then-close in the same window. Closing a $0.20 position
+    // wastes a fee and produces meaningless PnL stats. Skip < $2.
+    if (Math.abs(pos.szi) * mark < 2) continue;
 
     const nonce = deps.nonce();
     const cloid = cloidFor(user.id, pos.coin, nonce);
@@ -213,6 +217,7 @@ export async function closePositions(
       results.push({ coin: pos.coin, kind, message });
     }
   }
+  if (results.length === 0) return { kind: 'no_positions' };
   return { kind: 'closed', results };
 }
 
@@ -328,10 +333,17 @@ async function reconcileLedger(input: {
   }
 
   if (Math.abs(totalNetSz) < 1e-8) return undefined;
-  const sz = Math.abs(totalNetSz);
-  const entryPx = Math.abs(totalCost / totalNetSz);
+  // Dust filter: when a whale opens-then-closes inside one mirror window
+  // the user's ledger nets to a tiny residual (size rounding). Don't
+  // publish a misleading "trade closed" summary for that residual. We
+  // require BOTH meaningful notional (>= $5) and meaningful cost basis
+  // (>= $5) so that pnlPct can't go astronomical against a near-zero base.
+  const closedNotional = Math.abs(totalNetSz) * input.mark;
   const costAbs = Math.abs(totalCost);
-  const pct = costAbs > 0 ? (totalRealized / costAbs) * 100 : 0;
+  if (closedNotional < 5 || costAbs < 5) return undefined;
+  const sz = Math.abs(totalNetSz);
+  const entryPx = costAbs / sz;
+  const pct = (totalRealized / costAbs) * 100;
   return {
     side: totalNetSz > 0 ? 'long' : 'short',
     sz: formatSz(sz),

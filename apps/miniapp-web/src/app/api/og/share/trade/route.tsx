@@ -78,7 +78,6 @@ export async function GET(req: Request): Promise<Response> {
   const sideLabel = payload.side === 'long' ? 'LONG' : 'SHORT';
   const sideColor = payload.side === 'long' ? '#5eead4' : '#fb7185';
   const sideBorder = payload.side === 'long' ? 'rgba(94,234,212,0.40)' : 'rgba(251,113,133,0.40)';
-  const inviteUrl = `t.me/whalepod_bot?start=ref_${payload.code}`;
 
   return new ImageResponse(
     (
@@ -240,12 +239,13 @@ export async function GET(req: Request): Promise<Response> {
           </div>
         </div>
 
-        {/* Stat strip — pushed toward the bottom by marginTop:auto */}
+        {/* Stat strip — sits just below the PnL so the trade facts are
+            front-and-center, not buried at the bottom of the card. */}
         <div
           style={{
             display: 'flex',
             gap: 56,
-            marginTop: 'auto',
+            marginTop: 44,
             paddingTop: 28,
             borderTop: `1px solid ${SUBTLE}`,
           }}
@@ -259,41 +259,26 @@ export async function GET(req: Request): Promise<Response> {
           />
         </div>
 
-        {/* Bottom-right invite */}
+        {/* Bottom CTA pill — keeps the long referral URL out of the card. */}
         <div
           style={{
             position: 'absolute',
             right: 72,
             bottom: 56,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 4,
+            alignItems: 'center',
+            gap: 10,
+            padding: '14px 26px',
+            borderRadius: 999,
+            background: accentSoft,
+            border: `1px solid ${accentBorder}`,
+            color: accent,
+            fontSize: 24,
+            fontWeight: 800,
+            letterSpacing: 0.3,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              fontSize: 13,
-              fontWeight: 700,
-              letterSpacing: 3,
-              color: MUTED,
-              textTransform: 'uppercase',
-            }}
-          >
-            Copy this trader
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              fontSize: 22,
-              fontWeight: 700,
-              color: FG,
-              letterSpacing: -0.2,
-            }}
-          >
-            {inviteUrl}
-          </div>
+          Click here to copy this trader →
         </div>
       </div>
     ),

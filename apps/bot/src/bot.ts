@@ -27,6 +27,7 @@ import {
   type MirrorBlockSink,
   type PositionCloseFn,
   type Reply,
+  type ShortLinkStore,
 } from './handlers.js';
 import type { MarkPriceFn } from './pnl.js';
 import { parseCommand } from './router.js';
@@ -45,6 +46,8 @@ export interface BotDeps {
   readonly shareTokenSecret?: string;
   /** Optional sink for blocking mirror orders on coins the user just closed. */
   readonly mirrorBlocks?: MirrorBlockSink;
+  /** Optional short-link store for compact /close share URLs. */
+  readonly shortLinks?: ShortLinkStore;
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -87,6 +90,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       ...(deps.closer ? { closer: deps.closer } : {}),
       ...(deps.shareTokenSecret ? { shareTokenSecret: deps.shareTokenSecret } : {}),
       ...(deps.mirrorBlocks ? { mirrorBlocks: deps.mirrorBlocks } : {}),
+      ...(deps.shortLinks ? { shortLinks: deps.shortLinks } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');

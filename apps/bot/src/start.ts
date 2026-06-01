@@ -48,6 +48,7 @@ import { RedisFillPublisher } from './fillPublisher.js';
 import { DrizzleFillSink } from './fillSink.js';
 import { RealizedPnlFillSink } from './realizedPnlSink.js';
 import { RedisMirrorBlockStore } from './mirrorBlocks.js';
+import { RedisShortLinkStore } from './shortLinks.js';
 import { captureGeo, extractCountry, extractTgUserId } from './geoCapture.js';
 import type { MirrorEngineDeps } from './mirrorEngine.js';
 import type { SubmitMirrorDeps } from './submitMirror.js';
@@ -135,6 +136,7 @@ async function main(): Promise<void> {
   };
 
   const mirrorBlocks = new RedisMirrorBlockStore({ redis });
+  const shortLinks = new RedisShortLinkStore({ redis });
 
   const bot = createBot({
     token: env.TELEGRAM_BOT_TOKEN,
@@ -146,6 +148,7 @@ async function main(): Promise<void> {
     closer: closerProxy,
     ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
     mirrorBlocks,
+    shortLinks,
   });
 
   const userSnapshots = new DrizzleUserSnapshotLookup(db);

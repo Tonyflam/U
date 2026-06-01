@@ -145,11 +145,22 @@ export interface HandlerCtx {
    * reopen an opposite-direction position. Block auto-expires.
    */
   readonly mirrorBlocks?: MirrorBlockSink;
+  /**
+   * Optional short-link store. When present, /close share buttons use
+   * `${miniAppUrl}/s/<id>` instead of `${miniAppUrl}/share/t/<token>` so
+   * the URL stays compact.
+   */
+  readonly shortLinks?: ShortLinkStore;
 }
 
 /** Records that a (user, coin) pair should not be mirrored for a TTL window. */
 export interface MirrorBlockSink {
   block(userId: string, coin: string): Promise<void>;
+}
+
+/** Maps a long share token to a short, opaque id stored centrally. */
+export interface ShortLinkStore {
+  put(token: string): Promise<string>;
 }
 
 /**
@@ -397,7 +408,16 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
           },
           ctx.shareTokenSecret,
         );
-        const tradeUrl = `${base}/share/t/${encodeURIComponent(token)}`;
+        const longUrl = `${base}/share/t/${encodeURIComponent(token)}`;
+        let tradeUrl = longUrl;
+        if (ctx.shortLinks) {
+          try {
+            const id = await ctx.shortLinks.put(token);
+            tradeUrl = `${base}/s/${id}`;
+          } catch {
+            // Fall back to the long URL if the short-link store is down.
+          }
+        }
         const pnl = Number(r.trade.pnlUsd);
         const emoji = pnl > 0 ? '🟢' : pnl < 0 ? '🔴' : '⚪';
         const pitch = `Closed ${r.trade.side} ${r.coin} on WhalePod.`;
