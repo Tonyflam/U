@@ -30,8 +30,6 @@ import {
 } from './handlers.js';
 import type { MarkPriceFn } from './pnl.js';
 import { parseCommand } from './router.js';
-import type { MarkPriceFn } from './pnl.js';
-import { parseCommand } from './router.js';
 
 export interface BotDeps {
   readonly token: string;
