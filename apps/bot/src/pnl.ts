@@ -177,11 +177,6 @@ function fmtAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function fmtUsd(n: number): string {
-  if (!Number.isFinite(n)) return '$?';
-  return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
-}
-
 function fmtSignedUsd(n: number): string {
   if (!Number.isFinite(n)) return '$?';
   if (n === 0) return '$0.00';
@@ -210,25 +205,24 @@ export function renderPnl(summary: PnlSummary, prefs: PnlRenderPrefs = {}): Repl
   const shown = sorted.slice(0, maxWhales);
   const hiddenCount = sorted.length - shown.length;
 
-  const grand = summary.totalRealizedUsd + summary.totalUnrealizedUsd;
+  const grand = summary.totalRealizedUsd + summary.totalUnrealizedUsd - summary.totalFeesUsd;
+  const netRealized = summary.totalRealizedUsd - summary.totalFeesUsd;
   const lines: string[] = [
-    '\ud83d\udcca Your PnL',
+    '\ud83d\udcca Your PnL (net of fees)',
     '',
     `Total: ${pnlEmoji(grand)} ${fmtSignedUsd(grand)}`,
-    `  \u2022 Closed trades: ${fmtSignedUsd(summary.totalRealizedUsd)}`,
+    `  \u2022 Closed trades: ${fmtSignedUsd(netRealized)}`,
     `  \u2022 Still open:    ${fmtSignedUsd(summary.totalUnrealizedUsd)}`,
-    `  \u2022 Fees paid:     ${fmtUsd(summary.totalFeesUsd)}`,
     '',
     'By whale:',
   ];
   for (const w of shown) {
     const label = w.whaleAlias ?? fmtAddr(w.whaleAddress);
-    const total = w.realizedUsd + w.unrealizedUsd;
+    const net = w.realizedUsd - w.feesUsd;
+    const total = net + w.unrealizedUsd;
     lines.push('');
     lines.push(`${pnlEmoji(total)} ${label}  \u2192  ${fmtSignedUsd(total)}`);
-    lines.push(
-      `   closed ${fmtSignedUsd(w.realizedUsd)}  \u00b7  open ${fmtSignedUsd(w.unrealizedUsd)}  \u00b7  fees ${fmtUsd(w.feesUsd)}`,
-    );
+    lines.push(`   closed ${fmtSignedUsd(net)}  \u00b7  open ${fmtSignedUsd(w.unrealizedUsd)}`);
     if (w.openCoins.length > 0) {
       lines.push(`   still holding: ${w.openCoins.join(', ')}`);
     }

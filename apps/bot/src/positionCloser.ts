@@ -302,8 +302,16 @@ async function reconcileLedger(input: {
   let totalNetSz = 0;
   let totalCost = 0;
   let totalRealized = 0;
+  let totalFees = 0;
   let topWhaleAbsSz = 0;
   let topWhaleAlias: string | null = null;
+  // Sum fees on the entry legs that contributed to the position we're
+  // closing so the displayed PnL is net of cost-of-trading.
+  for (const f of input.fills) {
+    if (f.coin !== input.coin) continue;
+    const fee = Number(f.builderFeeUsd);
+    if (Number.isFinite(fee)) totalFees += fee;
+  }
   for (const [whaleAddress, pos] of byWhale) {
     if (Math.abs(pos.netSz) < 1e-8) continue;
     const isBuyToClose = pos.netSz < 0;
@@ -343,13 +351,18 @@ async function reconcileLedger(input: {
   if (closedNotional < 5 || costAbs < 5) return undefined;
   const sz = Math.abs(totalNetSz);
   const entryPx = costAbs / sz;
-  const pct = (totalRealized / costAbs) * 100;
+  // Estimate this close's fee at the same default rate; HL records the
+  // actual fee on the real reduce-only fill but we don't ingest our own
+  // fills back yet, so this is a reasonable approximation (5 bps).
+  const closeFeeEst = closedNotional * 0.0005;
+  const netRealized = totalRealized - totalFees - closeFeeEst;
+  const pct = (netRealized / costAbs) * 100;
   return {
     side: totalNetSz > 0 ? 'long' : 'short',
     sz: formatSz(sz),
     entryPx: formatPx(entryPx),
     exitPx: formatPx(input.mark),
-    pnlUsd: totalRealized.toFixed(2),
+    pnlUsd: netRealized.toFixed(2),
     pnlPct: pct.toFixed(2),
     whaleAlias: topWhaleAlias,
   };
