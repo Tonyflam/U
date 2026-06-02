@@ -40,8 +40,7 @@ function decodeRow(s: string): ProvisionalRow {
     if (v && typeof v === 'object') {
       const o = v as Record<string, unknown>;
       if (typeof o['__bigint'] === 'string') return BigInt(o['__bigint']);
-      if (typeof o['__u8'] === 'string')
-        return new Uint8Array(Buffer.from(o['__u8'], 'base64'));
+      if (typeof o['__u8'] === 'string') return new Uint8Array(Buffer.from(o['__u8'], 'base64'));
     }
     return v;
   }) as ProvisionalRow;
@@ -127,7 +126,15 @@ export function getOnboardDeps(): OnboardDeps {
   const awsRegion = process.env['AWS_REGION'];
   const cmkArn = process.env['VAULT_KMS_CMK_ARN'];
   const builderAddrRaw = process.env['BUILDER_ADDRESS'];
-  const chain = process.env['HL_CHAIN'] === 'Mainnet' ? 'Mainnet' : 'Testnet';
+  // Accept HL_CHAIN=Mainnet|Testnet (server) OR HL_NETWORK / NEXT_PUBLIC_HL_NETWORK = mainnet|testnet.
+  // Onboarding default is Mainnet — testnet must be opted into explicitly.
+  const chainRaw = (
+    process.env['HL_CHAIN'] ??
+    process.env['HL_NETWORK'] ??
+    process.env['NEXT_PUBLIC_HL_NETWORK'] ??
+    'Mainnet'
+  ).toLowerCase();
+  const chain: 'Mainnet' | 'Testnet' = chainRaw === 'testnet' ? 'Testnet' : 'Mainnet';
   const agentName = process.env['AGENT_NAME'] ?? 'WhalePod';
   const redisUrl = process.env['UPSTASH_REDIS_REST_URL'];
   const redisToken = process.env['UPSTASH_REDIS_REST_TOKEN'];

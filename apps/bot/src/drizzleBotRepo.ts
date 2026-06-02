@@ -186,6 +186,30 @@ export class DrizzleBotRepo implements BotRepo {
     return row ?? null;
   }
 
+  async setSubscriptionMaxLeverage(
+    userId: string,
+    whaleId: string,
+    maxLeverage: number,
+  ): Promise<{ readonly before: number; readonly after: number } | null> {
+    const [existing] = await this.db
+      .select({ maxLeverage: schema.subscriptions.maxLeverage })
+      .from(schema.subscriptions)
+      .where(
+        and(eq(schema.subscriptions.userId, userId), eq(schema.subscriptions.whaleId, whaleId)),
+      )
+      .limit(1);
+    if (!existing) return null;
+    const [updated] = await this.db
+      .update(schema.subscriptions)
+      .set({ maxLeverage })
+      .where(
+        and(eq(schema.subscriptions.userId, userId), eq(schema.subscriptions.whaleId, whaleId)),
+      )
+      .returning({ maxLeverage: schema.subscriptions.maxLeverage });
+    if (!updated) return null;
+    return { before: existing.maxLeverage, after: updated.maxLeverage };
+  }
+
   async unsubscribe(userId: string, whaleId: string): Promise<boolean> {
     const rows = await this.db
       .delete(schema.subscriptions)

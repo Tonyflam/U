@@ -59,6 +59,11 @@ export interface BotRepo {
     whaleId: string,
     maxSizeUsd: string,
   ): Promise<Subscription | null>;
+  setSubscriptionMaxLeverage(
+    userId: string,
+    whaleId: string,
+    maxLeverage: number,
+  ): Promise<{ readonly before: number; readonly after: number } | null>;
   setSubscriptionTpSl(
     userId: string,
     whaleId: string,
@@ -245,6 +250,8 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handleUnfollow(command.target, ctx);
     case 'setcap':
       return handleSetCap(command.target, command.maxSizeUsd, ctx);
+    case 'setlev':
+      return handleSetLev(command.target, command.maxLeverage, ctx);
     case 'mirrors':
       return handleMirrors(ctx);
     case 'pause':
@@ -511,6 +518,7 @@ function helpReply(): Reply {
       '',
       '▸ Tune a whale you follow',
       '/setcap 0xabc... 100 — change the per-trade size cap',
+      '/setlev 0xabc... 5 — cap leverage on this whale at 5× (1–50)',
       '/tp 0xabc... 200 — auto take-profit at +2% (200 bps). Use "off" to disable.',
       '/sl 0xabc... 100 — auto stop-loss at -1% (100 bps). Use "off" to disable.',
       '/unfollow 0xabc... — stop copying that trader',
@@ -696,6 +704,7 @@ async function handleFollow(
         `(Every time the whale opens a trade, WhalePod copies it on your wallet, sized so your notional risk on that trade stays at or below this cap.)`,
         ``,
         `• Change the cap:   /setcap ${whale.address} <usd>`,
+        `• Cap leverage:     /setlev ${whale.address} <1-50>`,
         `• Set take-profit:  /tp ${whale.address} <bps>`,
         `• Set stop-loss:    /sl ${whale.address} <bps>`,
         `• Stop mirroring:   /unfollow ${whale.address}`,
@@ -730,6 +739,38 @@ async function handleSetCap(target: string, maxSizeUsd: number, ctx: HandlerCtx)
   });
   return [
     { text: `✅ Size cap for whale ${whale.address} set to $${maxSizeUsd.toFixed(2)} per trade.` },
+  ];
+}
+
+async function handleSetLev(
+  target: string,
+  maxLeverage: number,
+  ctx: HandlerCtx,
+): Promise<Reply[]> {
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  if (!ADDRESS_RE.test(target)) {
+    return [{ text: `${target} is not a 0x address.` }];
+  }
+  const address = target.toLowerCase();
+  const whale = await ctx.repo.getWhaleByAddress(address);
+  if (!whale) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  const sub = subs.find((s) => s.whaleId === whale.id);
+  if (!sub) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const result = await ctx.repo.setSubscriptionMaxLeverage(user.id, whale.id, maxLeverage);
+  if (!result) return [{ text: 'Failed to update leverage.' }];
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'set_max_leverage',
+    target: `subscription:${sub.id}`,
+    before: { maxLeverage: result.before },
+    after: { maxLeverage: result.after },
+  });
+  return [
+    {
+      text: `✅ Max leverage for whale ${whale.address} set to ${maxLeverage.toString()}×.\n(WhalePod will cap copied trades on this whale at ${maxLeverage.toString()}× even if the whale uses more.)`,
+    },
   ];
 }
 
@@ -773,6 +814,7 @@ async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
   }
   lines.push('Quick commands (copy the address above):');
   lines.push('  /setcap <addr> <usd>   change per-trade size cap');
+  lines.push('  /setlev <addr> <n>     cap leverage on this whale (1–50)');
   lines.push('  /tp <addr> <bps|off>   set take-profit  (100 bps = 1%)');
   lines.push('  /sl <addr> <bps|off>   set stop-loss');
   lines.push('  /unfollow <addr>       stop mirroring this whale');

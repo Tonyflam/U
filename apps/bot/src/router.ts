@@ -12,6 +12,7 @@ export type Command =
   | { readonly kind: 'follow'; readonly target: string; readonly maxSizeUsd: number | null }
   | { readonly kind: 'unfollow'; readonly target: string }
   | { readonly kind: 'setcap'; readonly target: string; readonly maxSizeUsd: number }
+  | { readonly kind: 'setlev'; readonly target: string; readonly maxLeverage: number }
   | { readonly kind: 'mirrors' }
   | { readonly kind: 'pause' }
   | { readonly kind: 'resume' }
@@ -65,6 +66,18 @@ export function parseCommand(text: string): Command | null {
       const n = Number(parts[1]);
       if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return { kind: 'unknown', raw: trimmed };
       return { kind: 'setcap', target, maxSizeUsd: n };
+    }
+    case 'setlev':
+    case 'lev':
+    case 'leverage': {
+      const parts = args.split(/\s+/u).filter(Boolean);
+      if (parts.length !== 2) return { kind: 'unknown', raw: trimmed };
+      const target = parts[0] ?? '';
+      const n = Number(parts[1]);
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 50) {
+        return { kind: 'unknown', raw: trimmed };
+      }
+      return { kind: 'setlev', target, maxLeverage: n };
     }
     case 'mirrors':
     case 'subs':

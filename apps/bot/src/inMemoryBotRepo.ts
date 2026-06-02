@@ -29,6 +29,7 @@ export class InMemoryBotRepo implements BotRepo {
   readonly whales = new Map<string, Whale>();
   readonly whalesByAddress = new Map<string, string>();
   readonly subscriptions: Subscription[] = [];
+  readonly subscriptionLeverage = new Map<string, number>();
   readonly audit: AuditEntry[] = [];
   readonly referralCodes = new Map<string, string>();
   readonly attribution = new Map<string, string>(); // referredUserId → code
@@ -154,6 +155,19 @@ export class InMemoryBotRepo implements BotRepo {
       }
     }
     return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async setSubscriptionMaxLeverage(
+    userId: string,
+    whaleId: string,
+    maxLeverage: number,
+  ): Promise<{ readonly before: number; readonly after: number } | null> {
+    const sub = this.subscriptions.find((s) => s.userId === userId && s.whaleId === whaleId);
+    if (!sub) return null;
+    const before = this.subscriptionLeverage.get(sub.id) ?? 3;
+    this.subscriptionLeverage.set(sub.id, maxLeverage);
+    return { before, after: maxLeverage };
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
