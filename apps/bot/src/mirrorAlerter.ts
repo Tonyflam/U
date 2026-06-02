@@ -80,7 +80,7 @@ function renderAlert(
       '',
       `Hyperliquid rejected the order: ${outcome.message}`,
       '',
-      'Check your account on https://app.hyperliquid-testnet.xyz/ — common causes are insufficient margin, market closed, or invalid tick size.',
+      'Check your account on https://app.hyperliquid.xyz/ — common causes are insufficient margin, market closed, or invalid tick size.',
     ].join('\n');
   }
   if (outcome.kind === 'transport_error') {

@@ -214,7 +214,7 @@ export function buildLandingHtml(env: LandingEnv): string {
 
 <header class="hero">
   <div class="hero-grid" aria-hidden="true"></div>
-  <div class="eyebrow"><span class="live"></span> Live on Hyperliquid testnet</div>
+  <div class="eyebrow"><span class="live"></span> Live on Hyperliquid mainnet</div>
   <h1>Copy the <span class="grad">whales</span>.<br>From your Telegram chat.</h1>
   <p class="lede">WhalePod mirrors top Hyperliquid perp traders into your account, in real time. Non-custodial — your keys stay with you, the agent can trade but never withdraw.</p>
   <div class="cta-row">
