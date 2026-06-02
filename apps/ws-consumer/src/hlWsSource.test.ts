@@ -91,7 +91,15 @@ describe('HlWebSocketSource', () => {
           user: '0xABC',
           isSnapshot: false,
           fills: [
-            { hash: 'h1', coin: 'BTC', side: 'B', px: '50000', sz: '0.1', time: 1700000000000 },
+            {
+              hash: 'h1',
+              oid: 1,
+              coin: 'BTC',
+              side: 'B',
+              px: '50000',
+              sz: '0.1',
+              time: 1700000000000,
+            },
           ],
         },
       }),
@@ -100,6 +108,7 @@ describe('HlWebSocketSource', () => {
     expect(r.done).toBe(false);
     expect(r.value).toEqual({
       hash: 'h1',
+      oid: 1,
       user: '0xabc',
       coin: 'BTC',
       side: 'B',
@@ -124,6 +133,7 @@ describe('HlWebSocketSource', () => {
     const it = src.events()[Symbol.asyncIterator]();
     const fill = {
       hash: 'dup-1',
+      oid: 2,
       coin: 'ETH',
       side: 'S',
       px: '3000',
@@ -171,6 +181,35 @@ describe('HlWebSocketSource', () => {
     );
     ws.emit('message', JSON.stringify({ channel: 'pong', data: {} }));
     const it = src.events()[Symbol.asyncIterator]();
+    let resolved = false;
+    void it.next().then(() => {
+      resolved = true;
+    });
+    await nextTick();
+    expect(resolved).toBe(false);
+    src.stop();
+  });
+
+  it('deduplicates partial fills sharing the same oid (one whale order = one event)', async () => {
+    const ws = new FakeWs();
+    const src = new HlWebSocketSource({
+      url: 'wss://test/ws',
+      whales: ['0xabc'],
+      logger: silentLogger,
+      wsFactory: () => asWs(ws),
+      heartbeatMs: 0,
+    });
+    src.start();
+    ws.emit('open');
+    const it = src.events()[Symbol.asyncIterator]();
+    const fills = [
+      { hash: 'h-a', oid: 99, coin: 'ZEC', side: 'S', px: '560', sz: '50', time: 1 },
+      { hash: 'h-b', oid: 99, coin: 'ZEC', side: 'S', px: '560', sz: '17', time: 2 },
+      { hash: 'h-c', oid: 99, coin: 'ZEC', side: 'S', px: '560', sz: '7', time: 3 },
+    ];
+    ws.emit('message', JSON.stringify({ channel: 'userFills', data: { user: '0xabc', fills } }));
+    const r1 = await it.next();
+    expect((r1.value as { hash: string }).hash).toBe('h-a');
     let resolved = false;
     void it.next().then(() => {
       resolved = true;

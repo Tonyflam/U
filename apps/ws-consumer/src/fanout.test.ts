@@ -7,6 +7,7 @@ const OTHER_WHALE = '0xaaaa222233334444555566667777888899990000';
 
 const fill: HlFillEvent = {
   hash: 'fill-001',
+  oid: 1,
   user: WHALE,
   coin: 'BTC',
   side: 'B',

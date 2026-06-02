@@ -34,6 +34,7 @@ function staticLookup(map: Record<string, readonly Subscriber[]>): SubscriberLoo
 
 const validEvent = (hash: string) => ({
   hash,
+  oid: Number.parseInt(hash.replace(/\D/g, '') || '0', 10),
   user: WHALE,
   coin: 'BTC',
   side: 'B',

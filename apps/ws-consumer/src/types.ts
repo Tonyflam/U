@@ -11,6 +11,13 @@ import { Address, Coin, Side } from '@whalepod/schema';
 export const HlFillEvent = z.object({
   /** Stable HL fill id, used as the idempotency root. */
   hash: z.string().min(1),
+  /**
+   * HL order id. A single whale order can produce many partial fills (one
+   * per maker order it crosses), each with a distinct `hash`/`tid` but the
+   * SAME `oid`. We dedupe on (user, oid) at the WS source so a 50-line IOC
+   * sweep becomes ONE mirror intent, not 50.
+   */
+  oid: z.number().int().nonnegative(),
   /** Trader wallet (lowercased). */
   user: Address,
   /** Coin ticker. */

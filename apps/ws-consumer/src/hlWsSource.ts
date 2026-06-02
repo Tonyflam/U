@@ -288,10 +288,14 @@ export class HlWebSocketSource implements FillSource {
     for (const f of payload.fills) {
       const evt = this.normalizeFill(f, user);
       if (evt === undefined) continue;
-      const hash = (evt as { hash?: string }).hash;
-      if (typeof hash === 'string') {
-        if (this.seenFillHashes.has(hash)) continue;
-        this.seenFillHashes.add(hash);
+      // Dedupe by (user, oid): partial fills of the same whale order share
+      // an oid but have distinct hashes. We want ONE mirror per whale order.
+      const oid = (evt as { oid?: number }).oid;
+      const dedupeKey =
+        typeof oid === 'number' ? `${user}:${oid.toString()}` : (evt as { hash?: string }).hash;
+      if (typeof dedupeKey === 'string') {
+        if (this.seenFillHashes.has(dedupeKey)) continue;
+        this.seenFillHashes.add(dedupeKey);
       }
       this.push(evt);
     }
@@ -307,10 +311,12 @@ export class HlWebSocketSource implements FillSource {
     const px = pickString(r['px']);
     const sz = pickString(r['sz']);
     const time = typeof r['time'] === 'number' ? r['time'] : undefined;
+    const oid = typeof r['oid'] === 'number' ? r['oid'] : undefined;
     if (hash === undefined || coin === undefined || sideRaw === undefined) return undefined;
     if (px === undefined || sz === undefined || time === undefined) return undefined;
+    if (oid === undefined) return undefined;
     const side = sideRaw === 'A' ? 'S' : sideRaw === 'B' ? 'B' : sideRaw;
-    return { hash, user, coin, side, px, sz, time };
+    return { hash, oid, user, coin, side, px, sz, time };
   }
 }
 
