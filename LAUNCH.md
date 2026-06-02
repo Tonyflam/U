@@ -200,7 +200,7 @@ Open `@BotFather` in Telegram:
    - Photo: 640×360.
    - GIF: optional.
    - Web App URL: `https://app.whalepod.trade`
-   - Short name: `whalepod` → this builds `t.me/WhalePodBot/whalepod`.
+   - Short name: `whalepod` → this builds `t.me/whalepod_bot/whalepod`.
 
 ### 4.2 Bot Menu Button
 
@@ -208,7 +208,7 @@ Open `@BotFather` in Telegram:
 
 ### 4.3 Group (do this on day T-3, see §11)
 
-- Create `@WhalePodChat` public group.
+- Create `@whalepodchat` public group.
 - Pin: "Read /rules. Bot support: @<your_handle>. No financial advice."
 - Add yourself + 2 co-pilots as admins.
 - Slow-mode 5s. Anti-spam: Combot or Group Help Bot.
@@ -415,15 +415,28 @@ Every Sunday, prune whales who went cold or rugged. Add 2 new ones. Announce in 
 
 ## 10. Marketing playbook
 
-> Goal: **100 onboarded users by end of week 2.** Each must average $3k/day mirrored notional. The math: 100 × $3k × 30 = $9M notional × 0.05% = $4.5k. So 120 users gets you to $5.4k. Aim for 120.
+> **The math.** $5,000 fees / 0.0005 = **$10M of mirrored notional in 30 days = ~$333k/day**.
+>
+> Two ways to get there:
+>
+> | Path         | Active users | Avg mirrored / user / day | Comment                                   |
+> | ------------ | ------------ | ------------------------- | ----------------------------------------- |
+> | Many small   | 120          | $2,800                    | Hardest — needs viral growth              |
+> | Fewer larger | 40           | $8,500                    | Easier — one whale + 40 serious followers |
+>
+> **Bet on the second path.** One mid-tier whale endorsement (someone running $50k+ with 20 onlookers) replaces a week of cold posting. Optimise everything below for **whale outreach + HL ecosystem visibility**, not generic crypto Twitter.
+>
+> Public X handle: **@whalepodapp**. Bot: **@whalepod_bot**. TG group (to create Day 0): **@whalepodchat**.
 
 ### 10.1 Channels in order of leverage
 
-1. **Hyperliquid Discord + TG groups** (free, high-intent users) — most important.
-2. **Crypto Twitter / X** — slower compound but builds trust.
-3. **Whale shoutouts** — when a whale you mirror posts a win, quote-tweet with "WhalePod followers caught this auto."
-4. **Referral program** — `/share` mints a unique code. (Already built. See §10.6 for how to incentivize.)
-5. **Paid:** _skip in month 1._ Don't pay for ads until your onboarding-to-first-fill conversion >70%.
+1. **Direct whale DMs** — highest ROI per minute. (§10.4.) One yes = a week of distribution.
+2. **Hyperliquid Discord `#builder-codes` / ecosystem channels** — high-intent, low-noise.
+3. **Hyperliquid team retweet** — tag `@HyperliquidX` + `@chameleon_jeff` only when you have something genuinely worth their RT (a real metric, a clean demo).
+4. **Quote-tweets of whale wins** — every time a mirrored whale closes a notable trade, reply / QRT with "N WhalePod followers auto-mirrored. Avg follower P&L: $X."
+5. **Referral program** — `/share` mints a code. Pay top 3 in cash at month end (§10.6).
+6. **Micro-KOLs (5k–30k followers, perp-focused)** — offer them a manual affiliate split.
+7. **Paid ads** — _skip in month 1._ Don't pay for traffic until onboarding-to-first-fill conversion is >70%.
 
 ### 10.2 X (Twitter) cadence
 
@@ -490,82 +503,24 @@ C. **The transparency post** (weekly) — Sunday evening:
 
 ---
 
-## 11. Day-by-day launch schedule
+## 11. Day-by-day launch schedule — the next 30 days
 
-> Assumes T-0 = launch day. Move T-0 to the day all of §5 and §6 are green.
+> **State at Day 0**: bot live at @whalepod_bot on Railway, ws-consumer running, miniapp at app.whalepod.trade, X account verified at @whalepodapp, DB clean (0 users), HL mainnet with builder address `0x1CD2…dbB37`, your own wallet seeded with $30. Tech is done — every line below is execution.
+>
+> **Cadence rule**: post twice a day on X (10:00 UTC + 18:00 UTC) and once in the TG group, every day. Skip nothing. Two missed days = the algo forgets you.
+>
+> Each "post" below is exactly what to ship. Replace `<…>` with real numbers. Track every metric in a Google Sheet daily (\u00a713 metrics).
 
-### T-7 (one week out)
+---
 
-- [ ] Buy domain. Set up Vercel + Render shells.
-- [ ] Provision AWS KMS, Neon, Upstash.
-- [ ] Create `@WhalePodBot` in BotFather.
-- [ ] Pick your 10 seed whales. Validate them on HL leaderboard.
-- [ ] X post A.1.1 (intro tease).
+### Day 0 — TODAY (setup distribution surface)
 
-### T-6
+**Morning (do these first, in order, ~90 min):**
 
-- [ ] Migrate DB. Seed whales.
-- [ ] Deploy to Render. Webhook live.
-- [ ] Smoke testnet (§6).
-- [ ] X post A.1.2 (screenshot of /pnl).
-
-### T-5
-
-- [ ] First canary — onboard yourself with real wallet, $100 cap.
-- [ ] 2-hour soak. Tail logs. Fix any noise.
-- [ ] X post A.1.3 (whale you'll feature on launch).
-
-### T-4
-
-- [ ] Onboard 3 friends. Have them follow 2 whales each. Watch them in production.
-- [ ] Fix any UX paper cuts they raise.
-- [ ] DM 5 whales (template §10.4).
-
-### T-3
-
-- [ ] Create `@WhalePodChat` TG group. Pin rules. Add admins.
-- [ ] X post A.1.4 (countdown -3).
-- [ ] Post in **one** HL ecosystem TG group with a soft mention.
-
-### T-2
-
-- [ ] Run /pnl + /leaderboard against the small group. Confirm rendering.
-- [ ] Final infra dry-run: kill the bot, restart. Verify it picks up the stream group cleanly.
-- [ ] X post A.1.5 (-2: "we go live in 48h. 10 whales lined up.")
-
-### T-1
-
-- [ ] Sleep.
-- [ ] Last status check: error logs, builder dashboard, DB row counts.
-- [ ] Prepare hero launch post (A.2.1) as a draft.
-
-### T-0 (launch day)
-
-- [ ] 09:00 UTC — confirm bot, mini-app, DB green.
-- [ ] 10:00 UTC — **POST** hero thread A.2.1 on X.
-- [ ] 10:05 — share in Hyperliquid Discord `#dev-showcase`.
-- [ ] 10:10 — share in 3 relevant TG groups (don't spam — one message, useful, with link).
-- [ ] 10:15 — DM the 5 whales again with "we're live."
-- [ ] All day — respond to **every single reply** within 15 min. Add every onboarded user to TG group manually with welcome DM.
-- [ ] 18:00 UTC — first daily transparency post (A.4.1).
-
-### T+1 to T+7
-
-- [ ] Daily 09:00 UTC: post yesterday's stats (template A.4).
-- [ ] Daily: ship one tiny visible improvement (better /pnl, a new whale, a faster push) — post about it.
-- [ ] By end of week 1: **target 30 onboarded users**, **$1m mirrored notional**, **$500 in fees**.
-
-### T+8 to T+14
-
-- [ ] Add referral payout tracker public dashboard (you can be lazy: pinned message in TG group, updated daily).
-- [ ] Start one **"trade replay"** post per day: "Whale X did this, here's how it played for followers."
-- [ ] **Target by end of week 2**: 80 users, $4m notional, $2k fees.
-
-### T+15 to T+30
-
-- [ ] Run **one** giveaway: "RT + reply with your /share link → 3× $100 USDC randomly drawn at end of week."
-- [ ] Reach out to 2 micro-influencers (5k–30k followers, HL-focused). Offer them an affiliate split (manually paid).
-- [ ] **Target by end of month 1**: 120 users, $10m notional, **$5k fees**.
+1. **Pick 10 seed whales** from https://hypurrscan.io/leaderboard (30d window, sort by realized PnL). Criteria: actively trading last 7d, win rate >55%, trades majors (BTC/ETH/SOL), 1\u20135\u00d7 leverage. Save the 10 addresses + their stats to a sheet.
+2. **Insert them into the DB** as featured whales (\u00a79.2 has the SQL).
+3. **Create `@whalepodchat` TG public group**: pin the welcome message (A.7.1), set slow-mode 5s, add yourself as admin.
+4. **Record a 30-second screen-recording demo**: open @whalepod*bot \u2192 /start \u2192 connect wallet in miniapp \u2192 /follow `0x…` \u2192 push notification arrives \u2192 /pnl. **This single asset is the highest-leverage thing you'll make all month.** Save as `demo.mp4` (under 15MB for X) and `demo.gif` (under 5MB).\n5. **Pin profile setup on @whalepodapp**: bio \u2192 `Copy-trade Hyperliquid whales from Telegram. 5 bps. Non-custodial. \u2192 t.me/whalepod_bot`. Pinned tweet \u2192 the launch thread you'll post at noon.\n6. **Fund your HL wallet with $30** and onboard yourself via @whalepod_bot. Follow 1 whale, max-size $10, leverage 1\u00d7. Confirm one mirror lands today.\n\n**12:00 UTC \u2014 X post (LAUNCH THREAD, pin it):**\n\n> 1/ WhalePod is live on @HyperliquidX mainnet. \ud83d\udc33\n>\n> Copy-trade the top HL whales from inside Telegram. Open the bot, connect your wallet, /follow 0x\u2026, every trade they make you make (sized to your equity).\n>\n> 5 bps. Non-custodial. No subscription.\n>\n> Demo \ud83d\udc47\n> [attach demo.mp4]\n\n> 2/ Non-custodial. You sign once to authorize an agent wallet \u2014 fee-capped, no withdraw permission. Revoke any time on https://app.hyperliquid.xyz. Your keys never leave your wallet.\n\n> 3/ 5 bps (0.05%) on your own fills via @HyperliquidX builder codes. No profit share. No \"performance fee.\" No monthly. HL caps builder fees at 10 bps; we default to half.\n\n> 4/ 10 whales hand-picked for launch. All profitable last 30d. All active this week. Browse with /leaderboard in the bot.\n\n> 5/ Risk controls in the box: `/kill` global stop, `/pause` per-account, `/tp` `/sl` per-whale, daily notional cap, equity floor, geofencing.\n\n> 6/ \ud83d\udc49 t.me/whalepod_bot\n> Built solo. No VCs. RTs save lives.\n\n**18:00 UTC \u2014 X post (single, replies on):**\n\n> Day 1 of WhalePod public.\n>\n> If you trade on @HyperliquidX and you want to copy a whale without writing code or trusting a vault, this is for you.\n>\n> Drop a \ud83d\udc33 if you onboarded today \u2014 I'll add you to the alpha group.\n>\n> t.me/whalepod_bot\n\n**Distribution after the noon post (within 1 hour):**\n- HL Discord \u2192 `#builder-codes` (and `#dev-showcase` if it exists): one message, the demo gif, one link. Don't @ anyone.\n- HL ecosystem TGs (e.g. https://t.me/hyperliquidcommunity if it exists): one polite intro + link.\n- DM 5 whales from your seed list (template \u00a710.4). Personalise the first line with their address's 30d PnL.\n- Reply to the 5 most recent posts on @HyperliquidX timeline with a thoughtful comment (no link \u2014 just be present).\n\n---\n\n### Day 1 — first stats post + whale outreach push\n\n- **10:00 UTC X post** (quote-RT yesterday's hero thread):\n > 24 hours since launch:\n > \u00b7 <N> users onboarded\n > \u00b7 <N> whales followed\n > \u00b7 <N> mirrors landed\n > \u00b7 $<X> in builder fees\n >\n > Day 2 plan: add 3 whales + ship faster /pnl.\n >\n > t.me/whalepod_bot\n\n- **18:00 UTC X post** (single, with screenshot of /pnl on your own account):\n > Your /pnl in WhalePod, live data from @HyperliquidX:\n >\n > [screenshot of your real /pnl reply]\n >\n > Net of builder fees. Realized + unrealized. Per whale. Updated every fill.\n\n- **DM 5 more whales** (different addresses today). Track \"contacted/replied/declined\" in your sheet.\n- **TG group post**: announce the referral program (Appendix A.3) so word starts spreading.\n- **Apply to Hyperliquid's builder-codes showcase** if there's an open form. Tweet at @chameleon_jeff once with the demo gif: *\"@chameleon*jeff hey \u2014 built a TG copy-trader on your builder codes. Live with real users. Would love it on the showcase if it fits.\"* One ask, then drop it.\n\n---\n\n### Day 2 — first community-driven post\n\n- **10:00 UTC X post** (use last night's whale fill):\n > Whale `0x\u2026<addr>` opened a long on $ETH at 02:14 UTC.\n  >\n  > <N> WhalePod followers auto-mirrored. Avg follower size: $<Y>. No screen-watching. No spreadsheet.\n  >\n  > /follow them in @whalepod_bot.\n\n- **18:00 UTC X post** (educational, no link):\n  > Why builder codes > vaults for copy-trading:\n  >\n  > \u2022 You hold your own funds. The agent wallet can trade but never withdraw.\n  > \u2022 Fee is on notional (5 bps) not profit (20%+ on most vaults).\n  > \u2022 No lockup. Revoke the agent any time.\n  >\n  > That's it. That's the pitch.\n\n- **DM 5 more whales.** Total this week: 15.\n- **Reply** to every comment on yesterday's posts. Aim <15 min response time during US/EU waking hours.\n\n---\n\n### Day 3 — first trade replay (this is your best converting format)\n\n- **10:00 UTC X post** (trade replay, Appendix A.6 template):\n  > @<alias> just closed +$<X> on $<COIN>.\n  >\n  > Entry: $<E>\n  > Exit: $<X>\n  > Hold: <H>h\n  >\n  > <N> WhalePod followers auto-mirrored. Avg follower P&L: +$<Y>. Fee paid: $<Z> (5 bps).\n  >\n  > /follow 0x\u2026<addr> in @whalepod_bot.\n\n- **18:00 UTC X post** (short, founder voice):\n  > 3 days in:\n  > \u2022 <N> users\n  > \u2022 $<X> fees\n  > \u2022 0 incidents\n  >\n  > Slow. Steady. The boring infra play.\n\n- **TG group**: post a screenshot of today's /pnl from one (consenting) user, blurred wallet.\n\n---\n\n### Day 4 — push for first whale endorsement\n\n- **10:00 UTC X post** (tag whales who haven't replied to your DMs):\n  > Top 5 @HyperliquidX whales we're mirroring this week:\n  >\n  > 1. `0x\u2026a` \u2014 +<X>% 30d, mostly ETH\n  > 2. `0x\u2026b` \u2014 +<Y>%\n  > 3. `0x\u2026c` \u2014 +<Z>%\n  > 4. `0x\u2026d`\n  > 5. `0x\u2026e`\n  >\n  > Mirror any of them in 2 taps \u2192 @whalepod_bot.\n\n- **18:00 UTC X post**: quote-RT any HL ecosystem account that mentioned you. If none, post:\n  > Onboarding flow in WhalePod: open TG \u2192 /start \u2192 tap the button \u2192 sign one approve in your wallet \u2192 done. <30s from zero to mirroring.\n  >\n  > [attach demo.gif]\n\n- **DM 5 more whales.** Week 1 total: 25.\n- **Add 2 new whales** to the seed set based on the leaderboard movers.\n\n---\n\n### Day 5 — first paid referral teaser\n\n- **10:00 UTC X post**:\n  > Referral leaderboard for WhalePod week 1:\n  >\n  > 1st place: $200 USDC\n  > 2nd: $100\n  > 3rd: $50\n  >\n  > Paid manually at end of week from builder fees. /share in @whalepod_bot to get your code.\n\n- **18:00 UTC X post** (community proof):\n  > One of our users went from `/start` to mirroring a whale fill in 41 seconds today.\n  >\n  > That's the bar. Anything slower is on us.\n\n- **TG group**: pin the referral leaderboard message; update daily.\n\n---\n\n### Day 6 — KOL outreach + retention\n\n- **10:00 UTC X post**:\n  > 5 days of WhalePod stats:\n  > \u00b7 <N> users\n  > \u00b7 $<X>m mirrored notional\n  > \u00b7 $<Y> builder fees\n  > \u00b7 <Z> active whales\n  > \u00b7 0 downtime\n  >\n  > [chart screenshot if you have one]\n\n- **18:00 UTC X post** (transparency):\n  > Things shipped this week:\n  > \u2022 Mainnet launch on @HyperliquidX\n  > \u2022 Push notification <3s latency\n  > \u2022 /pnl net-of-fees\n  > \u2022 /leaderboard for whale browsing\n  > \u2022 Trade-replay share cards\n  >\n  > Things shipping next week:\n  > \u2022 <one promise you can keep>\n\n- **DM 5 micro-KOLs** (5k\u201330k followers, perp-trading focused). Template:\n  > \"Hi. Built WhalePod \u2014 TG bot for copy-trading HL whales, live with <N> users on mainnet. Open to a manual affiliate split if you'd like to try it; I'll cover the first $X of your followers' fees. Demo: [link]. No pressure.\"\n\n---\n\n### Day 7 — first weekly transparency post\n\n- **10:00 UTC X post (THREAD)** \u2014 use Appendix A.4.2 exactly:\n  > WhalePod week 1:\n  > \u00b7 Active users: <N>\n  > \u00b7 Mirrored notional: $<X.XX>m\n  > \u00b7 Builder fees: $<Y>\n  > \u00b7 Top whale (user P&L): @<alias> (+$<Z>)\n > \u00b7 Avg push latency: <X>s\n >\n > Coming this week: <one thing>.\n\n- **End of Day 7 reality check**:\n - **Target**: 25\u201340 users, $400k\u2013$800k mirrored notional, **$200\u2013$400 fees**.\n  - If you're at <10 users: the demo isn't landing. **Re-record the demo video**, make it tighter (15s, no audio, one whale fill).\n  - If you're at >40: double down on whale outreach \u2014 you have product-market fit signal.\n\n---\n\n### Day 8\u201314 — compounding week\n\nDaily template (every day, 09:00\u201320:00 UTC):\n\n| Slot | Action |\n| --- | --- |\n| 09:00 | Pull DB metrics (\u00a712.2 SQL). Update sheet. Look at Sentry. |\n| 10:00 UTC | **X post 1** \u2014 yesterday's stats or new whale (A.5) |\n| 12:00 UTC | TG group post (replay, win, or fix shipped) |\n| 14:00 | Reply to every DM / comment / mention. <15 min response. |\n| 16:00 | DM 3 new whales OR 3 KOLs |\n| 18:00 UTC | **X post 2** \u2014 trade replay (A.6) or educational thread |\n| 20:00 | Ship one tiny visible improvement (one whale added, one bug fixed, one copy tweak) \u2014 post about it. |\n\n**Day 8** \u2014 X post: \"What I learned from 50 mirror fills this week\" (educational thread, 4 tweets).\n\n**Day 9** \u2014 X post: feature comparison vs. centralised copy-traders (table format, Appendix \u00a710.7.A as image).\n\n**Day 10** \u2014 X post: tag @HyperliquidX with the week-1 fees screenshot and a thank-you. Often gets RT'd.\n\n**Day 11** \u2014 X post: quote-RT the biggest whale win of the week. Same format as Day 3.\n\n**Day 12** \u2014 X post: a user's testimonial (with their permission) \u2014 \"I never used a copy-trader before. Took me 30s.\"\n\n**Day 13** \u2014 X post: behind-the-scenes \u2014 \"How we set the 5 bps fee\" (educational, builds trust).\n\n**Day 14 (week 2 transparency post)** \u2014 same A.4.2 template. **Target by EOD**: 60\u201380 users, $2\u2013$3m notional, **$1k\u2013$1.5k fees** cumulative.\n\n**Mid-week 2 event**: run the **week-1 referral payout** publicly. Tweet the top 3 referrers' handles, USDC tx hashes on Arbitrum/HL of the payouts. Builds enormous trust.\n\n---\n\n### Day 15\u201321 — distribution amplification\n\n**Goal of week 3**: turn the existing user base into a referral engine + land one HL team retweet OR one whale endorsement.\n\n- **Day 15**: launch a **\"copy-trade challenge\"** \u2014 anyone who mirrors $5k+ notional via @whalepod_bot in week 3 enters a raffle for $200 USDC. Tweet + pin in TG.\n- **Day 16**: drop a **leaderboard of users** (anonymised: \"User #42 \u2192 +$X net P&L this week\"). Social proof.\n- **Day 17**: write a **long-form X thread** (8\u201310 tweets) \u2014 \"30 days of building a Telegram bot that prints from HL builder fees.\" Numbers, lessons, screenshots. This is the post that catches a bigger account's eye.\n- **Day 18**: reach out to 5 more KOLs. Different list. Offer affiliate split: 25% of the fees their referees generate for 90 days, paid manually.\n- **Day 19**: post a **whale-of-the-week** spotlight \u2014 one whale, one chart, one CTA.\n- **Day 20**: ship a small but visible feature (e.g. `/whales` sorted by 7d PnL) and post about it.\n- **Day 21 (week 3 transparency post)** \u2014 A.4.2 template. **Target**: 90\u2013120 users, $5\u2013$7m notional, **$2.5k\u2013$3.5k fees** cumulative.\n\n---\n\n### Day 22\u201330 — closing kick\n\n**Goal of week 4**: clear $5k cumulative + set up month 2.\n\n- **Day 22**: **giveaway** \u2014 \"RT + drop your /share link \u2192 3\u00d7 $100 USDC randomly drawn Day 28.\" One tweet. Pin it.\n- **Day 23**: trade replay (A.6). Tag the whale's alias.\n- **Day 24**: post a **revenue-share update** \u2014 \"WhalePod has paid $X back to referrers this month.\" Transparency loop.\n- **Day 25**: reach out to 1 podcast / newsletter (e.g. _The Daily Gwei_, _Bankless TG groups_, _Hyperliquid-focused newsletters_). One ask each.\n- **Day 26**: post **week 4 stats so far** + cliffhanger: \"If we hit $5k by Sunday we ship <next feature>.\"\n- **Day 27**: trade replay or new whale post.\n- **Day 28**: **announce raffle winners** publicly with USDC tx hashes. Builds permission to do this monthly.\n- **Day 29**: **founder reflection post** \u2014 \"30 days of WhalePod: <users>, <notional>, <fees>, <lessons>.\" Honest. Specific.\n- **Day 30 (month-1 transparency thread)** \u2014 4\u20136 tweets, all numbers, no fluff. **Target**: 120+ users, $10m+ notional, **$5k+ fees**. Tag @HyperliquidX and @chameleon_jeff in the last tweet (\"thanks for the rails\").\n\n---\n\n### If you're behind plan at Day 14\n\nDiagnosis tree:\n\n| Symptom | Cause | Fix |\n| --- | --- | --- |\n| <20 users | Demo isn't converting | Re-record demo: 15s, no audio, one whale fill landing |\n| 30+ users, <$500 fees | Users mirror too small | Add a \"recommended size\" tooltip in onboarding; raise default to $50 |\n| Lots of /start, no /follow | Onboarding friction | Look at Sentry + miniapp logs; fix the broken step |\n| Big spikes then silence | One viral post, no follow-through | You're not posting daily \u2014 fix the cadence |\n| Whales not replying | DM template is too long | Shorten to 2 sentences; lead with their P&L number |\n\n### If you're ahead of plan at Day 14\n\n- **Raise the daily notional cap** in Railway env (`RISK_MAX_DAILY_NOTIONAL_USD`) so bigger users aren't throttled.\n- **Add 5 more whales** \u2014 supply is now the bottleneck.\n- **Reply faster.** At 100+ users, response time becomes the brand.\n- **Start writing the month-2 feature** (position-based mirror, \u00a716) so you have something to announce Day 30.
 
 ---
 
@@ -632,10 +587,10 @@ Set up a Looker/Metabase dashboard against the read replica.
 
 ### 14.3 S1 runbook
 
-1. Tail Render logs. Look for the first ERROR.
-2. Check upstream: Hyperliquid status, Upstash status, Neon status.
+1. Tail Railway logs (`whalepod-bot` and `whalepod-ws` services). Look for the first ERROR.
+2. Check upstream: Hyperliquid status, Upstash status, Neon status, Telegram status (https://core.telegram.org/api/status).
 3. If HL is down: post in TG "HL is down, we're paused with them. Will resume automatically."
-4. If our bug: revert the last deploy (`render rollback`) while you fix forward.
+4. If our bug: roll back the last deploy in Railway (Deployments tab → click the previous green deploy → **Redeploy**) while you fix forward.
 
 ### 14.4 S2/S3
 
@@ -707,15 +662,13 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 >
 > Going live next week. Drop a 🐳 if you want early access.
 
-#### A.1.2 (T-6: product screenshot)
+#### A.1.2 (Day 1: product screenshot)
 
-> WhalePod /pnl, working on testnet 👇
+> WhalePod /pnl, live on Hyperliquid mainnet 👇
 >
 > [image of /pnl reply]
 >
-> Realized + unrealized broken out per coin. Synced from your real HL fills. No spreadsheet.
->
-> 6 days to mainnet.
+> Realized + unrealized broken out per whale. Net of builder fees. Synced from your real HL fills. No spreadsheet.
 
 #### A.1.3 (T-5: a whale you'll seed)
 
@@ -765,7 +718,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 
 > 5/ **10 whales seeded** at launch — all profitable, all active, all picked by hand. Browse `/leaderboard` to see them. We rotate the list weekly.
 
-> 6/ Open in TG → [t.me/WhalePodBot]
+> 6/ Open in TG → [t.me/whalepod_bot]
 > Docs → [whalepod.trade]
 > Source → [github link]
 >
@@ -777,7 +730,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 
 > Referral program for week 1:
 >
-> Use `/share` in @WhalePodBot to get your invite link.
+> Use `/share` in @whalepod_bot to get your invite link.
 >
 > Top 3 referrers at end of month split $350 USDC:
 > · 1st: $200
@@ -825,7 +778,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > · Win rate: X% on N trades
 > · Coins: ETH, BTC, SOL
 >
-> Mirror in 2 taps → /follow 0x...abcd in @WhalePodBot
+> Mirror in 2 taps → /follow 0x...abcd in @whalepod_bot
 
 ### A.6 Trade replay
 
@@ -839,7 +792,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 >
 > WhalePod auto-mirrored at proportional size for N followers. Avg follower P&L: +$Y. Fee charged: $Z (5 bps).
 >
-> No spreadsheet. No screen-watching. /follow 0x... in @WhalePodBot.
+> No spreadsheet. No screen-watching. /follow 0x... in @whalepod_bot.
 
 ### A.7 Telegram group templates
 
@@ -848,7 +801,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 > 👋 Welcome to WhalePod.
 >
 > · Copy-trade HL whales. 5 bps. Non-custodial.
-> · Open the bot → @WhalePodBot → /start
+> · Open the bot → @whalepod_bot → /start
 > · Commands: /help
 > · Support: tag an admin
 > · Bug? DM @<your_handle> with a screenshot.
@@ -863,7 +816,7 @@ If you hit $5k in month 1, the next features (in order of ROI) are:
 
 > 🚨 Whale @<alias> just posted about their HL setup → [link]
 >
-> If you mirror them via WhalePod, you'll auto-follow whatever they do next. /follow 0x... in @WhalePodBot.
+> If you mirror them via WhalePod, you'll auto-follow whatever they do next. /follow 0x... in @whalepod_bot.
 
 #### A.7.3 (after a clean week)
 
