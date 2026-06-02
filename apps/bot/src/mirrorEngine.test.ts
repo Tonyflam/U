@@ -45,6 +45,9 @@ function makeAssets(map: Record<string, number>): AssetIndexResolver {
     resolve(coin) {
       return Object.prototype.hasOwnProperty.call(map, coin) ? map[coin] : undefined;
     },
+    szDecimals() {
+      return 4;
+    },
   };
 }
 

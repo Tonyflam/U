@@ -46,6 +46,12 @@ export interface SubscriptionSnapshot {
 /** Resolves a coin ticker to the HL perp asset index. */
 export interface AssetIndexResolver {
   resolve(coin: string): number | undefined;
+  /**
+   * HL's per-asset size precision. Sending more decimals than this is
+   * rejected with "Order has invalid size." Returns undefined if unknown,
+   * in which case the engine falls back to a conservative default.
+   */
+  szDecimals?(coin: string): number | undefined;
 }
 
 export interface MirrorEngineDeps {
@@ -115,7 +121,7 @@ export type MirrorDecision =
     };
 
 const PX_PRECISION = 5;
-const SZ_DECIMALS = 4;
+const DEFAULT_SZ_DECIMALS = 2;
 
 export async function evaluateMirror(
   raw: unknown,
@@ -167,7 +173,7 @@ export async function evaluateMirror(
   if (!Number.isFinite(szNum) || szNum <= minSz) {
     return { kind: 'skip', reason: 'size_zero' };
   }
-  const sz = formatSz(szNum);
+  const sz = formatSz(szNum, deps.assets.szDecimals?.(intent.coin) ?? DEFAULT_SZ_DECIMALS);
   if (sz === '0') return { kind: 'skip', reason: 'size_zero' };
 
   // Builder fee: defense in depth. The clamper ALSO enforces protocol cap,
@@ -219,8 +225,8 @@ function formatPx(n: number): string {
   return Number.parseFloat(n.toPrecision(PX_PRECISION)).toString();
 }
 
-function formatSz(n: number): string {
-  const fixed = n.toFixed(SZ_DECIMALS);
+function formatSz(n: number, szDecimals: number): string {
+  const fixed = n.toFixed(szDecimals);
   return Number.parseFloat(fixed).toString();
 }
 

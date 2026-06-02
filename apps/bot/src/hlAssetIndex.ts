@@ -11,13 +11,19 @@ import type { AssetIndexResolver } from './mirrorEngine.js';
 
 interface UniverseEntry {
   readonly name: string;
+  readonly szDecimals?: number;
 }
 interface HlMeta {
   readonly universe: readonly UniverseEntry[];
 }
 
+interface AssetMeta {
+  readonly index: number;
+  readonly szDecimals: number;
+}
+
 export class HlAssetIndex implements AssetIndexResolver {
-  private map: ReadonlyMap<string, number> = new Map();
+  private map: ReadonlyMap<string, AssetMeta> = new Map();
   private lastRefreshMs = 0;
 
   constructor(
@@ -27,9 +33,10 @@ export class HlAssetIndex implements AssetIndexResolver {
 
   async refresh(): Promise<void> {
     const meta = await this.transport.info<HlMeta>({ type: 'meta' });
-    const next = new Map<string, number>();
+    const next = new Map<string, AssetMeta>();
     meta.universe.forEach((entry, idx) => {
-      next.set(entry.name.toUpperCase(), idx);
+      const szDec = typeof entry.szDecimals === 'number' ? entry.szDecimals : 2;
+      next.set(entry.name.toUpperCase(), { index: idx, szDecimals: szDec });
     });
     this.map = next;
     this.lastRefreshMs = (this.options.now ?? Date.now)();
@@ -40,7 +47,11 @@ export class HlAssetIndex implements AssetIndexResolver {
    * `undefined` until `refresh()` has been called at least once.
    */
   resolve(coin: string): number | undefined {
-    return this.map.get(coin.toUpperCase());
+    return this.map.get(coin.toUpperCase())?.index;
+  }
+
+  szDecimals(coin: string): number | undefined {
+    return this.map.get(coin.toUpperCase())?.szDecimals;
   }
 
   /** Read for diagnostics/tests. */
