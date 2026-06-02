@@ -188,6 +188,26 @@ describe('submitMirror', () => {
     expect(entry.after.outcome).toBe('exchange_error');
   });
 
+  it('treats per-order error inside status:ok envelope as exchange_error', async () => {
+    const { deps, audit, notional } = makeDeps({
+      exchange: async () => ({
+        status: 'ok' as const,
+        response: {
+          type: 'order',
+          data: { statuses: [{ error: 'Order has insufficient margin to open.' }] },
+        },
+      }),
+    });
+    const out = await submitMirror(submitDecision(), deps);
+    expect(out.kind).toBe('exchange_error');
+    if (out.kind === 'exchange_error') {
+      expect(out.message).toContain('insufficient margin');
+    }
+    expect(notional).not.toHaveBeenCalled();
+    const entry = audit.mock.calls[0]?.[0] as { after: { outcome: string } };
+    expect(entry.after.outcome).toBe('exchange_error');
+  });
+
   it('maps HlTransportError to transport_error with stage=exchange', async () => {
     const { deps, audit, notional } = makeDeps({
       exchange: async () => {

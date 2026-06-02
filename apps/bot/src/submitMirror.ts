@@ -160,6 +160,17 @@ export async function submitMirror(
 
   try {
     const res = await deps.transport.exchange({ action, signature, nonce });
+    const orderError = extractOrderError(res.response);
+    if (orderError !== undefined) {
+      await deps.audit.appendAudit({
+        actor: `op:${user.id}`,
+        action: AUDIT_ACTION,
+        target: `cloid:${cloid}`,
+        before: summarize(user, subscription, orderIntent, feeTenthsBp, mirrorSizeUsd),
+        after: { outcome: 'exchange_error', message: orderError, response: res.response, nonce },
+      });
+      return { kind: 'exchange_error', cloid, message: orderError };
+    }
     await deps.notionalSink.add(user.id, mirrorSizeUsd, now);
     await deps.audit.appendAudit({
       actor: `op:${user.id}`,
@@ -253,4 +264,24 @@ function summarize(
     feeTenthsBp,
     mirrorSizeUsd,
   };
+}
+
+// HL's /exchange wraps per-order results inside status:"ok". An order can be
+// rejected (insufficient margin, builder fee missing, agent invalid, ...) and
+// still return ok at the envelope level — the failure lives in
+// response.data.statuses[i].error. Treat any such entry as exchange_error so
+// we never record a phantom fill or notify the user about an order HL refused.
+function extractOrderError(response: HlExchangeResponseOk['response']): string | undefined {
+  if (response.type !== 'order') return undefined;
+  const data = response.data as { statuses?: unknown } | undefined;
+  const statuses = data?.statuses;
+  if (!Array.isArray(statuses)) return undefined;
+  const errors: string[] = [];
+  for (const s of statuses) {
+    if (s !== null && typeof s === 'object' && 'error' in s) {
+      const e = (s as { error: unknown }).error;
+      if (typeof e === 'string') errors.push(e);
+    }
+  }
+  return errors.length > 0 ? errors.join('; ') : undefined;
 }
