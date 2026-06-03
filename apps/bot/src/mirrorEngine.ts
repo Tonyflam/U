@@ -122,6 +122,8 @@ export type MirrorDecision =
 
 const PX_PRECISION = 5;
 const DEFAULT_SZ_DECIMALS = 2;
+const BPS_DENOM = 10_000;
+const IOC_CROSS_BPS = 50;
 
 export async function evaluateMirror(
   raw: unknown,
@@ -188,13 +190,19 @@ export async function evaluateMirror(
   const feeTenthsBp = clampFeeTenthsBp(user.currentFeeTenthsBp, user.approvedMaxFeeTenthsBp);
 
   const cloid = cloidFromKey(intent.idempotencyKey);
-  // For market-style mirror: pass through whale's fill px as the limit;
-  // tif=Ioc + reduceOnly=false. Slippage cap is enforced by the price
-  // sanity check above + per-asset bands in transport (later unit).
+  // IOC needs a limit that crosses the book. The whale's fill px is stale
+  // by the time we sign + POST, so pad it in the aggressive direction by
+  // a small tolerance. The risk engine still enforces an overall slippage
+  // cap against this same px, so this only widens what HL sees, not what
+  // we accept.
+  const isBuy = intent.side === 'B';
+  const aggressivePx = isBuy
+    ? px * (1 + IOC_CROSS_BPS / BPS_DENOM)
+    : px * (1 - IOC_CROSS_BPS / BPS_DENOM);
   const orderIntent: OrderIntent = {
     asset,
-    isBuy: intent.side === 'B',
-    limitPx: formatPx(px),
+    isBuy,
+    limitPx: formatPx(aggressivePx),
     sz,
     reduceOnly: false,
     tif: 'Ioc',
