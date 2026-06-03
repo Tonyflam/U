@@ -37,6 +37,7 @@ import { DrizzleSubscriptionSnapshotLookup, DrizzleUserSnapshotLookup } from './
 import { HlAssetIndex } from './hlAssetIndex.js';
 import { HlInfoEquity } from './hlInfoEquity.js';
 import { HlLivePositions } from './hlLivePositions.js';
+import { HlPnlSource } from './hlPnlSnapshot.js';
 import { closePositions } from './positionCloser.js';
 import { KmsAgentSigner } from './kmsAgentSigner.js';
 import { TelegramMirrorAlerter } from './mirrorAlerter.js';
@@ -152,6 +153,7 @@ async function main(): Promise<void> {
     botUsername: env.TELEGRAM_BOT_USERNAME,
     log,
     markPrice: markPrices.get(),
+    hlPnl: new HlPnlSource(transport),
     closer: closerProxy,
     ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
     mirrorBlocks,

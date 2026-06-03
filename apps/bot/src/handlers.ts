@@ -12,6 +12,7 @@
  */
 import { TPSL_MAX_BPS, TPSL_MIN_BPS, signTradeShare, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
+import { renderHlPnl, type HlPnlProvider } from './hlPnlSnapshot.js';
 import { computeLeaderboard, renderLeaderboard, type LeaderboardEntry } from './referral.js';
 import type { NotifyPrefs } from './notify.js';
 import type { Command } from './router.js';
@@ -134,6 +135,13 @@ export interface HandlerCtx {
    * shows the open size and realized PnL.
    */
   readonly markPrice?: MarkPriceFn;
+  /**
+   * HL-truth PnL provider. When present, /pnl reads positions and
+   * realized PnL straight from Hyperliquid instead of the local fill
+   * ledger, which can drift if HL fills at a different price than the
+   * IOC limit we sent.
+   */
+  readonly hlPnl?: HlPnlProvider;
   /**
    * Optional /close + /closeall executor. When omitted, those commands
    * reply with a "feature unavailable" message rather than crashing.
@@ -569,6 +577,10 @@ async function handleWallet(ctx: HandlerCtx): Promise<Reply[]> {
 async function handlePnl(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   if (!user) return [onboardReply(ctx)];
+  if (ctx.hlPnl !== undefined) {
+    const snap = await ctx.hlPnl.forUser(user.mainWallet as `0x${string}`);
+    return [renderHlPnl(snap)];
+  }
   const fills: readonly PnlFill[] = await ctx.repo.listFillsForUser(user.id, 500);
   const markPrice: MarkPriceFn = ctx.markPrice ?? ((): null => null);
   const summary = summarizePnl(fills, markPrice);

@@ -30,6 +30,7 @@ import {
   type ShortLinkStore,
 } from './handlers.js';
 import type { MarkPriceFn } from './pnl.js';
+import type { HlPnlProvider } from './hlPnlSnapshot.js';
 import { parseCommand } from './router.js';
 
 export interface BotDeps {
@@ -40,6 +41,8 @@ export interface BotDeps {
   readonly log: Logger;
   /** Optional live mark-price source; injected when available. */
   readonly markPrice?: MarkPriceFn;
+  /** Optional HL-truth PnL source for /pnl. */
+  readonly hlPnl?: HlPnlProvider;
   /** Optional reduce-only position closer for /close + /closeall. */
   readonly closer?: PositionCloseFn;
   /** Optional HMAC secret for minting trade-share tokens. */
@@ -87,6 +90,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       miniAppUrl: deps.miniAppUrl,
       botUsername: deps.botUsername,
       ...(deps.markPrice ? { markPrice: deps.markPrice } : {}),
+      ...(deps.hlPnl ? { hlPnl: deps.hlPnl } : {}),
       ...(deps.closer ? { closer: deps.closer } : {}),
       ...(deps.shareTokenSecret ? { shareTokenSecret: deps.shareTokenSecret } : {}),
       ...(deps.mirrorBlocks ? { mirrorBlocks: deps.mirrorBlocks } : {}),
