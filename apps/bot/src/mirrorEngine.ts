@@ -123,7 +123,12 @@ export type MirrorDecision =
 const PX_PRECISION = 5;
 const DEFAULT_SZ_DECIMALS = 2;
 const BPS_DENOM = 10_000;
-const IOC_CROSS_BPS = 50;
+// Pad the IOC limit by the same budget the risk engine accepts (200 bps).
+// Tighter padding (we had 50) routinely failed on volatile assets like ZEC
+// when the whale's fill px went stale during sign+POST: HL rejected with
+// "Order could not immediately match" even though the actual market move
+// was well inside our risk slippage cap.
+const IOC_CROSS_BPS = 200;
 
 export async function evaluateMirror(
   raw: unknown,
