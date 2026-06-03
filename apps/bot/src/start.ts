@@ -252,6 +252,20 @@ async function main(): Promise<void> {
       lastNonce = n;
       return n;
     },
+    preflight: async ({ userId, whaleAddress }) => {
+      // Re-read the latest paused / killSwitch state right before signing.
+      // Closes the window where a user types /pause or /kill after the
+      // engine already snapshotted but before the order hits HL.
+      const [fresh, freshUser] = await Promise.all([
+        subSnapshots.forUserAndWhale(userId, whaleAddress),
+        userSnapshots.byId(userId),
+      ]);
+      if (!fresh) return 'subscription_gone';
+      if (fresh.paused) return 'subscription_paused';
+      if (freshUser?.killSwitch) return 'kill_switch';
+      if (freshUser?.revoked) return 'agent_revoked';
+      return null;
+    },
   };
 
   const livePositions = new HlLivePositions(transport);

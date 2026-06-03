@@ -73,6 +73,19 @@ export interface SubmitMirrorDeps {
    * `() => Math.max(Date.now(), last + 1)`. Microseconds will be rejected
    * with "nonce too high". */
   readonly nonce: () => number;
+  /**
+   * Optional last-second re-check, called immediately before sign + POST.
+   * Resolves race: user types /pause or /kill while a mirror is mid-flight
+   * (after the engine read snapshots but before we hit HL). If this returns
+   * a string reason, the order is aborted and reported as `skipped`.
+   *
+   * Production wires this to a fresh DB read of `paused` + `killSwitch`.
+   * Tests can omit.
+   */
+  readonly preflight?: (input: {
+    readonly userId: string;
+    readonly whaleAddress: string;
+  }) => Promise<string | null>;
 }
 
 export type MirrorOutcome =
@@ -138,6 +151,24 @@ export async function submitMirror(
   }
 
   const nonce = deps.nonce();
+
+  if (deps.preflight) {
+    const abort = await deps.preflight({
+      userId: user.id,
+      whaleAddress: subscription.whaleAddress,
+    });
+    if (abort !== null) {
+      await deps.audit.appendAudit({
+        actor: `op:${user.id}`,
+        action: AUDIT_ACTION,
+        target: `cloid:${cloid}`,
+        before: summarize(user, subscription, orderIntent, feeTenthsBp, mirrorSizeUsd),
+        after: { outcome: 'preflight_aborted', reason: abort },
+      });
+      return { kind: 'skipped', reason: abort };
+    }
+  }
+
   let signature: HlSignature;
   try {
     signature = await deps.signer.sign({
