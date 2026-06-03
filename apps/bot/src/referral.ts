@@ -159,14 +159,17 @@ export function renderLeaderboard(
   if (result.entries.length === 0) {
     return { text: 'No ranked traders yet.' };
   }
-  const title = options.title ?? 'Top traders';
-  const lines: string[] = [title];
+  const title = options.title ?? '🏆 Top traders';
+  const lines: string[] = [title, ''];
   for (const [i, e] of result.entries.entries()) {
     const rank = i + 1;
-    const youTag = options.viewerUserId === e.userId ? ' (you)' : '';
-    lines.push(`${String(rank)}. ${e.handle}${youTag} — ${fmtSignedUsd(e.realizedPnlUsd)}`);
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${String(rank)}.`;
+    const youTag = options.viewerUserId === e.userId ? '  ← you' : '';
+    lines.push(`${medal} ${e.handle}`);
+    lines.push(`    ${fmtSignedUsd(e.realizedPnlUsd)}${youTag}`);
+    lines.push('');
   }
   const hidden = result.totalRanked - result.entries.length;
   if (hidden > 0) lines.push(`…and ${String(hidden)} more`);
-  return { text: lines.join('\n') };
+  return { text: lines.join('\n').trimEnd() };
 }

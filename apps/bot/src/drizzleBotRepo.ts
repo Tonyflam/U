@@ -473,10 +473,9 @@ export class DrizzleBotRepo implements BotRepo {
     const entries: LeaderboardEntry[] = [];
     for (const r of rows) {
       if (r.userId === null) continue;
-      const handle =
-        r.tgUsername !== null && r.tgUsername.length > 0
-          ? `@${r.tgUsername}`
-          : `${r.mainWallet.slice(0, 6)}…${r.mainWallet.slice(-4)}`;
+      // Full address only — users asked for no truncation so they can
+      // verify on-chain.
+      const handle = r.mainWallet;
       entries.push({
         userId: r.userId,
         handle,

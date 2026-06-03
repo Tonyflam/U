@@ -251,7 +251,7 @@ describe('handleCommand /share', () => {
     if (!user) throw new Error('seeded user missing');
     const code = await repo.getOrMintReferralCode(user.id);
     expect(replies[0]?.text).toContain(`https://t.me/WhalePodBot?start=ref_${code}`);
-    expect(replies[0]?.text).toContain(`${MINIAPP}/share/${code}`);
+    expect(replies[0]?.text).not.toContain(`${MINIAPP}/share/${code}`);
     const btn = replies[0]?.buttons?.[0]?.[0];
     expect(btn?.label).toBe('Share on Telegram');
     expect(btn?.url).toContain('https://t.me/share/url?url=');
@@ -387,7 +387,7 @@ describe('handleCommand /leaderboard', () => {
     const text = replies[0]?.text ?? '';
     expect(text).toMatch(/Top traders/);
     expect(text).toMatch(/@alpha/);
-    expect(text).toMatch(/\(you\)/);
+    expect(text).toMatch(/← you/);
   });
 
   it('returns empty-state when no traders', async () => {

@@ -187,7 +187,7 @@ describe('renderLeaderboard', () => {
       ]),
       { viewerUserId: 'b' },
     );
-    expect(r.text).toMatch(/@bob \(you\)/);
+    expect(r.text).toMatch(/@bob[\s\S]*← you/);
   });
 
   it('renders deterministic snapshot', () => {
@@ -199,10 +199,16 @@ describe('renderLeaderboard', () => {
       ]),
     );
     expect(r.text).toMatchInlineSnapshot(`
-      "Top traders
-      1. @alice — +$250.00
-      2. @carol — +$75.00
-      3. @bob — -$10.00"
+      "🏆 Top traders
+
+      🥇 @alice
+          +$250.00
+
+      🥈 @carol
+          +$75.00
+
+      🥉 @bob
+          -$10.00"
     `);
   });
 
