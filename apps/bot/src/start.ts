@@ -45,6 +45,7 @@ import { RedisDailyNotional } from './redisDailyNotional.js';
 import { RedisGeoCache } from './redisGeoCache.js';
 import { runMirrorConsumer, type ConsumerController } from './mirrorConsumer.js';
 import { runNotifyConsumer } from './notifyConsumer.js';
+import { ConsumerSupervisor } from './consumerSupervisor.js';
 import { RedisFillPublisher } from './fillPublisher.js';
 import { DrizzleFillSink } from './fillSink.js';
 import { RealizedPnlFillSink } from './realizedPnlSink.js';
@@ -100,6 +101,11 @@ const botEnv = commonEnv.extend({
    * Empty / unset = allow everyone (production default).
    */
   MIRROR_USER_ALLOWLIST: z.string().optional(),
+  /**
+   * Optional CSV of Telegram numeric user IDs that receive operational
+   * alerts (consumer crashes, etc.). Leave empty to disable.
+   */
+  ADMIN_TG_USER_IDS: z.string().optional(),
 });
 
 async function main(): Promise<void> {
@@ -276,34 +282,61 @@ async function main(): Promise<void> {
     );
 
   const controller: ConsumerController = { stopped: false };
-  const consumerPromise = runMirrorConsumer(
-    {
-      redis,
-      engineDeps,
-      submitDeps,
-      log: log.child({ component: 'mirror-consumer' }),
-      consumerName: env.MIRROR_CONSUMER_NAME,
-      batchSize: env.MIRROR_BATCH_SIZE,
-      alerter: mirrorAlerter,
-    },
+
+  const adminTgIds = (env.ADMIN_TG_USER_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^\d+$/u.test(s));
+  const adminAlert = async (text: string): Promise<void> => {
+    if (adminTgIds.length === 0) return;
+    await Promise.all(
+      adminTgIds.map((id) =>
+        bot.api.sendMessage(id, text).catch((err: unknown) => {
+          log.warn({ err, adminTgId: id }, 'admin alert send failed');
+        }),
+      ),
+    );
+  };
+
+  const supervisor = new ConsumerSupervisor();
+  const consumerPromise = supervisor.supervise({
+    name: 'mirror-consumer',
     controller,
-  ).catch((err: unknown) => {
-    log.error({ err }, 'mirror consumer crashed');
+    log: log.child({ component: 'mirror-consumer-supervisor' }),
+    alert: adminAlert,
+    factory: (ctl) =>
+      runMirrorConsumer(
+        {
+          redis,
+          engineDeps,
+          submitDeps,
+          log: log.child({ component: 'mirror-consumer' }),
+          consumerName: env.MIRROR_CONSUMER_NAME,
+          batchSize: env.MIRROR_BATCH_SIZE,
+          alerter: mirrorAlerter,
+        },
+        ctl,
+      ),
   });
   log.info({ consumer: env.MIRROR_CONSUMER_NAME }, 'mirror-intents consumer started');
 
-  const notifyPromise = runNotifyConsumer(
-    {
-      redis,
-      bot,
-      log: log.child({ component: 'notify-consumer' }),
-      consumerName: env.MIRROR_CONSUMER_NAME,
-      batchSize: env.MIRROR_BATCH_SIZE,
-      prefsResolver: new DrizzleNotifyPrefsResolver(db),
-    },
+  const notifyPromise = supervisor.supervise({
+    name: 'notify-consumer',
     controller,
-  ).catch((err: unknown) => {
-    log.error({ err }, 'notify consumer crashed');
+    log: log.child({ component: 'notify-consumer-supervisor' }),
+    alert: adminAlert,
+    factory: (ctl) =>
+      runNotifyConsumer(
+        {
+          redis,
+          bot,
+          log: log.child({ component: 'notify-consumer' }),
+          consumerName: env.MIRROR_CONSUMER_NAME,
+          batchSize: env.MIRROR_BATCH_SIZE,
+          prefsResolver: new DrizzleNotifyPrefsResolver(db),
+        },
+        ctl,
+      ),
   });
   log.info({ consumer: env.MIRROR_CONSUMER_NAME }, 'mirror-fills consumer started');
 
@@ -333,8 +366,14 @@ async function main(): Promise<void> {
 
   const app = Fastify({ loggerInstance: log });
 
-  app.get('/healthz', () => {
-    return { ok: true };
+  app.get('/healthz', (_req, reply) => {
+    const consumers = supervisor.snapshot();
+    const allRunning = consumers.every((c) => c.running);
+    if (!allRunning) {
+      reply.code(503);
+      return { ok: false, consumers };
+    }
+    return { ok: true, consumers };
   });
 
   const handler = webhookCallback(bot, 'fastify', {
