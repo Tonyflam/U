@@ -9,7 +9,7 @@
  * Production wires the lookup to `DrizzleBotRepo`; tests pass a fake.
  */
 import { signL1Action } from '@whalepod/sdk';
-import type { HlOrderAction, HlSignature } from '@whalepod/sdk';
+import type { HlOrderAction, HlUpdateLeverageAction, HlSignature } from '@whalepod/sdk';
 import { withAgentSigner } from '@whalepod/vault';
 import type { SealedAgentKey, VaultKms } from '@whalepod/vault';
 import type { Address } from '@whalepod/schema';
@@ -45,7 +45,7 @@ export class KmsAgentSigner implements AgentSigner {
   async sign(input: {
     readonly userId: string;
     readonly agentAddress: Address;
-    readonly action: HlOrderAction;
+    readonly action: HlOrderAction | HlUpdateLeverageAction;
     readonly nonce: number;
   }): Promise<HlSignature> {
     const row = await this.keys.forUser(input.userId);

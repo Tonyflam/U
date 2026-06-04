@@ -31,6 +31,7 @@ import {
 } from './handlers.js';
 import type { MarkPriceFn } from './pnl.js';
 import type { HlPnlProvider } from './hlPnlSnapshot.js';
+import type { WhaleProbe } from './hlWhaleProbe.js';
 import { parseCommand } from './router.js';
 
 export interface BotDeps {
@@ -51,6 +52,8 @@ export interface BotDeps {
   readonly mirrorBlocks?: MirrorBlockSink;
   /** Optional short-link store for compact /close share URLs. */
   readonly shortLinks?: ShortLinkStore;
+  /** Optional whale-existence probe for /follow validation. */
+  readonly whaleProbe?: WhaleProbe;
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -95,6 +98,7 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       ...(deps.shareTokenSecret ? { shareTokenSecret: deps.shareTokenSecret } : {}),
       ...(deps.mirrorBlocks ? { mirrorBlocks: deps.mirrorBlocks } : {}),
       ...(deps.shortLinks ? { shortLinks: deps.shortLinks } : {}),
+      ...(deps.whaleProbe ? { whaleProbe: deps.whaleProbe } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');

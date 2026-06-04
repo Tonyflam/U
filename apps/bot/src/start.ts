@@ -38,8 +38,10 @@ import { HlAssetIndex } from './hlAssetIndex.js';
 import { HlInfoEquity } from './hlInfoEquity.js';
 import { HlLivePositions } from './hlLivePositions.js';
 import { HlPnlSource } from './hlPnlSnapshot.js';
+import { HlWhaleProbe } from './hlWhaleProbe.js';
 import { closePositions } from './positionCloser.js';
 import { KmsAgentSigner } from './kmsAgentSigner.js';
+import { KmsLeverageSyncer } from './leverageSyncer.js';
 import { TelegramMirrorAlerter } from './mirrorAlerter.js';
 import { RedisDailyNotional } from './redisDailyNotional.js';
 import { RedisGeoCache } from './redisGeoCache.js';
@@ -160,6 +162,7 @@ async function main(): Promise<void> {
     log,
     markPrice: markPrices.get(),
     hlPnl: new HlPnlSource(transport),
+    whaleProbe: new HlWhaleProbe(transport),
     closer: closerProxy,
     ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
     mirrorBlocks,
@@ -246,6 +249,16 @@ async function main(): Promise<void> {
     audit: repo,
     publisher: fillPublisher,
     fillSink,
+    leverageSyncer: new KmsLeverageSyncer({
+      signer,
+      transport,
+      nonce: () => {
+        const n = Math.max(Date.now(), lastNonce + 1);
+        lastNonce = n;
+        return n;
+      },
+      log: log.child({ component: 'leverage-syncer' }),
+    }),
     now: () => Date.now(),
     nonce: () => {
       const n = Math.max(Date.now(), lastNonce + 1);

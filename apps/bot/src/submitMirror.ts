@@ -26,18 +26,19 @@ import {
   type HlSignature,
 } from '@whalepod/sdk';
 import type { MirrorDecision, UserSnapshot, SubscriptionSnapshot } from './mirrorEngine.js';
-import type { OrderIntent, HlOrderAction } from '@whalepod/sdk';
+import type { OrderIntent, HlOrderAction, HlUpdateLeverageAction } from '@whalepod/sdk';
 import { evaluateRisk, type RiskBlockReason, type RiskDeps, type RiskInput } from './riskEngine.js';
 import type { FillPublisher } from './fillPublisher.js';
 import type { FillSink } from './fillSink.js';
 import type { MirrorFillEvent } from './notify.js';
+import type { LeverageSyncer } from './leverageSyncer.js';
 
 export interface AgentSigner {
   /** Returns an HL signature for the given action + nonce, scoped to `userId`. */
   sign(input: {
     readonly userId: string;
     readonly agentAddress: Address;
-    readonly action: HlOrderAction;
+    readonly action: HlOrderAction | HlUpdateLeverageAction;
     readonly nonce: number;
   }): Promise<HlSignature>;
 }
@@ -67,6 +68,10 @@ export interface SubmitMirrorDeps {
   readonly publisher?: FillPublisher;
   /** Optional durable fill recorder; failures are best-effort and never fatal. */
   readonly fillSink?: FillSink;
+  /** Optional just-in-time leverage syncer. When provided, runs before
+   *  every entry sign — sends HL `updateLeverage` if the cap differs from
+   *  what was last synced for (user, asset). Failures are non-fatal. */
+  readonly leverageSyncer?: LeverageSyncer;
   /** Wall-clock now (ms). Injected so tests are deterministic. */
   readonly now: () => number;
   /** Monotonic nonce factory. HL requires ms-since-epoch; typically
@@ -166,6 +171,22 @@ export async function submitMirror(
         after: { outcome: 'preflight_aborted', reason: abort },
       });
       return { kind: 'skipped', reason: abort };
+    }
+  }
+
+  // Best-effort leverage sync: HL persists leverage per (wallet, asset),
+  // so we send updateLeverage here only when the cap changed since the
+  // last mirror for this asset. Failures are logged and we continue —
+  // worst case one trade at the wrong leverage instead of zero trades.
+  if (deps.leverageSyncer && subscription.maxLeverage > 0) {
+    const assetIdx = action.orders[0]?.a;
+    if (assetIdx !== undefined) {
+      await deps.leverageSyncer.ensure({
+        userId: user.id,
+        agentAddress: user.agentAddress,
+        asset: assetIdx,
+        leverage: subscription.maxLeverage,
+      });
     }
   }
 

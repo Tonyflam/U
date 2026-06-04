@@ -89,3 +89,18 @@ export interface HlApproveAgentAction {
   readonly agentName: string;
   readonly nonce: number;
 }
+
+/**
+ * HL `updateLeverage` L1 action. Sets the leverage HL applies to the
+ * NEXT order on `asset` for the signing wallet. We use `isCross: true`
+ * (cross-margin) to match WhalePod's risk model — each new mirror is
+ * sized against the user's full account equity, not isolated margin.
+ *
+ * No builder field — this is a position-management action, not a trade.
+ */
+export interface HlUpdateLeverageAction {
+  readonly type: 'updateLeverage';
+  readonly asset: number;
+  readonly isCross: boolean;
+  readonly leverage: number;
+}

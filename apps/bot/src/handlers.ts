@@ -13,6 +13,7 @@
 import { signTradeShare, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { renderHlPnl, type HlPnlProvider } from './hlPnlSnapshot.js';
+import type { WhaleProbe } from './hlWhaleProbe.js';
 import { computeLeaderboard, renderLeaderboard, type LeaderboardEntry } from './referral.js';
 import type { NotifyPrefs } from './notify.js';
 import type { Command } from './router.js';
@@ -164,6 +165,13 @@ export interface HandlerCtx {
    * the URL stays compact.
    */
   readonly shortLinks?: ShortLinkStore;
+  /**
+   * Optional whale-existence probe. When present, /follow refuses to
+   * subscribe to a 0x address that has zero fills on Hyperliquid (typo,
+   * dead wallet, random hex). Fails open on HL transport errors so an
+   * outage doesn't block onboarding.
+   */
+  readonly whaleProbe?: WhaleProbe;
 }
 
 /** Records that a (user, coin, side) tuple should not be mirrored for a TTL window. */
@@ -688,6 +696,24 @@ async function handleFollow(
     ];
   }
   const address = target.toLowerCase();
+
+  if (ctx.whaleProbe) {
+    const probe = await ctx.whaleProbe.forWhale(address as `0x${string}`);
+    if (!probe.isReal) {
+      return [
+        {
+          text: [
+            `⚠️ ${address} has no trading history on Hyperliquid.`,
+            '',
+            'This usually means a typo or an empty wallet. Double-check',
+            'the address and try again. If you’re sure it’s right and the',
+            'wallet just started trading today, wait an hour and retry.',
+          ].join('\n'),
+        },
+      ];
+    }
+  }
+
   const whale = await ctx.repo.upsertWhaleByAddress(address);
   const existing = await ctx.repo.listSubscriptions(user.id);
   if (existing.some((s) => s.whaleId === whale.id)) {
@@ -751,32 +777,39 @@ async function handleSetCap(target: string, maxSizeUsd: number, ctx: HandlerCtx)
   ];
 }
 
-// eslint-disable-next-line @typescript-eslint/require-await
 async function handleSetLev(
-  _target: string,
-  _maxLeverage: number,
-  _ctx: HandlerCtx,
+  target: string,
+  maxLeverage: number,
+  ctx: HandlerCtx,
 ): Promise<Reply[]> {
-  // Honesty stop-gap: we used to write maxLeverage to the DB but the
-  // mirror engine never read it and we never called HL's updateLeverage,
-  // so users were told "capped at N×" while orders went out at their HL
-  // default leverage. Disabled until the real wiring lands (SDK action +
-  // engine read + pre-submit updateLeverage call). Until then, set the
-  // leverage you want directly on https://app.hyperliquid.xyz/.
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  if (!ADDRESS_RE.test(target)) {
+    return [{ text: `${target} is not a 0x address.` }];
+  }
+  const address = target.toLowerCase();
+  const whale = await ctx.repo.getWhaleByAddress(address);
+  if (!whale) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  const sub = subs.find((s) => s.whaleId === whale.id);
+  if (!sub) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  const result = await ctx.repo.setSubscriptionMaxLeverage(user.id, whale.id, maxLeverage);
+  if (!result) return [{ text: 'Failed to update leverage.' }];
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'set_max_leverage',
+    target: `subscription:${sub.id}`,
+    before: { maxLeverage: result.before },
+    after: { maxLeverage: result.after },
+  });
   return [
     {
       text: [
-        '⚠️ /setlev is temporarily disabled.',
+        `✅ Max leverage for whale ${whale.address} set to ${maxLeverage.toString()}×.`,
         '',
-        'It used to silently do nothing — the cap was saved in our DB',
-        'but never sent to Hyperliquid, so trades still went out at your',
-        'account’s default leverage. We removed the lie until the real',
-        'feature ships.',
-        '',
-        'For now, set per-asset leverage directly on',
-        'https://app.hyperliquid.xyz/ — it applies to copied trades too.',
-        '',
-        'Per-trade USD risk is fully enforced via /setcap.',
+        'WhalePod will send Hyperliquid `updateLeverage` for this asset',
+        'right before your next copied trade, so the order opens with',
+        `at most ${maxLeverage.toString()}× margin — even if the whale uses more.`,
       ].join('\n'),
     },
   ];

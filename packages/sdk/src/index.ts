@@ -14,6 +14,11 @@ export {
 } from './builder.js';
 export { buildApproveAgentAction, type BuildApproveAgentInput } from './agent.js';
 export {
+  UpdateLeverageConfigError,
+  buildUpdateLeverageAction,
+  type BuildUpdateLeverageInput,
+} from './leverage.js';
+export {
   TPSL_MAX_BPS,
   TPSL_MIN_BPS,
   TpSlConfigError,
