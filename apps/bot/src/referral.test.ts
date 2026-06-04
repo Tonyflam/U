@@ -208,7 +208,11 @@ describe('renderLeaderboard', () => {
           +$75.00
 
       🥉 @bob
-          -$10.00"
+          -$10.00
+
+
+      ℹ️ Estimates from WhalePod’s local fill log.
+         Source of truth is your Hyperliquid account."
     `);
   });
 

@@ -10,7 +10,7 @@
  * write through the same repo, in one transaction conceptually. Keeping
  * handlers pure means we can test the audit invariant exhaustively.
  */
-import { TPSL_MAX_BPS, TPSL_MIN_BPS, signTradeShare, type TpSl } from '@whalepod/sdk';
+import { signTradeShare, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { renderHlPnl, type HlPnlProvider } from './hlPnlSnapshot.js';
 import { computeLeaderboard, renderLeaderboard, type LeaderboardEntry } from './referral.js';
@@ -259,6 +259,9 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
     case 'setcap':
       return handleSetCap(command.target, command.maxSizeUsd, ctx);
     case 'setlev':
+      // Stubbed: leverage cap is not wired into order submission yet. See
+      // handleSetLev for the full explanation. Keeping the command parsed
+      // (rather than 'unknown') so muscle memory gets a helpful message.
       return handleSetLev(command.target, command.maxLeverage, ctx);
     case 'mirrors':
       return handleMirrors(ctx);
@@ -387,8 +390,11 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
         const pnlStr = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `−$${Math.abs(pnl).toFixed(2)}`;
         const pct = Number(r.trade.pnlPct);
         const pctStr = pct >= 0 ? `+${pct.toFixed(2)}%` : `−${Math.abs(pct).toFixed(2)}%`;
+        // Close summary uses our local ledger (intent.limitPx + mark at
+        // close time), not HL's actual fill price. The numbers below are
+        // estimates — always reconcile against your Hyperliquid account.
         lines.push(
-          `  ✅ ${r.coin} ${r.trade.side.toUpperCase()}: closed ${r.trade.sz} @ $${r.trade.exitPx} (${pnlStr}, ${pctStr})`,
+          `  ✅ ${r.coin} ${r.trade.side.toUpperCase()}: closed ${r.trade.sz} ≈ $${r.trade.exitPx} (est. ${pnlStr}, ${pctStr})`,
         );
       } else {
         lines.push(`  ✅ ${r.coin}: ${side} ${r.sz} (reduce-only IOC)`);
@@ -523,9 +529,6 @@ function helpReply(): Reply {
       '',
       '▸ Tune a whale you follow',
       '/setcap 0xabc... 100 — change the per-trade size cap',
-      '/setlev 0xabc... 5 — cap leverage on this whale at 5× (1–50)',
-      '/tp 0xabc... 200 — auto take-profit at +2% (200 bps). Use "off" to disable.',
-      '/sl 0xabc... 100 — auto stop-loss at -1% (100 bps). Use "off" to disable.',
       '/unfollow 0xabc... — stop copying that trader',
       '',
       '▸ Your account',
@@ -710,12 +713,9 @@ async function handleFollow(
         whale.address,
         ``,
         `Per-trade size cap: $${cap.toFixed(2)}`,
-        `(Every time the whale opens a trade, WhalePod copies it on your wallet, sized so your notional risk on that trade stays at or below this cap.)`,
+        `(WhalePod copies every whale fill — both entries and exits — sized so your notional risk on each trade stays at or below this cap.)`,
         ``,
         `• Change the cap:   /setcap ${whale.address} <usd>`,
-        `• Cap leverage:     /setlev ${whale.address} <1-50>`,
-        `• Set take-profit:  /tp ${whale.address} <bps>`,
-        `• Set stop-loss:    /sl ${whale.address} <bps>`,
         `• Stop mirroring:   /unfollow ${whale.address}`,
         `• See everything:   /mirrors`,
       ].join('\n'),
@@ -751,34 +751,33 @@ async function handleSetCap(target: string, maxSizeUsd: number, ctx: HandlerCtx)
   ];
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await
 async function handleSetLev(
-  target: string,
-  maxLeverage: number,
-  ctx: HandlerCtx,
+  _target: string,
+  _maxLeverage: number,
+  _ctx: HandlerCtx,
 ): Promise<Reply[]> {
-  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx)];
-  if (!ADDRESS_RE.test(target)) {
-    return [{ text: `${target} is not a 0x address.` }];
-  }
-  const address = target.toLowerCase();
-  const whale = await ctx.repo.getWhaleByAddress(address);
-  if (!whale) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
-  const subs = await ctx.repo.listSubscriptions(user.id);
-  const sub = subs.find((s) => s.whaleId === whale.id);
-  if (!sub) return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
-  const result = await ctx.repo.setSubscriptionMaxLeverage(user.id, whale.id, maxLeverage);
-  if (!result) return [{ text: 'Failed to update leverage.' }];
-  await ctx.repo.appendAudit({
-    actor: `tg:${ctx.tgUser.id.toString()}`,
-    action: 'set_max_leverage',
-    target: `subscription:${sub.id}`,
-    before: { maxLeverage: result.before },
-    after: { maxLeverage: result.after },
-  });
+  // Honesty stop-gap: we used to write maxLeverage to the DB but the
+  // mirror engine never read it and we never called HL's updateLeverage,
+  // so users were told "capped at N×" while orders went out at their HL
+  // default leverage. Disabled until the real wiring lands (SDK action +
+  // engine read + pre-submit updateLeverage call). Until then, set the
+  // leverage you want directly on https://app.hyperliquid.xyz/.
   return [
     {
-      text: `✅ Max leverage for whale ${whale.address} set to ${maxLeverage.toString()}×.\n(WhalePod will cap copied trades on this whale at ${maxLeverage.toString()}× even if the whale uses more.)`,
+      text: [
+        '⚠️ /setlev is temporarily disabled.',
+        '',
+        'It used to silently do nothing — the cap was saved in our DB',
+        'but never sent to Hyperliquid, so trades still went out at your',
+        'account’s default leverage. We removed the lie until the real',
+        'feature ships.',
+        '',
+        'For now, set per-asset leverage directly on',
+        'https://app.hyperliquid.xyz/ — it applies to copied trades too.',
+        '',
+        'Per-trade USD risk is fully enforced via /setcap.',
+      ].join('\n'),
     },
   ];
 }
@@ -813,19 +812,13 @@ async function handleMirrors(ctx: HandlerCtx): Promise<Reply[]> {
     const alias = whale?.alias && whale.alias.length > 0 ? whale.alias : 'Whale';
     const cap = Number(s.maxSizeUsd);
     const status = s.paused || user.killSwitch ? '⏸ paused' : '▶ active';
-    const tp = s.tpBps !== null ? `TP +${(s.tpBps / 100).toFixed(2)}%` : 'TP off';
-    const sl = s.slBps !== null ? `SL -${(s.slBps / 100).toFixed(2)}%` : 'SL off';
     lines.push(`${(i + 1).toString()}. ${alias}`);
     lines.push(`   ${addr}`);
     lines.push(`   Cap: $${cap.toFixed(2)} per trade   •   ${status}`);
-    lines.push(`   ${tp}  |  ${sl}`);
     lines.push('');
   }
   lines.push('Quick commands (copy the address above):');
   lines.push('  /setcap <addr> <usd>   change per-trade size cap');
-  lines.push('  /setlev <addr> <n>     cap leverage on this whale (1–50)');
-  lines.push('  /tp <addr> <bps|off>   set take-profit  (100 bps = 1%)');
-  lines.push('  /sl <addr> <bps|off>   set stop-loss');
   lines.push('  /unfollow <addr>       stop mirroring this whale');
   lines.push('  /pause  /resume        toggle ALL mirrors');
   return [{ text: lines.join('\n') }];
@@ -924,61 +917,29 @@ async function handleDisconnect(ctx: HandlerCtx): Promise<Reply[]> {
   ];
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await
 async function handleSetTpSl(
   kind: TpSl,
-  target: string,
-  offsetBps: number | null,
-  ctx: HandlerCtx,
+  _target: string,
+  _offsetBps: number | null,
+  _ctx: HandlerCtx,
 ): Promise<Reply[]> {
-  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
-  if (!user) return [onboardReply(ctx)];
-  if (!ADDRESS_RE.test(target)) {
-    return [{ text: `${target} is not a 0x address.` }];
-  }
-  // Belt-and-braces: router already enforces [1, 10000] or null.
-  if (offsetBps !== null && (offsetBps < TPSL_MIN_BPS || offsetBps > TPSL_MAX_BPS)) {
-    return [
-      {
-        text: `${kind.toUpperCase()} offset must be between ${String(TPSL_MIN_BPS)} and ${String(TPSL_MAX_BPS)} bps.`,
-      },
-    ];
-  }
-  const address = target.toLowerCase();
-  const whale = await ctx.repo.getWhaleByAddress(address);
-  if (!whale) {
-    return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
-  }
-  const subs = await ctx.repo.listSubscriptions(user.id);
-  const sub = subs.find((s) => s.whaleId === whale.id);
-  if (!sub) {
-    return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
-  }
-  const currentField = kind === 'tp' ? sub.tpBps : sub.slBps;
-  if (currentField === offsetBps) {
-    return [
-      {
-        text:
-          offsetBps === null
-            ? `${kind.toUpperCase()} already off for ${fmtAddr(address)}.`
-            : `${kind.toUpperCase()} already at ${String(offsetBps)} bps for ${fmtAddr(address)}.`,
-      },
-    ];
-  }
-  const patch = kind === 'tp' ? { tpBps: offsetBps } : { slBps: offsetBps };
-  await ctx.repo.setSubscriptionTpSl(user.id, whale.id, patch);
-  await ctx.repo.appendAudit({
-    actor: `tg:${ctx.tgUser.id.toString()}`,
-    action: kind === 'tp' ? 'set_tp' : 'set_sl',
-    target: `subscription:${sub.id}`,
-    before: { [kind === 'tp' ? 'tpBps' : 'slBps']: currentField },
-    after: patch,
-  });
+  // Same honesty stop-gap as /setlev: tpBps and slBps were written to the
+  // DB but no trigger orders were ever sent to HL. Disabled until the
+  // real implementation lands (per-fill trigger order submission with
+  // dedupe). Users should manage TP/SL directly on Hyperliquid for now.
   return [
     {
-      text:
-        offsetBps === null
-          ? `${kind.toUpperCase()} cleared for ${fmtAddr(address)}.`
-          : `${kind.toUpperCase()} set to ${String(offsetBps)} bps for ${fmtAddr(address)}.`,
+      text: [
+        `⚠️ /${kind} is temporarily disabled.`,
+        '',
+        'It used to silently do nothing — the offset was saved in our DB',
+        `but no take-profit / stop-loss order was ever placed on Hyperliquid.`,
+        'We removed the lie until the real feature ships.',
+        '',
+        'Set TP/SL directly on https://app.hyperliquid.xyz/ on the position,',
+        'or /close <coin> here when you want to exit.',
+      ].join('\n'),
     },
   ];
 }

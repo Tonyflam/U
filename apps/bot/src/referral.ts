@@ -171,5 +171,11 @@ export function renderLeaderboard(
   }
   const hidden = result.totalRanked - result.entries.length;
   if (hidden > 0) lines.push(`…and ${String(hidden)} more`);
+  // Disclose the drift: numbers are summed from our local fill ledger
+  // (intent.limitPx), not from HL's actual closedPnl. Until real fill
+  // reconciliation lands, anyone comparing this to HL will see deltas.
+  lines.push('');
+  lines.push('ℹ️ Estimates from WhalePod\u2019s local fill log.');
+  lines.push('   Source of truth is your Hyperliquid account.');
   return { text: lines.join('\n').trimEnd() };
 }

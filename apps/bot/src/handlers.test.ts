@@ -179,61 +179,27 @@ describe('mutation handlers always write audit when they mutate', () => {
 });
 
 describe('handleCommand /tp /sl', () => {
-  it('sets tp on an existing subscription and writes audit', async () => {
+  // /tp and /sl are intentionally disabled — the underlying trigger orders
+  // were never actually placed on HL. The handler now returns an honest
+  // "temporarily disabled" message and does NOT mutate DB state.
+  it('refuses /tp without DB or audit writes', async () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
+    const auditBefore = repo.audit.length;
     const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    expect(replies[0]?.text).toMatch(/TP set to 500 bps/);
-    expect(repo.subscriptions[0]?.tpBps).toBe(500);
-    expect(repo.audit.at(-1)?.action).toBe('set_tp');
-  });
-
-  it('sets sl independently of tp', async () => {
-    const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
-    await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    await handleCommand({ kind: 'sl', target: WHALE, offsetBps: 200 }, ctx);
-    expect(repo.subscriptions[0]?.tpBps).toBe(500);
-    expect(repo.subscriptions[0]?.slBps).toBe(200);
-  });
-
-  it('clears tp when offsetBps is null', async () => {
-    const { repo, ctx } = setup();
-    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
-    await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: null }, ctx);
-    expect(replies[0]?.text).toMatch(/TP cleared/);
+    expect(replies[0]?.text).toMatch(/temporarily disabled/i);
     expect(repo.subscriptions[0]?.tpBps).toBeNull();
+    expect(repo.audit.length).toBe(auditBefore);
   });
 
-  it('refuses when not subscribed to that whale', async () => {
-    const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    expect(replies[0]?.text).toMatch(/Use \/follow first/);
-    expect(repo.audit).toHaveLength(0);
-  });
-
-  it('refuses non-address target', async () => {
-    const { repo, ctx } = setup();
-    const replies = await handleCommand({ kind: 'sl', target: 'alice', offsetBps: 100 }, ctx);
-    expect(replies[0]?.text).toMatch(/not a 0x address/);
-    expect(repo.audit).toHaveLength(0);
-  });
-
-  it('no-ops when value already equals current', async () => {
+  it('refuses /sl without DB or audit writes', async () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
-    await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    const before = repo.audit.length;
-    const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    expect(replies[0]?.text).toMatch(/already at 500 bps/);
-    expect(repo.audit.length).toBe(before);
-  });
-
-  it('redirects to onboarding when not onboarded', async () => {
-    const { ctx } = setup({ onboarded: false });
-    const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    expect(replies[0]?.text).toMatch(/onboard/i);
+    const auditBefore = repo.audit.length;
+    const replies = await handleCommand({ kind: 'sl', target: WHALE, offsetBps: 200 }, ctx);
+    expect(replies[0]?.text).toMatch(/temporarily disabled/i);
+    expect(repo.subscriptions[0]?.slBps).toBeNull();
+    expect(repo.audit.length).toBe(auditBefore);
   });
 });
 
