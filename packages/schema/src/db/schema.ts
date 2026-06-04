@@ -149,11 +149,15 @@ export const fills = pgTable(
     builderFeeUsd: numeric('builder_fee_usd', { precision: 18, scale: 6 }),
     realizedPnlUsd: numeric('realized_pnl_usd', { precision: 18, scale: 6 }),
     ts: timestamp('ts', { withTimezone: true }).notNull(),
+    /** Set by FillReconciler after pulling HL truth into px/realizedPnlUsd/builderFeeUsd.
+     *  NULL = row still holds locally-estimated values from submitMirror time. */
+    reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
   },
   (t) => ({
     walletTsIdx: index('fills_wallet_ts_idx').on(t.wallet, t.ts),
     userTsIdx: index('fills_user_ts_idx').on(t.userId, t.ts),
     mirrorOfIdx: index('fills_mirror_of_idx').on(t.mirrorOfId),
+    reconciledAtIdx: index('fills_reconciled_at_idx').on(t.reconciledAt),
     mirrorOfFk: foreignKey({
       columns: [t.mirrorOfId],
       foreignColumns: [t.id],

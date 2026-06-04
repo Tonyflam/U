@@ -39,6 +39,7 @@ import { HlInfoEquity } from './hlInfoEquity.js';
 import { HlLivePositions } from './hlLivePositions.js';
 import { HlPnlSource } from './hlPnlSnapshot.js';
 import { HlWhaleProbe } from './hlWhaleProbe.js';
+import { FillReconciler } from './fillReconciler.js';
 import { closePositions } from './positionCloser.js';
 import { KmsAgentSigner } from './kmsAgentSigner.js';
 import { KmsLeverageSyncer } from './leverageSyncer.js';
@@ -427,10 +428,18 @@ async function main(): Promise<void> {
   await app.listen({ port, host: '0.0.0.0' });
   log.info({ port }, 'bot webhook listening');
 
+  const fillReconciler = new FillReconciler({
+    db,
+    transport,
+    log: log.child({ component: 'fill-reconciler' }),
+  });
+  fillReconciler.start();
+
   const shutdown = async (signal: string): Promise<void> => {
     log.info({ signal }, 'shutting down');
     controller.stopped = true;
     clearInterval(assetRefreshTimer);
+    fillReconciler.stop();
     await app.close();
     await consumerPromise;
     await notifyPromise;
