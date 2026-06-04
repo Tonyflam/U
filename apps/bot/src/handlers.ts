@@ -10,7 +10,7 @@
  * write through the same repo, in one transaction conceptually. Keeping
  * handlers pure means we can test the audit invariant exhaustively.
  */
-import { signTradeShare, type TpSl } from '@whalepod/sdk';
+import { signTradeShare, TPSL_MAX_BPS, TPSL_MIN_BPS, type TpSl } from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { renderHlPnl, type HlPnlProvider } from './hlPnlSnapshot.js';
 import type { WhaleProbe } from './hlWhaleProbe.js';
@@ -950,29 +950,64 @@ async function handleDisconnect(ctx: HandlerCtx): Promise<Reply[]> {
   ];
 }
 
-// eslint-disable-next-line @typescript-eslint/require-await
 async function handleSetTpSl(
   kind: TpSl,
-  _target: string,
-  _offsetBps: number | null,
-  _ctx: HandlerCtx,
+  target: string,
+  offsetBps: number | null,
+  ctx: HandlerCtx,
 ): Promise<Reply[]> {
-  // Same honesty stop-gap as /setlev: tpBps and slBps were written to the
-  // DB but no trigger orders were ever sent to HL. Disabled until the
-  // real implementation lands (per-fill trigger order submission with
-  // dedupe). Users should manage TP/SL directly on Hyperliquid for now.
-  return [
-    {
-      text: [
-        `⚠️ /${kind} is temporarily disabled.`,
-        '',
-        'It used to silently do nothing — the offset was saved in our DB',
-        `but no take-profit / stop-loss order was ever placed on Hyperliquid.`,
-        'We removed the lie until the real feature ships.',
-        '',
-        'Set TP/SL directly on https://app.hyperliquid.xyz/ on the position,',
-        'or /close <coin> here when you want to exit.',
-      ].join('\n'),
-    },
-  ];
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  if (!user) return [onboardReply(ctx)];
+  if (!ADDRESS_RE.test(target)) {
+    return [{ text: `${target} is not a 0x address.` }];
+  }
+  if (offsetBps !== null && (offsetBps < TPSL_MIN_BPS || offsetBps > TPSL_MAX_BPS)) {
+    return [
+      {
+        text: `${kind.toUpperCase()} offset must be between ${String(TPSL_MIN_BPS)} and ${String(TPSL_MAX_BPS)} bps.`,
+      },
+    ];
+  }
+  const address = target.toLowerCase();
+  const whale = await ctx.repo.getWhaleByAddress(address);
+  if (!whale) {
+    return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  }
+  const subs = await ctx.repo.listSubscriptions(user.id);
+  const sub = subs.find((s) => s.whaleId === whale.id);
+  if (!sub) {
+    return [{ text: `Not subscribed to ${fmtAddr(address)}. Use /follow first.` }];
+  }
+  const currentField = kind === 'tp' ? sub.tpBps : sub.slBps;
+  if (currentField === offsetBps) {
+    return [
+      {
+        text:
+          offsetBps === null
+            ? `${kind.toUpperCase()} already off for ${fmtAddr(address)}.`
+            : `${kind.toUpperCase()} already at ${String(offsetBps)} bps for ${fmtAddr(address)}.`,
+      },
+    ];
+  }
+  const patch = kind === 'tp' ? { tpBps: offsetBps } : { slBps: offsetBps };
+  await ctx.repo.setSubscriptionTpSl(user.id, whale.id, patch);
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: kind === 'tp' ? 'set_tp' : 'set_sl',
+    target: `subscription:${sub.id}`,
+    before: { [kind === 'tp' ? 'tpBps' : 'slBps']: currentField },
+    after: patch,
+  });
+  const note =
+    offsetBps === null
+      ? `${kind.toUpperCase()} cleared for ${fmtAddr(address)}.`
+      : [
+          `${kind.toUpperCase()} set to ${String(offsetBps)} bps for ${fmtAddr(address)}.`,
+          '',
+          `WhalePod will place a reduce-only ${kind === 'tp' ? 'take-profit' : 'stop-loss'}`,
+          'trigger on Hyperliquid right after your NEXT copied entry on this',
+          'whale. Existing open positions are not modified — set those on HL',
+          'directly if you want triggers on them.',
+        ].join('\n');
+  return [{ text: note }];
 }

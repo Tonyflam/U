@@ -36,6 +36,8 @@ function sub(over: Partial<SubscriptionSnapshot> = {}): SubscriptionSnapshot {
     maxSizeUsd: '100.00',
     maxLeverage: 3,
     allowedCoins: null,
+    tpBps: null,
+    slBps: null,
     ...over,
   };
 }

@@ -179,27 +179,35 @@ describe('mutation handlers always write audit when they mutate', () => {
 });
 
 describe('handleCommand /tp /sl', () => {
-  // /tp and /sl are intentionally disabled — the underlying trigger orders
-  // were never actually placed on HL. The handler now returns an honest
-  // "temporarily disabled" message and does NOT mutate DB state.
-  it('refuses /tp without DB or audit writes', async () => {
+  it('writes tpBps + audit row when offset valid', async () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     const auditBefore = repo.audit.length;
     const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
-    expect(replies[0]?.text).toMatch(/temporarily disabled/i);
-    expect(repo.subscriptions[0]?.tpBps).toBeNull();
-    expect(repo.audit.length).toBe(auditBefore);
+    expect(replies[0]?.text).toMatch(/TP set to 500 bps/);
+    expect(repo.subscriptions[0]?.tpBps).toBe(500);
+    expect(repo.audit.length).toBe(auditBefore + 1);
+    expect(repo.audit[repo.audit.length - 1]?.action).toBe('set_tp');
   });
 
-  it('refuses /sl without DB or audit writes', async () => {
+  it('writes slBps + audit row when offset valid', async () => {
     const { repo, ctx } = setup();
     await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
     const auditBefore = repo.audit.length;
     const replies = await handleCommand({ kind: 'sl', target: WHALE, offsetBps: 200 }, ctx);
-    expect(replies[0]?.text).toMatch(/temporarily disabled/i);
-    expect(repo.subscriptions[0]?.slBps).toBeNull();
-    expect(repo.audit.length).toBe(auditBefore);
+    expect(replies[0]?.text).toMatch(/SL set to 200 bps/);
+    expect(repo.subscriptions[0]?.slBps).toBe(200);
+    expect(repo.audit.length).toBe(auditBefore + 1);
+    expect(repo.audit[repo.audit.length - 1]?.action).toBe('set_sl');
+  });
+
+  it('clears tpBps when offset null', async () => {
+    const { repo, ctx } = setup();
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: null }, ctx);
+    await handleCommand({ kind: 'tp', target: WHALE, offsetBps: 500 }, ctx);
+    const replies = await handleCommand({ kind: 'tp', target: WHALE, offsetBps: null }, ctx);
+    expect(replies[0]?.text).toMatch(/TP cleared/);
+    expect(repo.subscriptions[0]?.tpBps).toBeNull();
   });
 });
 

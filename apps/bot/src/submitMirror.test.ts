@@ -37,6 +37,8 @@ function submitDecision(
       maxSizeUsd: '1000',
       maxLeverage: 5,
       allowedCoins: null,
+      tpBps: null,
+      slBps: null,
     },
     action: {
       type: 'order',

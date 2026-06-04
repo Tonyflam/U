@@ -24,6 +24,8 @@ import {
   type HlExchangeResponseOk,
   type HttpHlTransport,
   type HlSignature,
+  buildTriggerOrderAction,
+  computeTriggerPx,
 } from '@whalepod/sdk';
 import type { MirrorDecision, UserSnapshot, SubscriptionSnapshot } from './mirrorEngine.js';
 import type { OrderIntent, HlOrderAction, HlUpdateLeverageAction } from '@whalepod/sdk';
@@ -263,6 +265,17 @@ export async function submitMirror(
         ts: now,
       });
     }
+    await submitTriggers({
+      decision,
+      entryCloid: cloid,
+      entryPx: orderIntent.limitPx,
+      nonce: deps.nonce,
+      signer: deps.signer,
+      transport: deps.transport,
+      audit: deps.audit,
+      user,
+      subscription,
+    });
     return {
       kind: 'submitted',
       cloid,
@@ -316,6 +329,108 @@ function summarize(
     feeTenthsBp,
     mirrorSizeUsd,
   };
+}
+
+/**
+ * Best-effort take-profit + stop-loss submission. Runs AFTER a successful
+ * entry; failures are logged via audit and never bubble up — the entry is
+ * already filled and the user can manage manually if a trigger fails.
+ *
+ * Trigger cloids are derived deterministically from the entry cloid
+ * (last byte → 0x01 for TP, 0x02 for SL) so that consumer retries
+ * of the same fill produce the same trigger cloid — HL dedupes.
+ */
+interface SubmitTriggersInput {
+  readonly decision: Extract<MirrorDecision, { kind: 'submit' }>;
+  readonly entryCloid: `0x${string}`;
+  readonly entryPx: string;
+  readonly nonce: () => number;
+  readonly signer: AgentSigner;
+  readonly transport: Pick<HttpHlTransport, 'exchange'>;
+  readonly audit: AuditSink;
+  readonly user: UserSnapshot;
+  readonly subscription: SubscriptionSnapshot;
+}
+
+async function submitTriggers(input: SubmitTriggersInput): Promise<void> {
+  const { subscription, decision, entryPx, user } = input;
+  const tasks: { kind: 'tp' | 'sl'; offsetBps: number }[] = [];
+  if (subscription.tpBps !== null && subscription.tpBps > 0) {
+    tasks.push({ kind: 'tp', offsetBps: subscription.tpBps });
+  }
+  if (subscription.slBps !== null && subscription.slBps > 0) {
+    tasks.push({ kind: 'sl', offsetBps: subscription.slBps });
+  }
+  if (tasks.length === 0) return;
+
+  const entry = decision.orderIntent;
+  const side: 'B' | 'S' = entry.isBuy ? 'B' : 'S';
+  const builderAddress = decision.action.builder.b;
+
+  for (const t of tasks) {
+    try {
+      const triggerPx = computeTriggerPx({
+        side,
+        entryPx,
+        offsetBps: t.offsetBps,
+        kind: t.kind,
+      });
+      const triggerCloid = deriveTriggerCloid(input.entryCloid, t.kind);
+      const action = buildTriggerOrderAction({
+        intent: {
+          asset: entry.asset,
+          isBuy: !entry.isBuy,
+          limitPx: triggerPx,
+          sz: entry.sz,
+          reduceOnly: true,
+          tif: 'Gtc',
+          cloid: triggerCloid,
+        },
+        triggerPx,
+        kind: t.kind,
+        isMarket: true,
+        builderAddress,
+        requestedFeeTenthsBp: user.currentFeeTenthsBp,
+        userApprovedMaxFeeTenthsBp: user.approvedMaxFeeTenthsBp,
+      });
+      const nonce = input.nonce();
+      const signature = await input.signer.sign({
+        userId: user.id,
+        agentAddress: user.agentAddress,
+        action,
+        nonce,
+      });
+      const res: HlExchangeResponseOk = await input.transport.exchange({
+        action,
+        signature,
+        nonce,
+      });
+      await input.audit.appendAudit({
+        actor: `op:${user.id}`,
+        action: 'mirror.trigger',
+        target: `cloid:${triggerCloid}`,
+        before: { entryCloid: input.entryCloid, kind: t.kind, offsetBps: t.offsetBps },
+        after: { outcome: 'submitted', triggerPx, response: res.response },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await input.audit.appendAudit({
+        actor: `op:${user.id}`,
+        action: 'mirror.trigger',
+        target: `cloid:${input.entryCloid}-${t.kind}`,
+        before: { entryCloid: input.entryCloid, kind: t.kind, offsetBps: t.offsetBps },
+        after: { outcome: 'failed', message },
+      });
+    }
+  }
+}
+
+function deriveTriggerCloid(entryCloid: `0x${string}`, kind: 'tp' | 'sl'): `0x${string}` {
+  // entryCloid is `0x` + 32 hex chars. Replace the last byte (2 hex chars)
+  // with a per-kind tag. Keeps 120 bits of entropy — plenty for HL dedupe
+  // and avoids collision with the entry cloid itself.
+  const tag = kind === 'tp' ? '01' : '02';
+  return `0x${entryCloid.slice(2, 32)}${tag}`;
 }
 
 // HL's /exchange wraps per-order results inside status:"ok". An order can be

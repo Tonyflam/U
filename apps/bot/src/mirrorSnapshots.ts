@@ -63,6 +63,8 @@ export class DrizzleSubscriptionSnapshotLookup {
         maxSizeUsd: schema.subscriptions.maxSizeUsd,
         maxLeverage: schema.subscriptions.maxLeverage,
         allowedCoins: schema.subscriptions.allowedCoins,
+        tpBps: schema.subscriptions.tpBps,
+        slBps: schema.subscriptions.slBps,
       })
       .from(schema.subscriptions)
       .innerJoin(schema.whales, eq(schema.whales.id, schema.subscriptions.whaleId))
@@ -78,6 +80,8 @@ export class DrizzleSubscriptionSnapshotLookup {
       maxSizeUsd: row.maxSizeUsd,
       maxLeverage: row.maxLeverage,
       allowedCoins: row.allowedCoins,
+      tpBps: row.tpBps,
+      slBps: row.slBps,
     };
   }
 }

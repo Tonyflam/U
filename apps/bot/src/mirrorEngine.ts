@@ -41,6 +41,10 @@ export interface SubscriptionSnapshot {
   readonly maxSizeUsd: string;
   readonly maxLeverage: number;
   readonly allowedCoins: readonly string[] | null;
+  /** Take-profit offset in basis points from entry, null = disabled. */
+  readonly tpBps: number | null;
+  /** Stop-loss offset in basis points from entry, null = disabled. */
+  readonly slBps: number | null;
 }
 
 /** Resolves a coin ticker to the HL perp asset index. */
