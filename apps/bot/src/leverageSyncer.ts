@@ -17,10 +17,11 @@
  * cap is the source of truth.
  *
  * Failures are non-fatal. If updateLeverage fails (transport error,
- * exchange rejection, signer error), we log + continue with the order
+ * exchange rejection, signer error), we log and continue with the order
  * at HL's current leverage. Worst case the user gets one trade at the
- * wrong leverage and we surface a warning via mirrorAlerter — much
- * better than blocking the entry entirely.
+ * wrong leverage — better than blocking the entry entirely. The retry
+ * happens automatically on the next mirror because cache stays
+ * untouched on failure.
  */
 import type { Address } from '@whalepod/schema';
 import { buildUpdateLeverageAction, type HttpHlTransport } from '@whalepod/sdk';

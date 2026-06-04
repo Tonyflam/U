@@ -267,9 +267,6 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
     case 'setcap':
       return handleSetCap(command.target, command.maxSizeUsd, ctx);
     case 'setlev':
-      // Stubbed: leverage cap is not wired into order submission yet. See
-      // handleSetLev for the full explanation. Keeping the command parsed
-      // (rather than 'unknown') so muscle memory gets a helpful message.
       return handleSetLev(command.target, command.maxLeverage, ctx);
     case 'mirrors':
       return handleMirrors(ctx);
@@ -537,6 +534,9 @@ function helpReply(): Reply {
       '',
       '▸ Tune a whale you follow',
       '/setcap 0xabc... 100 — change the per-trade size cap',
+      '/setlev 0xabc... 5 — cap leverage (1–50) on copied trades from this whale',
+      '/tp 0xabc... 200 — take-profit at +200 bps on next entry (/tp 0xabc... off to clear)',
+      '/sl 0xabc... 100 — stop-loss at -100 bps on next entry (/sl 0xabc... off to clear)',
       '/unfollow 0xabc... — stop copying that trader',
       '',
       '▸ Your account',
