@@ -75,6 +75,20 @@ function renderAlert(
     return [header, '', `Reason: ${reason}${detailLine}`, '', fixHint(outcome.reason)].join('\n');
   }
   if (outcome.kind === 'exchange_error') {
+    if (/minimum value of \$10/i.test(outcome.message)) {
+      return [
+        `ℹ️ Whale \`${whaleAddress}\` opened ${sideText} ${coinText}, but the trade scaled to your cap was below Hyperliquid's $10 minimum order size.`,
+        '',
+        'Nothing to do — your cap is being enforced. Raise it with /setcap if you want to mirror smaller-priced whales.',
+      ].join('\n');
+    }
+    if (/could not immediately match against any resting orders/i.test(outcome.message)) {
+      return [
+        `ℹ️ Whale \`${whaleAddress}\` opened ${sideText} ${coinText}, but the book was too thin for an IOC fill right now.`,
+        '',
+        'WhalePod sends reduce-only IOC, so when the book is empty at your price we skip rather than rest a limit order. Next entry from this whale will be tried fresh.',
+      ].join('\n');
+    }
     return [
       header,
       '',

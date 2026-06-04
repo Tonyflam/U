@@ -65,7 +65,7 @@ export class FillReconciler {
 
   constructor(private readonly deps: FillReconcilerDeps) {
     this.intervalMs = deps.intervalMs ?? 60_000;
-    this.lookbackHours = deps.lookbackHours ?? 24;
+    this.lookbackHours = deps.lookbackHours ?? 168;
   }
 
   start(): void {
