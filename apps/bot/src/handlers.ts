@@ -620,13 +620,16 @@ async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
   const lines = [
     '🐋 Featured whales',
     '',
-    'Tap a /follow line to mirror that trader. You can add a per-trade size cap, e.g. /follow 0x… 25 to risk at most $25 per copied trade. Default cap is $100.',
+    'These are public Hyperliquid addresses we picked from the HL leaderboard. Tap a /follow line to mirror that trader. You can add a per-trade size cap, e.g. /follow 0x… 25 to risk at most $25 per copied trade. Default cap is $100.',
+    '',
+    'Tap the hypurrscan link under each whale to verify their live HL trading history before you follow.',
     '',
   ];
   whales.forEach((w, i) => {
     const label = w.alias && w.alias.length > 0 ? w.alias : 'Whale';
     lines.push(`${(i + 1).toString()}. ${label}`);
     lines.push(`   ${w.address}`);
+    lines.push(`   🔎 https://hypurrscan.io/address/${w.address}`);
     lines.push(`   /follow ${w.address}`);
     lines.push('');
   });

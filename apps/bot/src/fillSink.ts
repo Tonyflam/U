@@ -56,6 +56,12 @@ export class DrizzleFillSink implements FillSink {
 
   async recordMirrorFill(row: MirrorFillRow): Promise<void> {
     try {
+      // Synthetic ledger rows from /close /closeall use a `close:` cloid that
+      // will never appear in HL's userFills. Their px / sz / realizedPnl are
+      // computed locally from mark and cost basis at write time — stamp them
+      // reconciled now so the reconciler does not retry forever and the
+      // leaderboard treats them as final.
+      const isSyntheticClose = row.hlFillId.startsWith('close:');
       await this.db
         .insert(schema.fills)
         .values({
@@ -72,6 +78,7 @@ export class DrizzleFillSink implements FillSink {
           builderFeeUsd: row.builderFeeUsd,
           ts: new Date(row.ts),
           ...(row.realizedPnlUsd !== undefined ? { realizedPnlUsd: row.realizedPnlUsd } : {}),
+          ...(isSyntheticClose ? { reconciledAt: new Date(row.ts) } : {}),
         })
         .onConflictDoNothing({ target: schema.fills.hlFillId });
     } catch (err) {
