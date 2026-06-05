@@ -54,9 +54,9 @@ Style: same navy + mint. Bottom-right: small "@whalepodapp · t.me/whalepod_bot"
 
 Open your test TG, run `/pnl`, screenshot the reply, crop tightly, save as `pnl-real.png`. **This is your most valuable image** — it's proof.
 
-### Asset 5 — `/leaderboard` screenshot (real, with seeded whales)
+### Asset 5 — `/whales` screenshot (real, with seeded whales)
 
-Same idea. After you seed the 10 whales (Day 2), screenshot `/leaderboard`. Save as `leaderboard-real.png`.
+After you seed the 10 whales (Day 2), screenshot `/whales` — NOT `/leaderboard`. `/whales` is the curated profitable whale list with hypurrscan verify links; `/leaderboard` is the user PnL board (just your test account down money early on). Save as `whales-real.png`.
 
 ### Asset 6 — One AI-generated hero image for the launch thread (1600×900)
 
@@ -150,9 +150,9 @@ DM these 5 first (highest-leverage targets). Use exact templates below.
 
 ### 18:00 UTC — X post #2 (proof of working)
 
-Post `leaderboard-real.png` (Asset 5):
+Post `whales-real.png` (Asset 5):
 
-> 10 hand-picked whales seeded. all profitable last 30d on @HyperliquidX. browse them with /leaderboard in @whalepod_bot. mirror in two taps.
+> 10 hand-picked whales seeded. all profitable last 30d on @HyperliquidX. browse them with /whales in @whalepod_bot — each has a hypurrscan link to verify. mirror in two taps.
 
 ### Evening — TG group first post (pin if useful):
 
@@ -182,16 +182,16 @@ Post `leaderboard-real.png` (Asset 5):
 
 ## DAY 2 — Thursday June 5
 
-**Theme:** Build the outreach engine + seed the whale list properly.
+**Theme:** Get the FIRST handful of real users. With 0 users, whale endorsements don't work yet (you can't truthfully tell a whale "N people mirror you" when N=0). The only job today is putting the bot in front of people who already trade on Hyperliquid and getting 1–5 of them to onboard.
 
 ### Morning (60 min)
 
-1. **Pull top 30 HL whales** from https://app.hyperliquid.xyz/leaderboard (30d window). Save to `whalepod-outreach` sheet, column B = address, C = 30d P&L. For each, find X/TG handle via hypurrscan + manual X search ("0x...abcd" — sometimes whales tweet their own address).
-2. **Verify your 10 seeded whales in DB.** Run:
+1. **Verify your 10 seeded whales in DB.** Run:
    ```sql
    SELECT address, alias FROM whales ORDER BY created_at DESC LIMIT 10;
    ```
-3. **Generate `/leaderboard` screenshot** now that whales are seeded → save as `leaderboard-real.png`. Use this in tomorrow's posts.
+2. **Generate a `/whales` screenshot** (NOT `/leaderboard` — that shows the user PnL board, which is just your test account down money and will never look good early). `/whales` shows the curated profitable whale list with the hypurrscan verify links. Crop tightly, save as `whales-real.png`. This is your aspirational asset.
+3. **Onboard 1–2 people you personally know who trade on HL.** A friend, a groupchat contact, anyone. Walk them through it on a call if needed. The single most valuable thing today is one real non-founder user. Watch them onboard — every place they hesitate is a bug or a copy problem to fix.
 
 ### 10:00 UTC — X post (educational, build authority)
 
@@ -203,12 +203,19 @@ Post `leaderboard-real.png` (Asset 5):
 >
 > we built @whalepod_bot around all three. t.me/whalepod_bot
 
-### Throughout day — Cold DMs (10 today)
+### Throughout day — Where your first users actually are (do ALL of these)
 
-- 3 whales from new HL leaderboard pull
-- 3 perp KOLs (5k–30k followers, must have posted about HL in last 14 days)
-- 2 HL ecosystem projects (offer cross-promo)
-- 2 mods/admins of HL-adjacent TG groups (ask permission to introduce WhalePod once)
+Whale DMs are parked until you have users. Today, go where HL traders already gather and get in front of them:
+
+1. **HL ecosystem Telegram/Discord communities** — the Hyperliquid official Discord, HypurrCo's TG/Discord, and any HL trading chat you can find. DON'T spam. Ask one admin per group for permission first (template below), then post one genuine intro. These groups are 100% your target user.
+2. **Reply-guy on HL Twitter** — spend 30 min replying with real value to every @HyperliquidX, @hypurr_co, @hyperliquid_news post from the last 24h. End a couple of them with a soft "we built a TG bot for exactly this — @whalepod_bot". This is how a 0-follower account gets discovered.
+3. **3 perp KOLs (5k–30k followers)** who posted about HL in the last 14 days — DM the affiliate offer (template below). One yes = your first real distribution.
+4. **2 HL ecosystem projects** — DM the cross-promo offer (template below).
+5. **The whale-handle problem:** you couldn't find discoverable X handles, and that's expected — most HL whales are anonymous. Don't force it. Park whale outreach until you have ~10 users; then you can truthfully say "N people mirror you" and the DM converts. For now, the hypurrscan links in `/whales` are enough proof for users.
+
+**HL community intro (ask admin first):**
+
+> Hey, mod — wanted to ask before posting. I just launched WhalePod, a non-custodial TG bot that copy-trades HL whales (5 bps via builder code, agent-wallet only, live on mainnet). Would a single intro post be welcome here, or do you prefer I keep it to DMs? Happy to follow your group's rules.
 
 **KOL DM template:**
 
@@ -218,25 +225,26 @@ Post `leaderboard-real.png` (Asset 5):
 
 > Hey — we just launched WhalePod (TG copy-trade bot on HL). Big fan of [their product]. Would love to do a cross-promo: I'll post about you to my list, you post about us to yours, when we're both at scale we can do something deeper. No money exchanged, just mutual amplification. Down?
 
-### 18:00 UTC — X post (use `leaderboard-real.png`)
+### 18:00 UTC — X post (use `whales-real.png`)
 
 > the 10 seed whales on @whalepod_bot. all profitable last 30d on HL. all active this week. all picked manually — no algo curation yet.
 >
-> [attach leaderboard-real.png]
+> [attach whales-real.png]
 >
 > we rotate this list every sunday. mirror them in two taps.
 
 ### TG group:
 
-> Day 2: 10 seed whales now live. /leaderboard in @whalepod_bot to see them.
+> Day 2: 10 seed whales now live. /whales in @whalepod_bot to see them, each with a hypurrscan link so you can verify their live HL history yourself.
 >
 > Drop the address of any HL trader you think we should add for next week's rotation — I'll DM you if we pick them.
 
 ### End-of-day checklist
 
-- [ ] Whale + KOL list in sheet ≥30 names
-- [ ] 10 DMs sent today
-- [ ] `leaderboard-real.png` posted
+- [ ] At least 1 real non-founder user onboarded (the #1 goal)
+- [ ] Asked ≥3 HL community admins for permission to post
+- [ ] DM'd 3 perp KOLs + 2 ecosystem projects
+- [ ] `whales-real.png` posted
 - [ ] First TG group engagement (any reply at all)
 
 ---
@@ -245,7 +253,7 @@ Post `leaderboard-real.png` (Asset 5):
 
 **Theme:** The hero thread. The pin. The post you'll quote-RT for the rest of the month.
 
-Assets MUST be ready: logo (Asset 1), header (Asset 2), hero image (Asset 6), `/pnl` screenshot, `/leaderboard` screenshot, fee comparison table (Asset 3).
+Assets MUST be ready: logo (Asset 1), header (Asset 2), hero image (Asset 6), `/pnl` screenshot, `/whales` screenshot, fee comparison table (Asset 3).
 
 ### Morning — update @whalepodapp profile
 
@@ -269,9 +277,9 @@ Replace placeholder pic + header with real Asset 1 and Asset 2.
 
 > 4/ **10 whales seeded** at launch. All profitable last 30d. All active this week. Hand-picked, not algo-spam.
 >
-> Browse with /leaderboard in @whalepod_bot. Rotated weekly.
+> Browse with /whales in @whalepod_bot — each has a hypurrscan link to verify. Rotated weekly.
 >
-> [attach leaderboard-real.png]
+> [attach whales-real.png]
 
 > 5/ **Risk controls in the box:**
 > · `/setcap` per-whale notional cap
@@ -411,7 +419,7 @@ Focus today on **HL-native Discord communities** and **TG chat group admins**. Y
 > Adding: @<alias>, @<alias>
 > Removing: @<alias> (cold last 14d), @<alias> (drawdown >25%)
 >
-> Hand-curated. Rotated every Sunday. Browse the live list with /leaderboard in @whalepod_bot.
+> Hand-curated. Rotated every Sunday. Browse the live list with /whales in @whalepod_bot.
 
 ### Outreach today
 
