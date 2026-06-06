@@ -211,8 +211,7 @@ describe('renderLeaderboard', () => {
           -$10.00
 
 
-      ℹ️ Estimates from WhalePod’s local fill log.
-         Source of truth is your Hyperliquid account."
+      ℹ️ Realized PnL from your Hyperliquid fills."
     `);
   });
 
