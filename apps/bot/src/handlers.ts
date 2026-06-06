@@ -252,6 +252,24 @@ function fmtFeeBps(tenthsBp: number): string {
   return `${(tenthsBp / 10).toFixed(1)} bps`;
 }
 
+/**
+ * Extracts the acquisition channel from a /start deep-link payload.
+ *
+ * Channel-tagged links use the `src_` namespace (e.g. `src_x`,
+ * `src_discord_wins`). Referral links (`ref_<code>`) are attributed to the
+ * channel `referral`. Anything else — including a bare /start — is `direct`.
+ */
+function parseStartChannel(startParam: string | null): string {
+  if (startParam === null) return 'direct';
+  const trimmed = startParam.trim();
+  if (trimmed.startsWith('src_')) {
+    const raw = trimmed.slice('src_'.length).toLowerCase();
+    return /^[a-z0-9_-]{1,32}$/u.test(raw) ? raw : 'direct';
+  }
+  if (trimmed.startsWith('ref_')) return 'referral';
+  return 'direct';
+}
+
 export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<Reply[]> {
   switch (command.kind) {
     case 'start':
@@ -474,6 +492,19 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
 
 async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+
+  // Top-of-funnel tracking: log EVERY /start tap with its channel source so we
+  // can count visitors per acquisition channel and measure tap→onboard
+  // conversion. `src_<channel>` deep-link payloads tag where the user came from
+  // (e.g. src_x, src_discord_wins). Falls back to 'direct' when absent.
+  const channel = parseStartChannel(startParam);
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'bot_start',
+    target: `tg:${ctx.tgUser.id.toString()}`,
+    after: { channel, startParam, returning: user !== null },
+  });
+
   if (!user) {
     // Stash the referral attempt as a no-op audit entry so we can correlate
     // post-onboarding. Actual attribution happens when the user exists.
