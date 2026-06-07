@@ -185,16 +185,17 @@ export function buildLandingHtml(env: LandingEnv): string {
 <title>WhalePod — copy-trade Hyperliquid in Telegram</title>
 <meta name="description" content="Mirror Hyperliquid perp whales directly from Telegram. Non-custodial. Builder fee capped at ${capFee}.">
 <meta name="robots" content="index, follow">
+<link rel="canonical" href="https://www.whalepod.trade/">
 <meta property="og:title" content="WhalePod — copy-trade Hyperliquid in Telegram">
 <meta property="og:description" content="Mirror Hyperliquid perp whales directly from Telegram. Non-custodial. Fee capped at ${capFee}.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://whalepod.trade">
-<meta property="og:image" content="https://whalepod.trade/og-card.png">
+<meta property="og:url" content="https://www.whalepod.trade/">
+<meta property="og:image" content="https://www.whalepod.trade/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@whalepodapp">
-<meta name="twitter:image" content="https://whalepod.trade/og-card.png">
+<meta name="twitter:image" content="https://www.whalepod.trade/og-card.png">
 <style>${CSS}</style>
 </head>
 <body>
