@@ -232,15 +232,25 @@ export interface Reply {
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/u;
 
-const ONBOARD_PROMPT =
-  "Let's get you onboarded. Tap the button below to connect your Hyperliquid wallet.\n\nWhalePod is non-custodial: you keep your funds, we only mirror trades through an agent key you approve.";
+const ONBOARD_PROMPT = [
+  '🐋 Welcome to WhalePod.',
+  '',
+  'Copy-trade the top Hyperliquid whales — auto-mirrored into your own account.',
+  '',
+  '✅ Non-custodial — you keep your keys (agent wallet only, no withdraw)',
+  '✅ 5 bps fee via HL builder codes (no monthly, no profit share)',
+  '✅ Hard size cap + SL/TP on every mirrored trade',
+  '✅ 8 verified-profitable whales seeded — check /whales',
+  '',
+  '60 seconds to set up. Tap below 👇',
+].join('\n');
 
 function onboardReply(ctx: HandlerCtx): Reply {
   const base = ctx.miniAppUrl.replace(/\/+$/u, '');
   const url = `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
   return {
     text: ONBOARD_PROMPT,
-    buttons: [[{ label: '🚀 Open WhalePod', url }]],
+    buttons: [[{ label: '🔗 Connect wallet & start', url }]],
   };
 }
 

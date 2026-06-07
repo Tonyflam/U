@@ -25,7 +25,7 @@ describe('handleCommand /start', () => {
   it('prompts onboarding when user is unknown', async () => {
     const { ctx } = setup({ onboarded: false });
     const replies = await handleCommand({ kind: 'start', startParam: null }, ctx);
-    expect(replies[0]?.text).toMatch(/onboard/i);
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
     expect(replies[0]?.buttons?.[0]?.[0]?.url).toMatch(new RegExp(`^${MINIAPP}/onboard\\?tg=`));
   });
 
@@ -61,7 +61,7 @@ describe('handleCommand /wallet', () => {
   it('redirects to onboarding when not onboarded', async () => {
     const { ctx } = setup({ onboarded: false });
     const replies = await handleCommand({ kind: 'wallet' }, ctx);
-    expect(replies[0]?.text).toMatch(/onboard/i);
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
   });
 });
 
@@ -215,7 +215,7 @@ describe('handleCommand /share', () => {
   it('redirects to onboarding when not onboarded', async () => {
     const { ctx } = setup({ onboarded: false });
     const replies = await handleCommand({ kind: 'share' }, ctx);
-    expect(replies[0]?.text).toMatch(/onboard/i);
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
   });
 
   it('returns a deep link with the minted referral code and a share button', async () => {
@@ -299,7 +299,7 @@ describe('handleCommand /pnl', () => {
   it('redirects to onboarding when not onboarded', async () => {
     const { ctx } = setup({ onboarded: false });
     const replies = await handleCommand({ kind: 'pnl' }, ctx);
-    expect(replies[0]?.text).toMatch(/onboard/i);
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
   });
 
   it('returns the empty-state message when no fills exist', async () => {
