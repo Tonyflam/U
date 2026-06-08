@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildLandingHtml } from './landing.js';
+import { buildWhalesSite } from './buildWhales.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'public');
@@ -23,3 +24,10 @@ const html = buildLandingHtml({ botUrl });
 mkdirSync(outDir, { recursive: true });
 writeFileSync(outPath, html, 'utf8');
 console.log(`wrote ${outPath} (${String(html.length)} bytes)`);
+
+// Hydrate + emit /whales/index.html + /api/whales.json. HL failures are
+// swallowed inside buildWhalesSite so a flaky HL endpoint never gates the
+// landing-page deploy.
+await buildWhalesSite({ outDir, botUrl }).catch((err: unknown) => {
+  console.error('whales build threw — continuing with landing only:', err);
+});

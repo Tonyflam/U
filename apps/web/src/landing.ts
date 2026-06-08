@@ -207,6 +207,7 @@ export function buildLandingHtml(env: LandingEnv): string {
     <div class="nav-links">
       <a href="#how">How it works</a>
       <a href="#fees">Fees</a>
+      <a href="/whales/">Whales</a>
       <a href="#trust">Security</a>
       <a class="btn btn-primary" href="${botUrl}" rel="noopener">Launch app</a>
     </div>

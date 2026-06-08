@@ -1,0 +1,144 @@
+{
+  "generatedAt": 1780880934809,
+  "whales": [
+    {
+      "address": "0xc6758a779bccee1ef0190dbe8292fdf44076795d",
+      "alias": "HYPE-Maxi",
+      "specialty": "HYPE",
+      "stale": false,
+      "equityUsd": 2811702.074211,
+      "thirtyDayUsd": 1363099.2642309978,
+      "allTimeUsd": 1363099.2642309978,
+      "sevenDayUsd": 1084134.3965919993,
+      "fillCount": 2000,
+      "positions": [
+        {
+          "coin": "BTC",
+          "side": "short",
+          "sizeUsd": 3710038.72039,
+          "entryPx": 74382.3,
+          "unrealizedPnlUsd": 648369.743433
+        },
+        {
+          "coin": "HYPE",
+          "side": "long",
+          "sizeUsd": 2934477.69054,
+          "entryPx": 57.1091,
+          "unrealizedPnlUsd": 171637.33454
+        },
+        {
+          "coin": "ETH",
+          "side": "short",
+          "sizeUsd": 926932.0824,
+          "entryPx": 2361.58,
+          "unrealizedPnlUsd": 366821.763883
+        }
+      ]
+    },
+    {
+      "address": "0x99b1098d9d50aa076f78bd26ab22e6abd3710729",
+      "alias": "BNB-Sharp",
+      "specialty": "BNB",
+      "stale": false,
+      "equityUsd": 7865.681612,
+      "thirtyDayUsd": 909604.7702149999,
+      "allTimeUsd": 909604.7702149999,
+      "sevenDayUsd": 909604.7702149999,
+      "fillCount": 2000,
+      "positions": [
+        {
+          "coin": "HYPE",
+          "side": "short",
+          "sizeUsd": 66259.88709,
+          "entryPx": 40.4754,
+          "unrealizedPnlUsd": -22045.689189
+        }
+      ]
+    },
+    {
+      "address": "0xd05808946809c180d190608e13f473db30aa8524",
+      "alias": "BTC-Pure",
+      "specialty": "BTC",
+      "stale": false,
+      "equityUsd": 895056.936566,
+      "thirtyDayUsd": 936602.0004660002,
+      "allTimeUsd": 936602.0004660002,
+      "sevenDayUsd": 751431.0004660009,
+      "fillCount": 2000,
+      "positions": [
+        {
+          "coin": "BTC",
+          "side": "long",
+          "sizeUsd": 3165850,
+          "entryPx": 64965.9,
+          "unrealizedPnlUsd": -82447.685131
+        },
+        {
+          "coin": "ETH",
+          "side": "long",
+          "sizeUsd": 253800,
+          "entryPx": 1527.8,
+          "unrealizedPnlUsd": 24630
+        },
+        {
+          "coin": "ZEC",
+          "side": "long",
+          "sizeUsd": 225349.0764,
+          "entryPx": 312.7284,
+          "unrealizedPnlUsd": 61297.998453
+        }
+      ]
+    },
+    {
+      "address": "0x5ae7fe9df15590e286152908112b82969f41c8b8",
+      "alias": "BTC-Volume-King",
+      "specialty": "BTC",
+      "stale": false,
+      "equityUsd": 778695.746617,
+      "thirtyDayUsd": 235451.22512800005,
+      "allTimeUsd": 235451.22512800005,
+      "sevenDayUsd": 235451.22512800005,
+      "fillCount": 2000,
+      "positions": [
+        {
+          "coin": "BTC",
+          "side": "short",
+          "sizeUsd": 6331700,
+          "entryPx": 63256.6,
+          "unrealizedPnlUsd": -6037.02347
+        },
+        {
+          "coin": "ZEC",
+          "side": "short",
+          "sizeUsd": 1073950,
+          "entryPx": 436.664,
+          "unrealizedPnlUsd": 17710.1773
+        }
+      ]
+    },
+    {
+      "address": "0x5e8e18557c0df89fb79a41941c03768da69100af",
+      "alias": "Steady-44",
+      "specialty": "Diversified",
+      "stale": false,
+      "equityUsd": 0,
+      "thirtyDayUsd": 823139.5722420005,
+      "allTimeUsd": 823139.5722420005,
+      "sevenDayUsd": 820864.010681001,
+      "fillCount": 2000,
+      "positions": []
+    },
+    {
+      "address": "0x6dc903ab5fe0d286cbef6c5042dd2684b7fd78d7",
+      "alias": "Trend-166",
+      "specialty": "Multi",
+      "stale": false,
+      "equityUsd": 0,
+      "thirtyDayUsd": 40602.937871240036,
+      "allTimeUsd": 40602.937871240036,
+      "sevenDayUsd": 62309.10757123998,
+      "fillCount": 2000,
+      "positions": []
+    }
+  ]
+}
