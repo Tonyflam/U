@@ -54,6 +54,10 @@ export interface BotDeps {
   readonly shortLinks?: ShortLinkStore;
   /** Optional whale-existence probe for /follow validation. */
   readonly whaleProbe?: WhaleProbe;
+  /** Optional admin DM ping for top-of-funnel /start tap signal. */
+  readonly adminAlert?: (text: string) => Promise<void>;
+  /** Admin TG user IDs to suppress self-notifications for. */
+  readonly adminTgUserIds?: readonly bigint[];
 }
 
 const GENERIC_ERROR_REPLY = 'Something went wrong on our end. Try again in a moment.';
@@ -99,6 +103,8 @@ async function handleTextMessage(ctx: Context, deps: BotDeps): Promise<void> {
       ...(deps.mirrorBlocks ? { mirrorBlocks: deps.mirrorBlocks } : {}),
       ...(deps.shortLinks ? { shortLinks: deps.shortLinks } : {}),
       ...(deps.whaleProbe ? { whaleProbe: deps.whaleProbe } : {}),
+      ...(deps.adminAlert ? { adminAlert: deps.adminAlert } : {}),
+      ...(deps.adminTgUserIds ? { adminTgUserIds: deps.adminTgUserIds } : {}),
     });
   } catch (err) {
     deps.log.error({ err, cmd: command.kind, tg: from.id }, 'bot.handler.error');

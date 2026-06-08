@@ -34,6 +34,39 @@ describe('handleCommand /start', () => {
     const replies = await handleCommand({ kind: 'start', startParam: null }, ctx);
     expect(replies[0]?.text).toMatch(/welcome back/i);
   });
+
+  it('pings adminAlert for a non-admin /start tap with channel + new/returning status', async () => {
+    const { ctx } = setup({ onboarded: false, tgId: 999n });
+    const calls: string[] = [];
+    const ctxWithAlert: HandlerCtx = {
+      ...ctx,
+      adminAlert: (text) => {
+        calls.push(text);
+        return Promise.resolve();
+      },
+      adminTgUserIds: [1n],
+    };
+    await handleCommand({ kind: 'start', startParam: 'src_x' }, ctxWithAlert);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('NEW');
+    expect(calls[0]).toContain('x');
+    expect(calls[0]).toContain('alice');
+  });
+
+  it('suppresses adminAlert for admin self-taps', async () => {
+    const { ctx } = setup({ onboarded: false, tgId: 42n });
+    const calls: string[] = [];
+    const ctxWithAlert: HandlerCtx = {
+      ...ctx,
+      adminAlert: (text) => {
+        calls.push(text);
+        return Promise.resolve();
+      },
+      adminTgUserIds: [42n, 99n],
+    };
+    await handleCommand({ kind: 'start', startParam: null }, ctxWithAlert);
+    expect(calls).toEqual([]);
+  });
 });
 
 describe('handleCommand /help', () => {

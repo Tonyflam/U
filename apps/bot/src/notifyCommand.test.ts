@@ -60,6 +60,6 @@ describe('handleCommand /notify', () => {
       botUsername: 'WhalePodBot',
     };
     const replies = await handleCommand({ kind: 'notify', action: 'off' }, ctx);
-    expect(replies[0]?.text).toContain('onboard');
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
   });
 });

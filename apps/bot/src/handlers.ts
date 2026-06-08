@@ -172,6 +172,18 @@ export interface HandlerCtx {
    * outage doesn't block onboarding.
    */
   readonly whaleProbe?: WhaleProbe;
+  /**
+   * Optional admin DM hook. When present, `/start` taps from non-admin
+   * users trigger a one-line ping so the operator sees acquisition in
+   * real time without polling the audit log. Failures are swallowed by
+   * the closure itself; handlers do not need to wrap it in try/catch.
+   */
+  readonly adminAlert?: (text: string) => Promise<void>;
+  /**
+   * Admin Telegram user IDs whose own /start taps should NOT trigger
+   * `adminAlert` (otherwise operators spam themselves during testing).
+   */
+  readonly adminTgUserIds?: readonly bigint[];
 }
 
 /** Records that a (user, coin, side) tuple should not be mirrored for a TTL window. */
@@ -514,6 +526,16 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
     target: `tg:${ctx.tgUser.id.toString()}`,
     after: { channel, startParam, returning: user !== null },
   });
+
+  if (ctx.adminAlert) {
+    const isAdminSelfTap = (ctx.adminTgUserIds ?? []).some((id) => id === ctx.tgUser.id);
+    if (!isAdminSelfTap) {
+      const handle =
+        ctx.tgUser.username !== null ? `@${ctx.tgUser.username}` : `tg:${ctx.tgUser.id.toString()}`;
+      const status = user !== null ? 'returning' : 'NEW';
+      await ctx.adminAlert(`🐋 /start • ${handle} • ${status} • ${channel}`);
+    }
+  }
 
   if (!user) {
     // Stash the referral attempt as a no-op audit entry so we can correlate

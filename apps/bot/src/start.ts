@@ -155,6 +155,23 @@ async function main(): Promise<void> {
   const mirrorBlocks = new RedisMirrorBlockStore({ redis });
   const shortLinks = new RedisShortLinkStore({ redis });
 
+  // Admin DM channel used by:
+  //  (a) the /start handler for real-time funnel signal, and
+  //  (b) the consumer supervisor for operational alerts.
+  // Forward-declared so `adminAlert` can be passed into createBot before
+  // `bot.api` exists; impl is wired in right after createBot returns.
+  const adminTgIds = (env.ADMIN_TG_USER_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^\d+$/u.test(s));
+  const adminTgUserIds = adminTgIds.map((id) => BigInt(id));
+  // eslint-disable-next-line prefer-const -- assigned right after createBot wires bot.api
+  let adminAlertImpl: ((text: string) => Promise<void>) | undefined;
+  const adminAlert = async (text: string): Promise<void> => {
+    if (!adminAlertImpl) return;
+    await adminAlertImpl(text);
+  };
+
   const bot = createBot({
     token: env.TELEGRAM_BOT_TOKEN,
     repo,
@@ -168,7 +185,19 @@ async function main(): Promise<void> {
     ...(env.SHARE_TOKEN_SECRET ? { shareTokenSecret: env.SHARE_TOKEN_SECRET } : {}),
     mirrorBlocks,
     shortLinks,
+    ...(adminTgIds.length > 0 ? { adminAlert, adminTgUserIds } : {}),
   });
+
+  adminAlertImpl = async (text: string): Promise<void> => {
+    if (adminTgIds.length === 0) return;
+    await Promise.all(
+      adminTgIds.map((id) =>
+        bot.api.sendMessage(id, text).catch((err: unknown) => {
+          log.warn({ err, adminTgId: id }, 'admin alert send failed');
+        }),
+      ),
+    );
+  };
 
   const userSnapshots = new DrizzleUserSnapshotLookup(db);
   const subSnapshots = new DrizzleSubscriptionSnapshotLookup(db);
@@ -310,21 +339,6 @@ async function main(): Promise<void> {
     );
 
   const controller: ConsumerController = { stopped: false };
-
-  const adminTgIds = (env.ADMIN_TG_USER_IDS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => /^\d+$/u.test(s));
-  const adminAlert = async (text: string): Promise<void> => {
-    if (adminTgIds.length === 0) return;
-    await Promise.all(
-      adminTgIds.map((id) =>
-        bot.api.sendMessage(id, text).catch((err: unknown) => {
-          log.warn({ err, adminTgId: id }, 'admin alert send failed');
-        }),
-      ),
-    );
-  };
 
   const supervisor = new ConsumerSupervisor();
   const consumerPromise = supervisor.supervise({
