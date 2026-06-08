@@ -10,7 +10,7 @@
  */
 import { BUILDER_FEE_DEFAULT_TENTHS_BP } from '@whalepod/sdk';
 import { escapeHtml } from './landing.js';
-import type { CuratedWhale, WhaleSpecialty } from './whalesData.js';
+import { whaleSlug, type CuratedWhale, type WhaleSpecialty } from './whalesData.js';
 import type { HlOpenPosition } from './hlFetch.js';
 
 export interface WhaleSnapshot {
@@ -423,10 +423,10 @@ function renderCard(s: WhaleSnapshot, botUrl: string): string {
   const tagline = escapeHtml(s.meta.tagline);
   const specialty = escapeHtml(s.meta.specialty);
   const badgeColor = SPECIALTY_COLOR[s.meta.specialty];
-  // Deep-link the bot with `src_whale_<alias>` so we can attribute taps
-  // to specific whale cards in the bot_start audit log.
-  const slug = s.meta.alias.toLowerCase().replace(/[^a-z0-9]+/gu, '');
-  const startUrl = `${botUrl}?start=src_whale_${escapeHtml(slug)}`;
+  // Deep-link the bot with `src_whale_<slug>` so we can attribute taps
+  // to specific whale cards in the bot_start audit log AND so handleStart
+  // can resolve the slug back to this whale and pre-fill /follow.
+  const startUrl = `${botUrl}?start=src_whale_${escapeHtml(whaleSlug(s.meta.alias))}`;
   const hypurrUrl = `${HYPURRSCAN_BASE}/${addr}`;
 
   const thirty = renderPnlCell(s.thirtyDayUsd);

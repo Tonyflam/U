@@ -53,3 +53,10 @@ export {
   type SignL1ActionParams,
 } from './signL1.js';
 export { signTradeShare, verifyTradeShare, type TradeSharePayload } from './shareToken.js';
+export {
+  CURATED_WHALES,
+  findCuratedWhaleBySlug,
+  whaleSlug,
+  type CuratedWhale,
+  type WhaleSpecialty,
+} from './curatedWhales.js';

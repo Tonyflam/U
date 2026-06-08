@@ -67,6 +67,61 @@ describe('handleCommand /start', () => {
     await handleCommand({ kind: 'start', startParam: null }, ctxWithAlert);
     expect(calls).toEqual([]);
   });
+
+  it('renders a whale-specific onboard prompt for a new user from src_whale_<slug>', async () => {
+    const { ctx } = setup({ onboarded: false, tgId: 7n });
+    const replies = await handleCommand({ kind: 'start', startParam: 'src_whale_hypemaxi' }, ctx);
+    const reply = replies[0];
+    expect(reply).toBeDefined();
+    expect(reply!.text).toContain('HYPE-Maxi');
+    expect(reply!.text).toContain('0xc6758a779bccee1ef0190dbe8292fdf44076795d');
+    // Mini-app URL must carry the whale slug so the post-onboard redirect
+    // can deep-link the user back to the bot with /follow pre-filled.
+    expect(reply!.buttons?.[0]?.[0]?.url).toContain('whale=hypemaxi');
+    expect(reply!.buttons?.[0]?.[0]?.label).toMatch(/HYPE-Maxi/);
+  });
+
+  it('falls back to the generic onboard prompt for an unknown whale slug', async () => {
+    const { ctx } = setup({ onboarded: false, tgId: 8n });
+    const replies = await handleCommand(
+      { kind: 'start', startParam: 'src_whale_nonexistent' },
+      ctx,
+    );
+    expect(replies[0]?.text).toMatch(/Welcome to WhalePod/i);
+    expect(replies[0]?.buttons?.[0]?.[0]?.url).not.toContain('whale=');
+  });
+
+  it('shows a 1-tap /follow command for a returning user from src_whale_<slug>', async () => {
+    const { ctx } = setup({ tgId: 9n });
+    const replies = await handleCommand({ kind: 'start', startParam: 'src_whale_btcpure' }, ctx);
+    expect(replies[0]?.text).toContain('BTC-Pure');
+    expect(replies[0]?.text).toContain('/follow 0xd05808946809c180d190608e13f473db30aa8524 100');
+    // Should NOT show the generic "Welcome back" message.
+    expect(replies[0]?.text).not.toMatch(/welcome back/i);
+  });
+
+  it('tells a returning user they are already mirroring a whale they came in for', async () => {
+    const { ctx, repo } = setup({ tgId: 10n });
+    const user = await repo.getUserByTgId(10n);
+    const whale = await repo.upsertWhaleByAddress('0xd05808946809c180d190608e13f473db30aa8524');
+    await repo.subscribe(user!.id, whale.id, '50.00');
+    const replies = await handleCommand({ kind: 'start', startParam: 'src_whale_btcpure' }, ctx);
+    expect(replies[0]?.text).toMatch(/already mirroring/i);
+    expect(replies[0]?.text).toContain('BTC-Pure');
+    expect(replies[0]?.text).toContain('/setcap');
+  });
+
+  it('audits the whale slug as channel=whale_<slug> and stores the resolved address', async () => {
+    const { ctx, repo } = setup({ onboarded: false, tgId: 11n });
+    await handleCommand({ kind: 'start', startParam: 'src_whale_hypemaxi' }, ctx);
+    const audit = repo.audit.find((a) => a.action === 'bot_start');
+    expect(audit?.after).toMatchObject({
+      channel: 'whale_hypemaxi',
+      startParam: 'src_whale_hypemaxi',
+      whaleAlias: 'HYPE-Maxi',
+      whaleAddress: '0xc6758a779bccee1ef0190dbe8292fdf44076795d',
+    });
+  });
 });
 
 describe('handleCommand /help', () => {

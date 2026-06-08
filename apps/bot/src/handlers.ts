@@ -10,7 +10,15 @@
  * write through the same repo, in one transaction conceptually. Keeping
  * handlers pure means we can test the audit invariant exhaustively.
  */
-import { signTradeShare, TPSL_MAX_BPS, TPSL_MIN_BPS, type TpSl } from '@whalepod/sdk';
+import {
+  findCuratedWhaleBySlug,
+  signTradeShare,
+  TPSL_MAX_BPS,
+  TPSL_MIN_BPS,
+  whaleSlug,
+  type CuratedWhale,
+  type TpSl,
+} from '@whalepod/sdk';
 import { renderPnl, summarizePnl, type MarkPriceFn, type PnlFill } from './pnl.js';
 import { renderHlPnl, type HlPnlProvider } from './hlPnlSnapshot.js';
 import type { WhaleProbe } from './hlWhaleProbe.js';
@@ -257,9 +265,33 @@ const ONBOARD_PROMPT = [
   '60 seconds to set up. Tap below 👇',
 ].join('\n');
 
-function onboardReply(ctx: HandlerCtx): Reply {
+function onboardReply(ctx: HandlerCtx, intentWhale?: CuratedWhale): Reply {
   const base = ctx.miniAppUrl.replace(/\/+$/u, '');
-  const url = `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
+  // Carry the whale slug into the mini-app URL so the post-onboard
+  // redirect (handled in the web flow) can deep-link the user back to
+  // the bot with `/follow <address>` already filled in. The bot itself
+  // doesn't read this query param — it's purely for the web onboarder.
+  const url = intentWhale
+    ? `${base}/onboard?tg=${ctx.tgUser.id.toString()}&whale=${whaleSlug(intentWhale.alias)}`
+    : `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
+  if (intentWhale) {
+    const text = [
+      `🐋 You came from ${intentWhale.alias} on whalepod.trade.`,
+      '',
+      intentWhale.tagline,
+      `Address: ${intentWhale.address}`,
+      '',
+      `Connect your wallet (60s, non-custodial agent — no withdraw access),`,
+      `then tap /follow ${intentWhale.address} to start mirroring with a $100`,
+      `default per-trade size cap.`,
+      '',
+      `✅ 5 bps fee · hard size cap + SL/TP · you keep your keys.`,
+    ].join('\n');
+    return {
+      text,
+      buttons: [[{ label: `🔗 Connect & mirror ${intentWhale.alias}`, url }]],
+    };
+  }
   return {
     text: ONBOARD_PROMPT,
     buttons: [[{ label: '🔗 Connect wallet & start', url }]],
@@ -278,18 +310,38 @@ function fmtFeeBps(tenthsBp: number): string {
  * Extracts the acquisition channel from a /start deep-link payload.
  *
  * Channel-tagged links use the `src_` namespace (e.g. `src_x`,
- * `src_discord_wins`). Referral links (`ref_<code>`) are attributed to the
- * channel `referral`. Anything else — including a bare /start — is `direct`.
+ * `src_discord_wins`). Whale-card deep links use the `src_whale_<slug>`
+ * sub-namespace and resolve to the channel `whale_<slug>` so the audit
+ * log retains the specific whale. Referral links (`ref_<code>`) are
+ * attributed to `referral`. Anything else — including a bare /start —
+ * is `direct`.
  */
 function parseStartChannel(startParam: string | null): string {
   if (startParam === null) return 'direct';
   const trimmed = startParam.trim();
+  if (trimmed.startsWith('src_whale_')) {
+    const slug = trimmed.slice('src_whale_'.length).toLowerCase();
+    return /^[a-z0-9]{1,32}$/u.test(slug) ? `whale_${slug}` : 'direct';
+  }
   if (trimmed.startsWith('src_')) {
     const raw = trimmed.slice('src_'.length).toLowerCase();
     return /^[a-z0-9_-]{1,32}$/u.test(raw) ? raw : 'direct';
   }
   if (trimmed.startsWith('ref_')) return 'referral';
   return 'direct';
+}
+
+/**
+ * Resolves a `src_whale_<slug>` deep-link payload to a curated whale.
+ * Returns `null` for any other start parameter, or for whale slugs that
+ * don't match a current curated entry (whale was retired, etc).
+ */
+function parseWhaleIntent(startParam: string | null): CuratedWhale | null {
+  if (startParam === null) return null;
+  const trimmed = startParam.trim();
+  if (!trimmed.startsWith('src_whale_')) return null;
+  const slug = trimmed.slice('src_whale_'.length);
+  return findCuratedWhaleBySlug(slug);
 }
 
 export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<Reply[]> {
@@ -514,17 +566,25 @@ async function handleClose(coin: string | null, ctx: HandlerCtx): Promise<Reply[
 
 async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  const whaleIntent = parseWhaleIntent(startParam);
 
   // Top-of-funnel tracking: log EVERY /start tap with its channel source so we
   // can count visitors per acquisition channel and measure tap→onboard
   // conversion. `src_<channel>` deep-link payloads tag where the user came from
-  // (e.g. src_x, src_discord_wins). Falls back to 'direct' when absent.
+  // (e.g. src_x, src_discord_wins). Whale-card taps land as `whale_<slug>` so
+  // we can measure conversion per whale. Falls back to 'direct' when absent.
   const channel = parseStartChannel(startParam);
   await ctx.repo.appendAudit({
     actor: `tg:${ctx.tgUser.id.toString()}`,
     action: 'bot_start',
     target: `tg:${ctx.tgUser.id.toString()}`,
-    after: { channel, startParam, returning: user !== null },
+    after: {
+      channel,
+      startParam,
+      returning: user !== null,
+      whaleAddress: whaleIntent?.address ?? null,
+      whaleAlias: whaleIntent?.alias ?? null,
+    },
   });
 
   if (ctx.adminAlert) {
@@ -548,7 +608,7 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
         after: { startParam },
       });
     }
-    return [onboardReply(ctx)];
+    return [onboardReply(ctx, whaleIntent ?? undefined)];
   }
 
   if (startParam?.startsWith('ref_') === true) {
@@ -567,6 +627,39 @@ async function handleStart(startParam: string | null, ctx: HandlerCtx): Promise<
         }
       }
     }
+  }
+
+  if (whaleIntent) {
+    const subs = await ctx.repo.listSubscriptions(user.id);
+    const whale = await ctx.repo.getWhaleByAddress(whaleIntent.address);
+    const alreadyFollowing = whale !== null && subs.some((s) => s.whaleId === whale.id);
+    if (alreadyFollowing) {
+      return [
+        {
+          text: [
+            `🐋 You're already mirroring ${whaleIntent.alias} (${whaleIntent.address}).`,
+            '',
+            `Use /mirrors to manage all your active mirrors, or /setcap`,
+            `${whaleIntent.address} <usd> to change the per-trade size cap.`,
+          ].join('\n'),
+        },
+      ];
+    }
+    return [
+      {
+        text: [
+          `🐋 You came from ${whaleIntent.alias} on whalepod.trade.`,
+          '',
+          whaleIntent.tagline,
+          '',
+          `Tap to start mirroring (default $100 cap per trade):`,
+          `/follow ${whaleIntent.address} 100`,
+          '',
+          `Change the 100 to whatever per-trade size you want. /mirrors lists`,
+          `everyone you're already following.`,
+        ].join('\n'),
+      },
+    ];
   }
 
   return [
