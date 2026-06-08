@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { HttpHlTransport } from '@whalepod/sdk';
-import { summarizeFills, fetchClearinghouseState, fetchUserFills } from './hlFetch.js';
+import {
+  summarizeFills,
+  fetchClearinghouseState,
+  fetchUserFills,
+  fetchLeaderboardCandidates,
+} from './hlFetch.js';
 
 const NOW = 1_717_800_000_000;
 const DAY = 86_400_000;
@@ -154,5 +159,103 @@ describe('fetchUserFills (stubbed transport)', () => {
     });
     expect(s.allTimeUsd).toBe(100);
     expect(s.fillCount).toBe(1);
+  });
+});
+
+describe('fetchLeaderboardCandidates', () => {
+  const mkRow = (
+    overrides: Partial<{
+      readonly ethAddress: string;
+      readonly accountValue: string;
+      readonly displayName: string | null;
+      readonly month: { pnl: string; roi: string; vlm: string };
+      readonly week: { pnl: string; roi: string; vlm: string };
+    }> = {},
+  ): unknown => ({
+    ethAddress: overrides.ethAddress ?? '0x1111111111111111111111111111111111111111',
+    accountValue: overrides.accountValue ?? '500000',
+    displayName: overrides.displayName ?? null,
+    windowPerformances: [
+      ['day', { pnl: '0', roi: '0', vlm: '0' }],
+      ['week', overrides.week ?? { pnl: '20000', roi: '0.05', vlm: '5000000' }],
+      ['month', overrides.month ?? { pnl: '100000', roi: '0.25', vlm: '20000000' }],
+      ['allTime', { pnl: '0', roi: '0', vlm: '0' }],
+    ],
+  });
+
+  const stubFetcher =
+    (rows: readonly unknown[]) => (): Promise<{ readonly leaderboardRows: readonly unknown[] }> =>
+      Promise.resolve({ leaderboardRows: rows });
+
+  it('returns top N candidates sorted by 30d PnL desc', async () => {
+    const candidates = await fetchLeaderboardCandidates({
+      excludeAddresses: [],
+      topN: 2,
+      fetcher: stubFetcher([
+        mkRow({
+          ethAddress: '0xaaa1111111111111111111111111111111111111',
+          month: { pnl: '500000', roi: '0.5', vlm: '40000000' },
+        }),
+        mkRow({
+          ethAddress: '0xbbb1111111111111111111111111111111111111',
+          month: { pnl: '900000', roi: '0.3', vlm: '60000000' },
+        }),
+        mkRow({
+          ethAddress: '0xccc1111111111111111111111111111111111111',
+          month: { pnl: '300000', roi: '0.4', vlm: '30000000' },
+        }),
+      ]),
+    });
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]!.address).toBe('0xbbb1111111111111111111111111111111111111');
+    expect(candidates[1]!.address).toBe('0xaaa1111111111111111111111111111111111111');
+  });
+
+  it('filters out already-curated addresses (case-insensitive)', async () => {
+    const candidates = await fetchLeaderboardCandidates({
+      excludeAddresses: ['0xAAA1111111111111111111111111111111111111'],
+      fetcher: stubFetcher([
+        mkRow({ ethAddress: '0xaaa1111111111111111111111111111111111111' }),
+        mkRow({ ethAddress: '0xbbb1111111111111111111111111111111111111' }),
+      ]),
+    });
+    expect(candidates.map((c) => c.address.toLowerCase())).toEqual([
+      '0xbbb1111111111111111111111111111111111111',
+    ]);
+  });
+
+  it('drops dust / inactive / break-even rows', async () => {
+    const candidates = await fetchLeaderboardCandidates({
+      excludeAddresses: [],
+      minEquityUsd: 10_000,
+      minThirtyDayPnlUsd: 50_000,
+      minThirtyDayVolumeUsd: 250_000,
+      fetcher: stubFetcher([
+        // too small: equity below floor
+        mkRow({ ethAddress: '0x111', accountValue: '5000' }),
+        // break-even: month PnL below floor
+        mkRow({
+          ethAddress: '0x222',
+          month: { pnl: '10000', roi: '0.01', vlm: '5000000' },
+        }),
+        // inactive: month volume below floor
+        mkRow({
+          ethAddress: '0x333',
+          month: { pnl: '100000', roi: '1.0', vlm: '100000' },
+        }),
+        // keeper
+        mkRow({ ethAddress: '0x4441111111111111111111111111111111111111' }),
+      ]),
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.address).toBe('0x4441111111111111111111111111111111111111');
+  });
+
+  it('returns empty array when the leaderboard payload is empty', async () => {
+    const candidates = await fetchLeaderboardCandidates({
+      excludeAddresses: [],
+      fetcher: stubFetcher([]),
+    });
+    expect(candidates).toEqual([]);
   });
 });

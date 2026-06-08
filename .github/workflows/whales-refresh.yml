@@ -1,0 +1,50 @@
+name: Hourly Whales Refresh
+
+# Triggers a Vercel rebuild every hour so /whales/ + /api/whales.json
+# stay fresh with live Hyperliquid positions, equity, and PnL without
+# requiring a push. The build also pulls the HL leaderboard and prints
+# promotion candidates to the build log for manual curation review.
+#
+# Setup (one-time):
+#   1. Vercel → Project (whalepod web) → Settings → Git → Deploy Hooks
+#      → Create Hook: name "Hourly Whales Refresh", branch "main"
+#   2. Copy the generated URL
+#   3. GitHub → Settings → Secrets and variables → Actions → New
+#      repository secret → Name: VERCEL_WHALES_DEPLOY_HOOK,
+#      Value: <the URL from step 2>
+#
+# If the secret is missing, the workflow no-ops with a friendly log.
+
+on:
+  schedule:
+    # Top of every hour (UTC). Vercel deploy hooks bypass the
+    # ignoreCommand so this always builds.
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whales-refresh
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Vercel deploy hook
+        env:
+          HOOK: ${{ secrets.VERCEL_WHALES_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::VERCEL_WHALES_DEPLOY_HOOK secret is not set — skipping. See workflow file for setup steps."
+            exit 0
+          fi
+          # -f: fail on HTTP error, -sS: silent but show errors,
+          # --max-time 30: hard cap to avoid hung runners.
+          code=$(curl -fsS --max-time 30 -o /tmp/resp.json -w "%{http_code}" -X POST "$HOOK")
+          echo "Vercel responded HTTP $code"
+          head -c 500 /tmp/resp.json || true
+          echo

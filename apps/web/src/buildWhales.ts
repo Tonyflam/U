@@ -14,7 +14,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWhalesHtml, buildWhalesJson, type WhaleSnapshot } from './whales.js';
 import { CURATED_WHALES, type CuratedWhale } from './whalesData.js';
-import { fetchClearinghouseState, fetchUserFills } from './hlFetch.js';
+import {
+  fetchClearinghouseState,
+  fetchLeaderboardCandidates,
+  fetchUserFills,
+  type WhaleCandidate,
+} from './hlFetch.js';
 
 /**
  * Whales whose 30d realized PnL is at or below this threshold are
@@ -70,6 +75,50 @@ export async function buildWhalesSite(opts: {
   writeFileSync(jsonPath, JSON.stringify(json), 'utf8');
   log(`whales: wrote ${htmlPath} (${String(html.length)} bytes)`);
   log(`whales: wrote ${jsonPath} (${String(JSON.stringify(json).length)} bytes)`);
+
+  await logCandidateReport(log);
+}
+
+/**
+ * Pulls the public HL leaderboard and logs the top 5 candidates NOT
+ * already in our curated list. Manual review only — we never
+ * auto-promote, to keep the curation moat. Failure is non-fatal:
+ * the build proceeds even if the leaderboard endpoint is down.
+ */
+async function logCandidateReport(log: (msg: string) => void): Promise<void> {
+  try {
+    log('whales: pulling HL leaderboard for promotion candidates…');
+    const candidates = await fetchLeaderboardCandidates({
+      excludeAddresses: CURATED_WHALES.map((w) => w.address),
+    });
+    if (candidates.length === 0) {
+      log(
+        'whales: no candidates passed the filter — bar may be too high or HL leaderboard is empty',
+      );
+      return;
+    }
+    log('');
+    log('━━━ CANDIDATE REPORT (top non-curated by 30d realized PnL) ━━━');
+    candidates.forEach((c, i) => {
+      log(formatCandidateLine(i + 1, c));
+    });
+    log(
+      '━━━ vet via https://hypurrscan.io/address/<addr>, then add to packages/sdk/src/curatedWhales.ts ━━━',
+    );
+    log('');
+  } catch (err) {
+    log(`whales: candidate report skipped — ${String((err as Error).message)}`);
+  }
+}
+
+function formatCandidateLine(rank: number, c: WhaleCandidate): string {
+  const name = c.displayName !== null && c.displayName.length > 0 ? ` "${c.displayName}"` : '';
+  const pnl = `$${(c.thirtyDayPnlUsd / 1000).toFixed(0)}K`;
+  const eq = `$${(c.equityUsd / 1000).toFixed(0)}K`;
+  const roi = `${c.thirtyDayRoiPct.toFixed(1)}%`;
+  const vol = `$${(c.thirtyDayVolumeUsd / 1_000_000).toFixed(1)}M`;
+  const week = `$${(c.sevenDayPnlUsd / 1000).toFixed(0)}K`;
+  return `  ${String(rank)}. ${c.address}${name}  30d=${pnl}  7d=${week}  eq=${eq}  roi=${roi}  vol=${vol}`;
 }
 
 async function hydrateAll(

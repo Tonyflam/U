@@ -1,12 +1,12 @@
 {
-  "generatedAt": 1780882728498,
+  "generatedAt": 1780884063186,
   "whales": [
     {
       "address": "0xc6758a779bccee1ef0190dbe8292fdf44076795d",
       "alias": "HYPE-Maxi",
       "specialty": "HYPE",
       "stale": false,
-      "equityUsd": 2792666.278571,
+      "equityUsd": 2795697.074471,
       "thirtyDayUsd": 1363099.2642309978,
       "allTimeUsd": 1363099.2642309978,
       "sevenDayUsd": 1084134.3965919993,
@@ -15,23 +15,23 @@
         {
           "coin": "BTC",
           "side": "short",
-          "sizeUsd": 3691639.99401,
+          "sizeUsd": 3703007.35999,
           "entryPx": 74382.3,
-          "unrealizedPnlUsd": 666768.469813
+          "unrealizedPnlUsd": 655401.103833
         },
         {
           "coin": "HYPE",
           "side": "long",
-          "sizeUsd": 2889921.34992,
+          "sizeUsd": 2908692.09928,
           "entryPx": 57.1091,
-          "unrealizedPnlUsd": 127080.99392
+          "unrealizedPnlUsd": 145851.74328
         },
         {
           "coin": "ETH",
           "side": "short",
-          "sizeUsd": 919810.2638,
+          "sizeUsd": 924192.9214,
           "entryPx": 2361.58,
-          "unrealizedPnlUsd": 373943.582483
+          "unrealizedPnlUsd": 369560.924883
         }
       ]
     },
@@ -40,7 +40,7 @@
       "alias": "BNB-Sharp",
       "specialty": "BNB",
       "stale": false,
-      "equityUsd": 8871.754382,
+      "equityUsd": 8448.734249,
       "thirtyDayUsd": 909604.7702149999,
       "allTimeUsd": 909604.7702149999,
       "sevenDayUsd": 909604.7702149999,
@@ -49,9 +49,9 @@
         {
           "coin": "HYPE",
           "side": "short",
-          "sizeUsd": 65253.81432,
+          "sizeUsd": 65677.65388,
           "entryPx": 40.4754,
-          "unrealizedPnlUsd": -21039.616419
+          "unrealizedPnlUsd": -21463.455979
         }
       ]
     },
@@ -60,7 +60,7 @@
       "alias": "BTC-Pure",
       "specialty": "BTC",
       "stale": false,
-      "equityUsd": 876195.156766,
+      "equityUsd": 888558.147084,
       "thirtyDayUsd": 936602.0004660002,
       "allTimeUsd": 936602.0004660002,
       "sevenDayUsd": 751431.0004660009,
@@ -69,23 +69,23 @@
         {
           "coin": "BTC",
           "side": "long",
-          "sizeUsd": 3150150,
+          "sizeUsd": 3159850,
           "entryPx": 64965.9,
-          "unrealizedPnlUsd": -98147.685131
+          "unrealizedPnlUsd": -88447.685131
         },
         {
           "coin": "ETH",
           "side": "long",
-          "sizeUsd": 251850,
+          "sizeUsd": 253050,
           "entryPx": 1527.8,
-          "unrealizedPnlUsd": 22680
+          "unrealizedPnlUsd": 23880
         },
         {
           "coin": "ZEC",
           "side": "long",
-          "sizeUsd": 224137.2966,
+          "sizeUsd": 225632.3496,
           "entryPx": 312.7284,
-          "unrealizedPnlUsd": 60086.218653
+          "unrealizedPnlUsd": 61581.271653
         }
       ]
     },
@@ -94,7 +94,7 @@
       "alias": "BTC-Volume-King",
       "specialty": "BTC",
       "stale": false,
-      "equityUsd": 815870.746617,
+      "equityUsd": 789389.207183,
       "thirtyDayUsd": 235451.22512800005,
       "allTimeUsd": 235451.22512800005,
       "sevenDayUsd": 235451.22512800005,
@@ -103,16 +103,16 @@
         {
           "coin": "BTC",
           "side": "short",
-          "sizeUsd": 6300300,
+          "sizeUsd": 6319700,
           "entryPx": 63256.6,
-          "unrealizedPnlUsd": 25362.97653
+          "unrealizedPnlUsd": 5962.97653
         },
         {
           "coin": "ZEC",
           "side": "short",
-          "sizeUsd": 1068175,
+          "sizeUsd": 1075300,
           "entryPx": 436.664,
-          "unrealizedPnlUsd": 23485.1773
+          "unrealizedPnlUsd": 16360.1773
         }
       ]
     },
