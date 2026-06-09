@@ -183,6 +183,39 @@ describe('handleCommand /follow', () => {
     await handleCommand({ kind: 'follow', target: upper, maxSizeUsd: null }, ctx);
     expect(repo.whales.values().next().value?.address).toBe(upper.toLowerCase());
   });
+
+  it('pings adminAlert when a non-admin starts mirroring', async () => {
+    const { ctx } = setup({ tgId: 999n });
+    const calls: string[] = [];
+    const ctxWithAlert: HandlerCtx = {
+      ...ctx,
+      adminAlert: (text) => {
+        calls.push(text);
+        return Promise.resolve();
+      },
+      adminTgUserIds: [1n],
+    };
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: 50 }, ctxWithAlert);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('New mirror');
+    expect(calls[0]).toContain('alice');
+    expect(calls[0]).toContain('$50.00');
+  });
+
+  it('suppresses the mirror adminAlert for admin self-follows', async () => {
+    const { ctx } = setup({ tgId: 42n });
+    const calls: string[] = [];
+    const ctxWithAlert: HandlerCtx = {
+      ...ctx,
+      adminAlert: (text) => {
+        calls.push(text);
+        return Promise.resolve();
+      },
+      adminTgUserIds: [42n, 99n],
+    };
+    await handleCommand({ kind: 'follow', target: WHALE, maxSizeUsd: 50 }, ctxWithAlert);
+    expect(calls).toEqual([]);
+  });
 });
 
 describe('handleCommand /unfollow', () => {

@@ -928,6 +928,16 @@ async function handleFollow(
     after: { subscriptionId: sub.id, maxSizeUsd: sub.maxSizeUsd },
   });
   const cap = Number(sub.maxSizeUsd);
+  if (ctx.adminAlert) {
+    const isAdminSelfTap = (ctx.adminTgUserIds ?? []).some((id) => id === ctx.tgUser.id);
+    if (!isAdminSelfTap) {
+      const handle =
+        ctx.tgUser.username !== null ? `@${ctx.tgUser.username}` : `tg:${ctx.tgUser.id.toString()}`;
+      await ctx.adminAlert(
+        `🟢 New mirror • ${handle} • ${fmtAddr(whale.address)} • cap $${cap.toFixed(2)}`,
+      );
+    }
+  }
   return [
     {
       text: [

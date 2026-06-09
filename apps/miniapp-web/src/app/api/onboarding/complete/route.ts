@@ -17,8 +17,7 @@ async function notifyBot(tgUserId: string | undefined): Promise<void> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: tgUserId,
-        text:
-          "✅ Wallet connected & authorized.\n\nYou're ready to mirror whales. Try /whales to browse, or /wallet to see your setup.",
+        text: "✅ Wallet connected & authorized.\n\nYou're ready to mirror whales. Try /whales to browse, or /wallet to see your setup.",
       }),
     });
     if (!res.ok) {
@@ -26,6 +25,41 @@ async function notifyBot(tgUserId: string | undefined): Promise<void> {
     }
   } catch (e) {
     console.error('telegram notify error', e);
+  }
+}
+
+/**
+ * Operator funnel alert: ping the admin account(s) when a user finishes
+ * connecting their wallet. Gated on ADMIN_TG_USER_IDS (comma-separated TG
+ * ids); a no-op when unset. The operator's own dogfood onboarding is
+ * suppressed to match the /start admin-alert behavior. Best-effort — a failed
+ * alert must never fail onboarding.
+ */
+async function notifyAdmins(tgUserId: string | undefined): Promise<void> {
+  const token = process.env['TELEGRAM_BOT_TOKEN'];
+  if (!token) return;
+  const adminIds = (process.env['ADMIN_TG_USER_IDS'] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^\d+$/u.test(s));
+  if (adminIds.length === 0) return;
+  const recipients = tgUserId ? adminIds.filter((id) => id !== tgUserId) : adminIds;
+  if (recipients.length === 0) return;
+  const who = tgUserId ? `tg:${tgUserId}` : 'unknown user';
+  const text = `🔗 Wallet connected • ${who}`;
+  for (const id of recipients) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: id, text }),
+      });
+      if (!res.ok) {
+        console.error('admin notify failed', res.status, await res.text().catch(() => ''));
+      }
+    } catch (e) {
+      console.error('admin notify error', e);
+    }
   }
 }
 
@@ -43,6 +77,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         ? String((body as { tgUserId: unknown }).tgUserId)
         : undefined;
     await notifyBot(tgUserId);
+    await notifyAdmins(tgUserId);
     return NextResponse.json(out);
   } catch (err) {
     if (err instanceof OnboardError) {
