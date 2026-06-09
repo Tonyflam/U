@@ -1,37 +1,30 @@
 {
-  "generatedAt": 1780884063186,
+  "generatedAt": 1780971645063,
   "whales": [
     {
       "address": "0xc6758a779bccee1ef0190dbe8292fdf44076795d",
       "alias": "HYPE-Maxi",
       "specialty": "HYPE",
       "stale": false,
-      "equityUsd": 2795697.074471,
-      "thirtyDayUsd": 1363099.2642309978,
-      "allTimeUsd": 1363099.2642309978,
-      "sevenDayUsd": 1084134.3965919993,
+      "equityUsd": 1782887.354291,
+      "thirtyDayUsd": 1610168.7035060101,
+      "allTimeUsd": 1610168.7035060101,
+      "sevenDayUsd": 1206451.0584940102,
       "fillCount": 2000,
       "positions": [
         {
           "coin": "BTC",
           "side": "short",
-          "sizeUsd": 3703007.35999,
+          "sizeUsd": 3665741.14987,
           "entryPx": 74382.3,
-          "unrealizedPnlUsd": 655401.103833
-        },
-        {
-          "coin": "HYPE",
-          "side": "long",
-          "sizeUsd": 2908692.09928,
-          "entryPx": 57.1091,
-          "unrealizedPnlUsd": 145851.74328
+          "unrealizedPnlUsd": 692667.313953
         },
         {
           "coin": "ETH",
           "side": "short",
-          "sizeUsd": 924192.9214,
+          "sizeUsd": 909839.71776,
           "entryPx": 2361.58,
-          "unrealizedPnlUsd": 369560.924883
+          "unrealizedPnlUsd": 383914.128523
         }
       ]
     },
@@ -40,7 +33,7 @@
       "alias": "BNB-Sharp",
       "specialty": "BNB",
       "stale": false,
-      "equityUsd": 8448.734249,
+      "equityUsd": 9684.905493,
       "thirtyDayUsd": 909604.7702149999,
       "allTimeUsd": 909604.7702149999,
       "sevenDayUsd": 909604.7702149999,
@@ -49,9 +42,9 @@
         {
           "coin": "HYPE",
           "side": "short",
-          "sizeUsd": 65677.65388,
+          "sizeUsd": 68060.11285,
           "entryPx": 40.4754,
-          "unrealizedPnlUsd": -21463.455979
+          "unrealizedPnlUsd": -23845.914949
         }
       ]
     },
@@ -60,59 +53,32 @@
       "alias": "BTC-Pure",
       "specialty": "BTC",
       "stale": false,
-      "equityUsd": 888558.147084,
-      "thirtyDayUsd": 936602.0004660002,
-      "allTimeUsd": 936602.0004660002,
-      "sevenDayUsd": 751431.0004660009,
+      "equityUsd": 823339.975977,
+      "thirtyDayUsd": 977478.588014,
+      "allTimeUsd": 977478.588014,
+      "sevenDayUsd": 591801.0880140008,
       "fillCount": 2000,
       "positions": [
         {
           "coin": "BTC",
           "side": "long",
-          "sizeUsd": 3159850,
+          "sizeUsd": 3128050,
           "entryPx": 64965.9,
-          "unrealizedPnlUsd": -88447.685131
+          "unrealizedPnlUsd": -120247.685131
         },
         {
           "coin": "ETH",
           "side": "long",
-          "sizeUsd": 253050,
+          "sizeUsd": 249120,
           "entryPx": 1527.8,
-          "unrealizedPnlUsd": 23880
+          "unrealizedPnlUsd": 19950
         },
         {
           "coin": "ZEC",
           "side": "long",
-          "sizeUsd": 225632.3496,
+          "sizeUsd": 111660.6,
           "entryPx": 312.7284,
-          "unrealizedPnlUsd": 61581.271653
-        }
-      ]
-    },
-    {
-      "address": "0x5ae7fe9df15590e286152908112b82969f41c8b8",
-      "alias": "BTC-Volume-King",
-      "specialty": "BTC",
-      "stale": false,
-      "equityUsd": 789389.207183,
-      "thirtyDayUsd": 235451.22512800005,
-      "allTimeUsd": 235451.22512800005,
-      "sevenDayUsd": 235451.22512800005,
-      "fillCount": 2000,
-      "positions": [
-        {
-          "coin": "BTC",
-          "side": "short",
-          "sizeUsd": 6319700,
-          "entryPx": 63256.6,
-          "unrealizedPnlUsd": 5962.97653
-        },
-        {
-          "coin": "ZEC",
-          "side": "short",
-          "sizeUsd": 1075300,
-          "entryPx": 436.664,
-          "unrealizedPnlUsd": 16360.1773
+          "unrealizedPnlUsd": 33541.039089
         }
       ]
     },
@@ -124,7 +90,7 @@
       "equityUsd": 0,
       "thirtyDayUsd": 823139.5722420005,
       "allTimeUsd": 823139.5722420005,
-      "sevenDayUsd": 820864.010681001,
+      "sevenDayUsd": 777241.534616,
       "fillCount": 2000,
       "positions": []
     },
@@ -133,12 +99,20 @@
       "alias": "Trend-166",
       "specialty": "Multi",
       "stale": false,
-      "equityUsd": 0,
+      "equityUsd": 9718.005821,
       "thirtyDayUsd": 40602.937871240036,
       "allTimeUsd": 40602.937871240036,
       "sevenDayUsd": 62309.10757123998,
       "fillCount": 2000,
-      "positions": []
+      "positions": [
+        {
+          "coin": "HYPE",
+          "side": "long",
+          "sizeUsd": 41192.95075,
+          "entryPx": 63.5945,
+          "unrealizedPnlUsd": -852.60531
+        }
+      ]
     }
   ]
 }
