@@ -6,8 +6,9 @@
  * built at deploy time (good for SEO + first paint), then a small client
  * script makes the volatile numbers genuinely live: it pulls each whale's
  * `clearinghouseState` straight from Hyperliquid's CORS-open `/info`
- * endpoint every 30s, so open positions, unrealized PnL, and account
- * equity update per-visitor instead of going stale between deploys.
+ * endpoint every 30s, so open positions, unrealized PnL, account equity,
+ * and the headline 30d PnL update per-visitor instead of going stale
+ * between deploys.
  *
  * The renderer is pure (no I/O). Tests assert the embedded data + escaping.
  */
@@ -276,11 +277,12 @@ const JS = `
 
   // ── live refresh, straight from Hyperliquid's public /info ──────
   // HL's endpoint is CORS-open, so the browser pulls each whale's
-  // clearinghouseState directly. This makes the volatile numbers —
-  // open positions, unrealized PnL, account equity — genuinely live
-  // per visitor instead of frozen at the last deploy. The realized-PnL
-  // windows (30d / recent) stay from the build snapshot: they're
-  // 30-day aggregates that don't move minute-to-minute.
+  // clearinghouseState directly. Every volatile number on the card is
+  // genuinely live per visitor instead of frozen at the last deploy:
+  // open positions, unrealized PnL, account equity, AND the headline
+  // 30d PnL. The realized 30d base is carried in data-r30; we add live
+  // unrealized to it (total = realized + unrealized) so the headline
+  // moves with the market.
   var HL_INFO='https://api.hyperliquid.xyz/info';
   function hlInfo(body){
     return fetch(HL_INFO,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){
@@ -321,6 +323,11 @@ const JS = `
         if(!card)return;
         var staleEl=card.querySelector('.wcard-stale');if(staleEl)staleEl.style.display='none';
         var cells=card.querySelectorAll('.stat-cell .sv');
+        var unreal=0;res.state.positions.forEach(function(p){unreal+=p.unrealizedPnlUsd});
+        var r30=parseFloat(card.getAttribute('data-r30')||'0');if(!isFinite(r30))r30=0;
+        var total=r30+unreal;
+        if(cells[0]){cells[0].textContent=fmtPnlSigned(total);cells[0].className='sv '+pnlClass(total)}
+        if(cells[1]){cells[1].textContent=fmtPnlSigned(unreal);cells[1].className='sv '+pnlClass(unreal)}
         if(cells[2]){cells[2].textContent=fmtUsd(res.state.equityUsd);cells[2].className='sv'}
         var posWrap=card.querySelector('.pos-content');
         if(posWrap)posWrap.innerHTML=renderPositions(res.state.positions);
@@ -467,15 +474,19 @@ function renderCard(s: WhaleSnapshot, botUrl: string): string {
   const startUrl = `${botUrl}?start=src_whale_${escapeHtml(whaleSlug(s.meta.alias))}`;
   const hypurrUrl = `${HYPURRSCAN_BASE}/${addr}`;
 
-  const thirty = renderPnlCell(s.thirtyDayUsd);
-  const allTime = renderPnlCell(s.allTimeUsd);
+  const unrealizedUsd = s.stale
+    ? null
+    : s.positions.reduce((sum, p) => sum + p.unrealizedPnlUsd, 0);
+  const total30dUsd = s.thirtyDayUsd === null ? null : s.thirtyDayUsd + (unrealizedUsd ?? 0);
+  const total30d = renderPnlCell(total30dUsd);
+  const unrealized = renderPnlCell(unrealizedUsd);
   const equity = renderEquityCell(s.equityUsd);
 
   const posCount = s.positions.length;
   const posBadge = posCount > 0 ? `${String(posCount)} open` : 'flat';
   const positionsHtml = renderPositions(s.positions);
 
-  return `<article class="wcard" data-address="${escapeHtml(addr)}" data-specialty="${specialty}">
+  return `<article class="wcard" data-address="${escapeHtml(addr)}" data-specialty="${specialty}" data-r30="${String(s.thirtyDayUsd ?? 0)}">
   <div class="wcard-head">
     <div class="wcard-alias">
       <span>${alias}</span>
@@ -491,8 +502,8 @@ function renderCard(s: WhaleSnapshot, botUrl: string): string {
   </div>
 
   <div class="stat-grid">
-    <div class="stat-cell"><div class="sv ${thirty.cls}">${thirty.text}</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv ${allTime.cls}">${allTime.text}</div><div class="sl">recent total</div></div>
+    <div class="stat-cell"><div class="sv ${total30d.cls}">${total30d.text}</div><div class="sl">30d PnL</div></div>
+    <div class="stat-cell"><div class="sv ${unrealized.cls}">${unrealized.text}</div><div class="sl">unrealized</div></div>
     <div class="stat-cell"><div class="sv">${equity}</div><div class="sl">live equity</div></div>
   </div>
 

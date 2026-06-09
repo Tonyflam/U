@@ -51,10 +51,14 @@ describe('buildWhalesHtml', () => {
     expect(html).toContain(short);
   });
 
-  it('formats 30d PnL in millions with a leading sign', () => {
+  it('formats 30d PnL (realized + unrealized) in millions with a leading sign', () => {
     const html = buildWhalesHtml(baseEnv);
-    expect(html).toContain('+$3.19M');
-    expect(html).toContain('30d realized');
+    // 3.19M realized + (145K − 32K) unrealized = 3.303M total
+    expect(html).toContain('+$3.30M');
+    expect(html).toContain('30d PnL');
+    // unrealized cell shows the live open-position total
+    expect(html).toContain('+$113.0K');
+    expect(html).toContain('>unrealized<');
   });
 
   it('uses the unicode minus glyph for negative position PnL', () => {
@@ -130,7 +134,7 @@ describe('buildWhalesHtml', () => {
 
   it('renders one filter pill per unique specialty in addition to "All"', () => {
     const meta1 = CURATED_WHALES[0]!;
-    const meta2 = CURATED_WHALES[2]!; // BNB-Sharp — different specialty
+    const meta2 = CURATED_WHALES[2]!; // BTC-Pure — different specialty
     const html = buildWhalesHtml({
       ...baseEnv,
       snapshots: [snap({ meta: meta1 }), snap({ meta: meta2 })],

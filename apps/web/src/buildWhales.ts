@@ -22,9 +22,10 @@ import {
 } from './hlFetch.js';
 
 /**
- * Whales whose 30d realized PnL is at or below this threshold are
- * filtered OUT of the rendered page. They stay in the curated list so
- * they auto-rejoin next build if they recover.
+ * Whales whose 30d total PnL (realized closed fills + current unrealized
+ * on open positions) is at or below this threshold are filtered OUT of
+ * the rendered page. They stay in the curated list so they auto-rejoin
+ * next build if they recover.
  */
 const MIN_30D_PNL_USD = 0;
 
@@ -51,8 +52,13 @@ export async function buildWhalesSite(opts: {
   const snapshots = all.filter((s) => {
     if (s.stale) return true;
     if (s.thirtyDayUsd === null) return true;
-    if (s.thirtyDayUsd <= MIN_30D_PNL_USD) {
-      log(`whales: hiding ${s.meta.alias} — 30d $${s.thirtyDayUsd.toFixed(0)} below threshold`);
+    // Total 30d performance = realized (closed fills) + current unrealized
+    // (open positions). A conviction whale holding a big winner shows ~$0
+    // realized but is a prime mirror target, so we judge on the total.
+    const unrealized = s.positions.reduce((sum, p) => sum + p.unrealizedPnlUsd, 0);
+    const total = s.thirtyDayUsd + unrealized;
+    if (total <= MIN_30D_PNL_USD) {
+      log(`whales: hiding ${s.meta.alias} — 30d total $${total.toFixed(0)} below threshold`);
       return false;
     }
     return true;

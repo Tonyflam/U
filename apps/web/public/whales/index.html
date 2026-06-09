@@ -1,520 +1,1730 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#070910">
-<link rel="icon" type="image/png" href="/favicon.png">
-<link rel="apple-touch-icon" href="/favicon.png">
-<title>Whales worth mirroring — WhalePod</title>
-<meta name="description" content="Live directory of 5 verified-profitable Hyperliquid whales. Real positions, real PnL. Mirror any of them in 60 seconds from Telegram.">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="https://www.whalepod.trade/whales/">
-<meta property="og:title" content="Whales worth mirroring — WhalePod">
-<meta property="og:description" content="Live directory of 5 verified-profitable Hyperliquid whales. Real positions, real PnL.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://www.whalepod.trade/whales/">
-<meta property="og:image" content="https://www.whalepod.trade/og-card.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@whalepodapp">
-<meta name="twitter:image" content="https://www.whalepod.trade/og-card.png">
-<style>
-*,*::before,*::after{box-sizing:border-box}
-html{scroll-behavior:smooth}
-html,body{margin:0;padding:0;background:#070910;color:#e6edf3;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-:root{--bg:#070910;--fg:#e6edf3;--accent:#3bd5b5;--accent2:#6366f1;--muted:#8b949e;--card:rgba(22,27,34,.6);--card-border:#1e2530;--good:#3bd5b5;--bad:#ef4444}
-a{color:inherit;text-decoration:none}
-img{max-width:100%;display:block}
-.mono{font-family:ui-monospace,"SF Mono","Menlo","Consolas",monospace;font-variant-numeric:tabular-nums}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#070910" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <title>Whales worth mirroring — WhalePod</title>
+    <meta
+      name="description"
+      content="Live directory of 7 verified-profitable Hyperliquid whales. Real positions, real PnL. Mirror any of them in 60 seconds from Telegram."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.whalepod.trade/whales/" />
+    <meta property="og:title" content="Whales worth mirroring — WhalePod" />
+    <meta
+      property="og:description"
+      content="Live directory of 7 verified-profitable Hyperliquid whales. Real positions, real PnL."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.whalepod.trade/whales/" />
+    <meta property="og:image" content="https://www.whalepod.trade/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@whalepodapp" />
+    <meta name="twitter:image" content="https://www.whalepod.trade/og-card.png" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #070910;
+        color: #e6edf3;
+        font:
+          16px/1.55 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      :root {
+        --bg: #070910;
+        --fg: #e6edf3;
+        --accent: #3bd5b5;
+        --accent2: #6366f1;
+        --muted: #8b949e;
+        --card: rgba(22, 27, 34, 0.6);
+        --card-border: #1e2530;
+        --good: #3bd5b5;
+        --bad: #ef4444;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      img {
+        max-width: 100%;
+        display: block;
+      }
+      .mono {
+        font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+        font-variant-numeric: tabular-nums;
+      }
 
-.cursor-glow{position:fixed;top:0;left:0;width:600px;height:600px;border-radius:50%;background:radial-gradient(closest-side,rgba(59,213,181,.14),transparent);transform:translate(-50%,-50%);pointer-events:none;z-index:0;transition:opacity .3s;mix-blend-mode:screen;will-change:transform}
-@media(hover:none){.cursor-glow{display:none}}
+      .cursor-glow {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(59, 213, 181, 0.14), transparent);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 0;
+        transition: opacity 0.3s;
+        mix-blend-mode: screen;
+        will-change: transform;
+      }
+      @media (hover: none) {
+        .cursor-glow {
+          display: none;
+        }
+      }
 
-/* ── nav ── */
-.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,9,16,.6);border-bottom:1px solid rgba(255,255,255,.04)}
-.nav-inner{max-width:1200px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:17px}
-.brand img{width:32px;height:32px;border-radius:8px;display:block}
-.nav-links{display:flex;gap:24px;align-items:center;font-size:14px;color:var(--muted)}
-.nav-links a{transition:color .15s}
-.nav-links a:hover{color:var(--fg)}
-.nav-links a.active{color:var(--fg)}
-.btn{display:inline-block;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;border:none;transition:transform .08s,filter .2s,box-shadow .2s;text-align:center}
-.btn-primary{background:linear-gradient(180deg,var(--accent),#2bb89a);color:#04201a;box-shadow:0 8px 20px -8px rgba(59,213,181,.5)}
-.btn-primary:hover{transform:translateY(-1px);filter:brightness(1.05)}
-.btn-ghost{background:rgba(255,255,255,.04);color:var(--fg);border:1px solid rgba(255,255,255,.08)}
-.btn-ghost:hover{background:rgba(255,255,255,.07)}
-.btn-sm{padding:8px 14px;font-size:13px}
+      /* ── nav ── */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(14px);
+        background: rgba(7, 9, 16, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        font-size: 17px;
+      }
+      .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: block;
+      }
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .nav-links a {
+        transition: color 0.15s;
+      }
+      .nav-links a:hover {
+        color: var(--fg);
+      }
+      .nav-links a.active {
+        color: var(--fg);
+      }
+      .btn {
+        display: inline-block;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        transition:
+          transform 0.08s,
+          filter 0.2s,
+          box-shadow 0.2s;
+        text-align: center;
+      }
+      .btn-primary {
+        background: linear-gradient(180deg, var(--accent), #2bb89a);
+        color: #04201a;
+        box-shadow: 0 8px 20px -8px rgba(59, 213, 181, 0.5);
+      }
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.05);
+      }
+      .btn-ghost {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--fg);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.07);
+      }
+      .btn-sm {
+        padding: 8px 14px;
+        font-size: 13px;
+      }
 
-/* ── header ── */
-.page-head{position:relative;max-width:1200px;margin:0 auto;padding:64px 20px 32px;text-align:center;overflow:hidden}
-.page-head::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(60% 50% at 50% 0%,rgba(59,213,181,.1),transparent 70%),radial-gradient(40% 50% at 100% 100%,rgba(99,102,241,.08),transparent 70%)}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(59,213,181,.08);border:1px solid rgba(59,213,181,.2);border-radius:999px;color:var(--accent);font-size:13px;font-weight:500;margin-bottom:20px;animation:fadeUp .5s ease-out both}
-.eyebrow .live{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:livePulse 1.5s ease-in-out infinite}
-@keyframes livePulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--accent)}50%{opacity:.5;box-shadow:0 0 12px var(--accent)}}
-h1{font-size:clamp(36px,5.5vw,56px);line-height:1.05;letter-spacing:-.03em;margin:0 auto 16px;max-width:880px;font-weight:700;animation:fadeUp .6s ease-out both}
-.grad{background:linear-gradient(90deg,#3bd5b5 0%,#6366f1 50%,#3bd5b5 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 6s linear infinite}
-@keyframes shimmer{to{background-position:200% center}}
-.lede{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:640px;margin:0 auto 24px;animation:fadeUp .7s ease-out both}
-.refresh-row{display:inline-flex;align-items:center;gap:12px;padding:8px 16px;background:rgba(15,18,24,.7);border:1px solid var(--card-border);border-radius:999px;font-size:13px;color:var(--muted);animation:fadeUp .8s ease-out both}
-.refresh-row .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:livePulse 1.5s ease-in-out infinite}
-.refresh-row .spin{display:inline-block;width:11px;height:11px;border:1.5px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
-.refresh-row.refreshing .dot{display:none}
-.refresh-row.refreshing .spin{display:inline-block}
-.refresh-row .spin{display:none}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+      /* ── header ── */
+      .page-head {
+        position: relative;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 64px 20px 32px;
+        text-align: center;
+        overflow: hidden;
+      }
+      .page-head::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(60% 50% at 50% 0%, rgba(59, 213, 181, 0.1), transparent 70%),
+          radial-gradient(40% 50% at 100% 100%, rgba(99, 102, 241, 0.08), transparent 70%);
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        background: rgba(59, 213, 181, 0.08);
+        border: 1px solid rgba(59, 213, 181, 0.2);
+        border-radius: 999px;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 20px;
+        animation: fadeUp 0.5s ease-out both;
+      }
+      .eyebrow .live {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent);
+        animation: livePulse 1.5s ease-in-out infinite;
+      }
+      @keyframes livePulse {
+        0%,
+        100% {
+          opacity: 1;
+          box-shadow: 0 0 6px var(--accent);
+        }
+        50% {
+          opacity: 0.5;
+          box-shadow: 0 0 12px var(--accent);
+        }
+      }
+      h1 {
+        font-size: clamp(36px, 5.5vw, 56px);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin: 0 auto 16px;
+        max-width: 880px;
+        font-weight: 700;
+        animation: fadeUp 0.6s ease-out both;
+      }
+      .grad {
+        background: linear-gradient(90deg, #3bd5b5 0%, #6366f1 50%, #3bd5b5 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 6s linear infinite;
+      }
+      @keyframes shimmer {
+        to {
+          background-position: 200% center;
+        }
+      }
+      .lede {
+        font-size: clamp(15px, 2vw, 18px);
+        color: var(--muted);
+        max-width: 640px;
+        margin: 0 auto 24px;
+        animation: fadeUp 0.7s ease-out both;
+      }
+      .refresh-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: rgba(15, 18, 24, 0.7);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        font-size: 13px;
+        color: var(--muted);
+        animation: fadeUp 0.8s ease-out both;
+      }
+      .refresh-row .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent);
+        animation: livePulse 1.5s ease-in-out infinite;
+      }
+      .refresh-row .spin {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border: 1.5px solid var(--accent);
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: -2px;
+      }
+      .refresh-row.refreshing .dot {
+        display: none;
+      }
+      .refresh-row.refreshing .spin {
+        display: inline-block;
+      }
+      .refresh-row .spin {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-/* ── filter bar ── */
-.filter-bar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:24px 20px 0;max-width:1200px;margin:0 auto}
-.filter-pill{padding:7px 14px;font-size:13px;font-weight:500;border-radius:999px;border:1px solid var(--card-border);background:var(--card);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s,transform .08s;font-family:inherit}
-.filter-pill:hover{color:var(--fg);border-color:rgba(59,213,181,.3)}
-.filter-pill.active{color:#04201a;background:linear-gradient(180deg,var(--accent),#2bb89a);border-color:transparent;box-shadow:0 4px 12px -4px rgba(59,213,181,.5)}
+      /* ── filter bar ── */
+      .filter-bar {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 24px 20px 0;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .filter-pill {
+        padding: 7px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 999px;
+        border: 1px solid var(--card-border);
+        background: var(--card);
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+          color 0.15s,
+          border-color 0.15s,
+          background 0.15s,
+          transform 0.08s;
+        font-family: inherit;
+      }
+      .filter-pill:hover {
+        color: var(--fg);
+        border-color: rgba(59, 213, 181, 0.3);
+      }
+      .filter-pill.active {
+        color: #04201a;
+        background: linear-gradient(180deg, var(--accent), #2bb89a);
+        border-color: transparent;
+        box-shadow: 0 4px 12px -4px rgba(59, 213, 181, 0.5);
+      }
 
-/* ── grid ── */
-.grid-wrap{max-width:1200px;margin:0 auto;padding:32px 20px 96px}
-.whale-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px}
-.empty{padding:64px 20px;text-align:center;color:var(--muted);font-size:15px}
+      /* ── grid ── */
+      .grid-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 20px 96px;
+      }
+      .whale-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 20px;
+      }
+      .empty {
+        padding: 64px 20px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 15px;
+      }
 
-/* ── whale card ── */
-.wcard{position:relative;display:flex;flex-direction:column;padding:24px;background:linear-gradient(180deg,rgba(22,27,34,.8),rgba(15,18,24,.8));border:1px solid var(--card-border);border-radius:16px;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
-.wcard::before{content:"";position:absolute;inset:0;background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%),rgba(59,213,181,.06),transparent 40%);opacity:0;transition:opacity .3s;pointer-events:none;border-radius:inherit}
-.wcard:hover::before{opacity:1}
-.wcard:hover{transform:translateY(-3px);border-color:rgba(59,213,181,.25);box-shadow:0 20px 40px -20px rgba(0,0,0,.5)}
-.wcard.hidden{display:none}
-.wcard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px}
-.wcard-alias{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;letter-spacing:-.01em}
-.wcard-alias .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;opacity:.95}
-.wcard-stale{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:3px 8px;border-radius:6px;background:rgba(139,148,158,.1);border:1px solid rgba(139,148,158,.2)}
-.wcard-tagline{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 16px;min-height:36px}
-.wcard-addr{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:18px}
-.wcard-addr .addr-text{font-family:ui-monospace,"SF Mono","Menlo","Consolas",monospace;letter-spacing:-.01em}
-.wcard-addr a{color:var(--muted);transition:color .15s}
-.wcard-addr a:hover{color:var(--accent)}
-.wcard-addr svg{width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-left:2px}
+      /* ── whale card ── */
+      .wcard {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        background: linear-gradient(180deg, rgba(22, 27, 34, 0.8), rgba(15, 18, 24, 0.8));
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        overflow: hidden;
+        transition:
+          transform 0.25s,
+          border-color 0.25s,
+          box-shadow 0.25s;
+      }
+      .wcard::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          400px circle at var(--mx, 50%) var(--my, 50%),
+          rgba(59, 213, 181, 0.06),
+          transparent 40%
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        border-radius: inherit;
+      }
+      .wcard:hover::before {
+        opacity: 1;
+      }
+      .wcard:hover {
+        transform: translateY(-3px);
+        border-color: rgba(59, 213, 181, 0.25);
+        box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
+      }
+      .wcard.hidden {
+        display: none;
+      }
+      .wcard-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      .wcard-alias {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .wcard-alias .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid currentColor;
+        opacity: 0.95;
+      }
+      .wcard-stale {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(139, 148, 158, 0.1);
+        border: 1px solid rgba(139, 148, 158, 0.2);
+      }
+      .wcard-tagline {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.55;
+        margin: 0 0 16px;
+        min-height: 36px;
+      }
+      .wcard-addr {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 18px;
+      }
+      .wcard-addr .addr-text {
+        font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+        letter-spacing: -0.01em;
+      }
+      .wcard-addr a {
+        color: var(--muted);
+        transition: color 0.15s;
+      }
+      .wcard-addr a:hover {
+        color: var(--accent);
+      }
+      .wcard-addr svg {
+        width: 11px;
+        height: 11px;
+        display: inline-block;
+        vertical-align: -1px;
+        margin-left: 2px;
+      }
 
-.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--card-border);border-radius:10px;overflow:hidden;margin-bottom:18px}
-.stat-cell{padding:12px 10px;background:rgba(15,18,24,.7);text-align:center}
-.stat-cell .sv{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.2}
-.stat-cell .sv.good{color:var(--good)}
-.stat-cell .sv.bad{color:var(--bad)}
-.stat-cell .sl{font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--card-border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 18px;
+      }
+      .stat-cell {
+        padding: 12px 10px;
+        background: rgba(15, 18, 24, 0.7);
+        text-align: center;
+      }
+      .stat-cell .sv {
+        font-size: 15px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+      }
+      .stat-cell .sv.good {
+        color: var(--good);
+      }
+      .stat-cell .sv.bad {
+        color: var(--bad);
+      }
+      .stat-cell .sl {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-top: 4px;
+      }
 
-.pos-section{margin-bottom:18px}
-.pos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.pos-head .live-pulse{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 4px var(--accent);animation:livePulse 1.5s ease-in-out infinite;display:inline-block;margin-right:6px;vertical-align:1px}
-.pos-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
-.pos-row{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:rgba(7,9,16,.5);border:1px solid var(--card-border);border-radius:8px;font-size:13px}
-.pos-left{display:flex;align-items:center;gap:8px;min-width:0}
-.pos-coin{font-weight:700;letter-spacing:-.01em}
-.pos-side{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.04em}
-.pos-side.long{color:var(--good);background:rgba(59,213,181,.1);border:1px solid rgba(59,213,181,.25)}
-.pos-side.short{color:var(--bad);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25)}
-.pos-size{font-family:ui-monospace,"SF Mono","Menlo","Consolas",monospace;font-size:12px;color:var(--muted)}
-.pos-pnl{font-family:ui-monospace,"SF Mono","Menlo","Consolas",monospace;font-size:12px;font-weight:600;text-align:right;min-width:70px}
-.pos-pnl.good{color:var(--good)}
-.pos-pnl.bad{color:var(--bad)}
-.pos-empty{padding:12px;text-align:center;font-size:12px;color:var(--muted);background:rgba(7,9,16,.4);border:1px dashed var(--card-border);border-radius:8px;font-style:italic}
-.pos-more{font-size:11px;color:var(--muted);text-align:center;padding:6px}
+      .pos-section {
+        margin-bottom: 18px;
+      }
+      .pos-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .pos-head .live-pulse {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 4px var(--accent);
+        animation: livePulse 1.5s ease-in-out infinite;
+        display: inline-block;
+        margin-right: 6px;
+        vertical-align: 1px;
+      }
+      .pos-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .pos-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 9px 11px;
+        background: rgba(7, 9, 16, 0.5);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .pos-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .pos-coin {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .pos-side {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.04em;
+      }
+      .pos-side.long {
+        color: var(--good);
+        background: rgba(59, 213, 181, 0.1);
+        border: 1px solid rgba(59, 213, 181, 0.25);
+      }
+      .pos-side.short {
+        color: var(--bad);
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+      }
+      .pos-size {
+        font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pos-pnl {
+        font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: right;
+        min-width: 70px;
+      }
+      .pos-pnl.good {
+        color: var(--good);
+      }
+      .pos-pnl.bad {
+        color: var(--bad);
+      }
+      .pos-empty {
+        padding: 12px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--muted);
+        background: rgba(7, 9, 16, 0.4);
+        border: 1px dashed var(--card-border);
+        border-radius: 8px;
+        font-style: italic;
+      }
+      .pos-more {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        padding: 6px;
+      }
 
-.wcard-cta{margin-top:auto;display:flex;gap:8px;align-items:stretch}
-.wcard-cta .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px}
+      .wcard-cta {
+        margin-top: auto;
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .wcard-cta .btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
 
-/* ── footer cta ── */
-.foot-cta{max-width:1200px;margin:0 auto 64px;padding:48px 32px;background:linear-gradient(135deg,rgba(59,213,181,.06),rgba(99,102,241,.08));border:1px solid rgba(59,213,181,.2);border-radius:20px;text-align:center}
-.foot-cta h2{font-size:clamp(24px,3.6vw,36px);line-height:1.15;letter-spacing:-.02em;margin:0 0 12px;font-weight:700}
-.foot-cta p{color:var(--muted);font-size:16px;margin:0 auto 28px;max-width:520px}
-.foot-cta .cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+      /* ── footer cta ── */
+      .foot-cta {
+        max-width: 1200px;
+        margin: 0 auto 64px;
+        padding: 48px 32px;
+        background: linear-gradient(135deg, rgba(59, 213, 181, 0.06), rgba(99, 102, 241, 0.08));
+        border: 1px solid rgba(59, 213, 181, 0.2);
+        border-radius: 20px;
+        text-align: center;
+      }
+      .foot-cta h2 {
+        font-size: clamp(24px, 3.6vw, 36px);
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+        margin: 0 0 12px;
+        font-weight: 700;
+      }
+      .foot-cta p {
+        color: var(--muted);
+        font-size: 16px;
+        margin: 0 auto 28px;
+        max-width: 520px;
+      }
+      .foot-cta .cta-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
 
-footer{padding:48px 20px 32px;border-top:1px solid rgba(255,255,255,.05);font-size:13px;color:var(--muted)}
-.foot-inner{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;align-items:center}
-.socials{display:flex;gap:14px}
-.socials a{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .15s;color:var(--muted)}
-.socials a:hover{background:rgba(59,213,181,.12);color:var(--accent);transform:translateY(-2px)}
-.socials svg{width:16px;height:16px}
+      footer {
+        padding: 48px 20px 32px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .foot-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: center;
+      }
+      .socials {
+        display: flex;
+        gap: 14px;
+      }
+      .socials a {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.2s,
+          color 0.2s,
+          transform 0.15s;
+        color: var(--muted);
+      }
+      .socials a:hover {
+        background: rgba(59, 213, 181, 0.12);
+        color: var(--accent);
+        transform: translateY(-2px);
+      }
+      .socials svg {
+        width: 16px;
+        height: 16px;
+      }
 
-@media(max-width:640px){
-.nav-links a:not(.btn){display:none}
-.page-head{padding:48px 20px 24px}
-.grid-wrap{padding:24px 16px 64px}
-.whale-grid{grid-template-columns:1fr;gap:14px}
-.wcard{padding:20px}
-.foot-cta{padding:32px 20px;margin:0 16px 48px}
-.stat-grid{grid-template-columns:repeat(3,1fr)}
-.stat-cell{padding:10px 6px}
-.stat-cell .sv{font-size:13px}
-}
-</style>
-</head>
-<body data-generated-at="1780971645063">
-<div class="cursor-glow" aria-hidden="true"></div>
+      @media (max-width: 640px) {
+        .nav-links a:not(.btn) {
+          display: none;
+        }
+        .page-head {
+          padding: 48px 20px 24px;
+        }
+        .grid-wrap {
+          padding: 24px 16px 64px;
+        }
+        .whale-grid {
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+        .wcard {
+          padding: 20px;
+        }
+        .foot-cta {
+          padding: 32px 20px;
+          margin: 0 16px 48px;
+        }
+        .stat-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .stat-cell {
+          padding: 10px 6px;
+        }
+        .stat-cell .sv {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body data-generated-at="1780977223417">
+    <div class="cursor-glow" aria-hidden="true"></div>
 
-<nav class="nav">
-  <div class="nav-inner">
-    <a href="/" class="brand"><img src="/logo.png" alt="WhalePod" width="32" height="32"><span>WhalePod</span></a>
-    <div class="nav-links">
-      <a href="/#how">How it works</a>
-      <a href="/#fees">Fees</a>
-      <a href="/whales/" class="active">Whales</a>
-      <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch app</a>
+    <nav class="nav">
+      <div class="nav-inner">
+        <a href="/" class="brand"
+          ><img src="/logo.png" alt="WhalePod" width="32" height="32" /><span>WhalePod</span></a
+        >
+        <div class="nav-links">
+          <a href="/#how">How it works</a>
+          <a href="/#fees">Fees</a>
+          <a href="/whales/" class="active">Whales</a>
+          <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch app</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="page-head">
+      <div class="eyebrow"><span class="live"></span> 7 of 7 live · Hyperliquid mainnet</div>
+      <h1>Whales worth <span class="grad">mirroring</span>.</h1>
+      <p class="lede">
+        Hand-picked from the Hyperliquid leaderboard, auto-filtered for current profitability. Real
+        positions. Real PnL. Mirror any of them in 60 seconds, non-custodially, for 5.0 bps.
+      </p>
+      <div id="refresh-row" class="refresh-row">
+        <span class="dot"></span><span class="spin"></span>
+        <span>Live data · updated <span id="refresh-stamp">just now</span></span>
+      </div>
+    </header>
+
+    <div class="filter-bar" role="tablist" aria-label="Filter whales by specialty">
+      <button class="filter-pill active" data-filter="all" type="button">All</button>
+      <button class="filter-pill" data-filter="HYPE" type="button">HYPE</button
+      ><button class="filter-pill" data-filter="ETH" type="button">ETH</button
+      ><button class="filter-pill" data-filter="BTC" type="button">BTC</button
+      ><button class="filter-pill" data-filter="Multi" type="button">Multi</button>
     </div>
-  </div>
-</nav>
 
-<header class="page-head">
-  <div class="eyebrow"><span class="live"></span> 5 of 5 live · Hyperliquid mainnet</div>
-  <h1>Whales worth <span class="grad">mirroring</span>.</h1>
-  <p class="lede">Hand-picked from the Hyperliquid leaderboard, auto-filtered for current profitability. Real positions. Real PnL. Mirror any of them in 60 seconds, non-custodially, for 5.0 bps.</p>
-  <div id="refresh-row" class="refresh-row">
-    <span class="dot"></span><span class="spin"></span>
-    <span>Live data · updated <span id="refresh-stamp">just now</span></span>
-  </div>
-</header>
+    <main class="grid-wrap">
+      <div class="whale-grid">
+        <article
+          class="wcard"
+          data-address="0xc6758a779bccee1ef0190dbe8292fdf44076795d"
+          data-specialty="HYPE"
+          data-r30="1610168.7035060101"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>HYPE-Maxi</span>
+              <span class="badge" style="color: #3bd5b5">HYPE</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">HYPE perp specialist. Concentrated, scales in trends.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0xc675…795d</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0xc6758a779bccee1ef0190dbe8292fdf44076795d"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-<div class="filter-bar" role="tablist" aria-label="Filter whales by specialty">
-  <button class="filter-pill active" data-filter="all" type="button">All</button>
-  <button class="filter-pill" data-filter="HYPE" type="button">HYPE</button><button class="filter-pill" data-filter="BNB" type="button">BNB</button><button class="filter-pill" data-filter="BTC" type="button">BTC</button><button class="filter-pill" data-filter="Diversified" type="button">Diversified</button><button class="filter-pill" data-filter="Multi" type="button">Multi</button>
-</div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$2.67M</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$1.06M</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$1.77M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-<main class="grid-wrap">
-  <div class="whale-grid"><article class="wcard" data-address="0xc6758a779bccee1ef0190dbe8292fdf44076795d" data-specialty="HYPE">
-  <div class="wcard-head">
-    <div class="wcard-alias">
-      <span>HYPE-Maxi</span>
-      <span class="badge" style="color:#3bd5b5">HYPE</span>
-    </div>
-    <span class="wcard-stale" style="display:none">data stale</span>
-  </div>
-  <p class="wcard-tagline">HYPE perp specialist. Concentrated, scales in trends.</p>
-  <div class="wcard-addr">
-    <span class="addr-text">0xc675…795d</span>
-    <span>·</span>
-    <a href="https://hypurrscan.io/address/0xc6758a779bccee1ef0190dbe8292fdf44076795d" rel="noopener" target="_blank">HypurrScan<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-  </div>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">2 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$3.68M</span>
+                  </div>
+                  <div class="pos-pnl good">+$683.0K</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$912.4K</span>
+                  </div>
+                  <div class="pos-pnl good">+$381.4K</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  <div class="stat-grid">
-    <div class="stat-cell"><div class="sv good">+$1.61M</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv good">+$1.61M</div><div class="sl">recent total</div></div>
-    <div class="stat-cell"><div class="sv">$1.78M</div><div class="sl">live equity</div></div>
-  </div>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_hypemaxi"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0x0ddf9bae2af4b874b96d287a5ad42eb47138a902"
+          data-specialty="ETH"
+          data-r30="0"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>ETH-Lead</span>
+              <span class="badge" style="color: #8b9eff">ETH</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">Top of the HL board. ETH-led directional, 3x max leverage.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0x0ddf…a902</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0x0ddf9bae2af4b874b96d287a5ad42eb47138a902"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-  <div class="pos-section">
-    <div class="pos-head"><span><span class="live-pulse"></span>Current positions</span><span class="pos-count">2 open</span></div>
-    <div class="pos-content"><ul class="pos-list"><li class="pos-row"><div class="pos-left"><span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span><span class="pos-size">$3.67M</span></div><div class="pos-pnl good">+$692.7K</div></li><li class="pos-row"><div class="pos-left"><span class="pos-coin">ETH</span><span class="pos-side short">SHORT</span><span class="pos-size">$909.8K</span></div><div class="pos-pnl good">+$383.9K</div></li></ul></div>
-  </div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$8.69M</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$8.69M</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$29.04M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-  <div class="wcard-cta">
-    <a class="btn btn-primary btn-sm" href="https://t.me/whalepod_bot?start=src_whale_hypemaxi" rel="noopener">Mirror this whale →</a>
-  </div>
-</article>
-<article class="wcard" data-address="0x99b1098d9d50aa076f78bd26ab22e6abd3710729" data-specialty="BNB">
-  <div class="wcard-head">
-    <div class="wcard-alias">
-      <span>BNB-Sharp</span>
-      <span class="badge" style="color:#f3ba2f">BNB</span>
-    </div>
-    <span class="wcard-stale" style="display:none">data stale</span>
-  </div>
-  <p class="wcard-tagline">BNB-focused. Multi-cycle survivor on tight risk.</p>
-  <div class="wcard-addr">
-    <span class="addr-text">0x99b1…0729</span>
-    <span>·</span>
-    <a href="https://hypurrscan.io/address/0x99b1098d9d50aa076f78bd26ab22e6abd3710729" rel="noopener" target="_blank">HypurrScan<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-  </div>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">1 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$99.92M</span>
+                  </div>
+                  <div class="pos-pnl good">+$8.69M</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  <div class="stat-grid">
-    <div class="stat-cell"><div class="sv good">+$909.6K</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv good">+$909.6K</div><div class="sl">recent total</div></div>
-    <div class="stat-cell"><div class="sv">$9.7K</div><div class="sl">live equity</div></div>
-  </div>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_ethlead"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0xd05808946809c180d190608e13f473db30aa8524"
+          data-specialty="BTC"
+          data-r30="977478.588014"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>BTC-Pure</span>
+              <span class="badge" style="color: #f7931a">BTC</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">BTC-only directional. Holds size through volatility.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0xd058…8524</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0xd05808946809c180d190608e13f473db30aa8524"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-  <div class="pos-section">
-    <div class="pos-head"><span><span class="live-pulse"></span>Current positions</span><span class="pos-count">1 open</span></div>
-    <div class="pos-content"><ul class="pos-list"><li class="pos-row"><div class="pos-left"><span class="pos-coin">HYPE</span><span class="pos-side short">SHORT</span><span class="pos-size">$68.1K</span></div><div class="pos-pnl bad">−$23.8K</div></li></ul></div>
-  </div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$918.9K</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv bad">−$58.6K</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$831.5K</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-  <div class="wcard-cta">
-    <a class="btn btn-primary btn-sm" href="https://t.me/whalepod_bot?start=src_whale_bnbsharp" rel="noopener">Mirror this whale →</a>
-  </div>
-</article>
-<article class="wcard" data-address="0xd05808946809c180d190608e13f473db30aa8524" data-specialty="BTC">
-  <div class="wcard-head">
-    <div class="wcard-alias">
-      <span>BTC-Pure</span>
-      <span class="badge" style="color:#f7931a">BTC</span>
-    </div>
-    <span class="wcard-stale" style="display:none">data stale</span>
-  </div>
-  <p class="wcard-tagline">BTC-only directional. Holds size through volatility.</p>
-  <div class="wcard-addr">
-    <span class="addr-text">0xd058…8524</span>
-    <span>·</span>
-    <a href="https://hypurrscan.io/address/0xd05808946809c180d190608e13f473db30aa8524" rel="noopener" target="_blank">HypurrScan<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-  </div>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">3 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side long">LONG</span
+                    ><span class="pos-size">$3.14M</span>
+                  </div>
+                  <div class="pos-pnl bad">−$112.0K</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side long">LONG</span
+                    ><span class="pos-size">$249.8K</span>
+                  </div>
+                  <div class="pos-pnl good">+$20.6K</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ZEC</span><span class="pos-side long">LONG</span
+                    ><span class="pos-size">$110.9K</span>
+                  </div>
+                  <div class="pos-pnl good">+$32.8K</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  <div class="stat-grid">
-    <div class="stat-cell"><div class="sv good">+$977.5K</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv good">+$977.5K</div><div class="sl">recent total</div></div>
-    <div class="stat-cell"><div class="sv">$823.3K</div><div class="sl">live equity</div></div>
-  </div>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_btcpure"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0x5ae7fe9df15590e286152908112b82969f41c8b8"
+          data-specialty="BTC"
+          data-r30="-103664.80822000018"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>BTC-Volume-King</span>
+              <span class="badge" style="color: #f7931a">BTC</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">High-turnover BTC scalper. Consistent monthly.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0x5ae7…c8b8</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0x5ae7fe9df15590e286152908112b82969f41c8b8"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-  <div class="pos-section">
-    <div class="pos-head"><span><span class="live-pulse"></span>Current positions</span><span class="pos-count">3 open</span></div>
-    <div class="pos-content"><ul class="pos-list"><li class="pos-row"><div class="pos-left"><span class="pos-coin">BTC</span><span class="pos-side long">LONG</span><span class="pos-size">$3.13M</span></div><div class="pos-pnl bad">−$120.2K</div></li><li class="pos-row"><div class="pos-left"><span class="pos-coin">ETH</span><span class="pos-side long">LONG</span><span class="pos-size">$249.1K</span></div><div class="pos-pnl good">+$19.9K</div></li><li class="pos-row"><div class="pos-left"><span class="pos-coin">ZEC</span><span class="pos-side long">LONG</span><span class="pos-size">$111.7K</span></div><div class="pos-pnl good">+$33.5K</div></li></ul></div>
-  </div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$75.3K</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$179.0K</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$1.47M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-  <div class="wcard-cta">
-    <a class="btn btn-primary btn-sm" href="https://t.me/whalepod_bot?start=src_whale_btcpure" rel="noopener">Mirror this whale →</a>
-  </div>
-</article>
-<article class="wcard" data-address="0x5e8e18557c0df89fb79a41941c03768da69100af" data-specialty="Diversified">
-  <div class="wcard-head">
-    <div class="wcard-alias">
-      <span>Steady-44</span>
-      <span class="badge" style="color:#06b6d4">Diversified</span>
-    </div>
-    <span class="wcard-stale" style="display:none">data stale</span>
-  </div>
-  <p class="wcard-tagline">Diversified directional. Steady monthly compounder.</p>
-  <div class="wcard-addr">
-    <span class="addr-text">0x5e8e…00af</span>
-    <span>·</span>
-    <a href="https://hypurrscan.io/address/0x5e8e18557c0df89fb79a41941c03768da69100af" rel="noopener" target="_blank">HypurrScan<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-  </div>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">1 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$12.55M</span>
+                  </div>
+                  <div class="pos-pnl good">+$179.0K</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  <div class="stat-grid">
-    <div class="stat-cell"><div class="sv good">+$823.1K</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv good">+$823.1K</div><div class="sl">recent total</div></div>
-    <div class="stat-cell"><div class="sv">$0</div><div class="sl">live equity</div></div>
-  </div>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_btcvolumeking"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0xf822fa0fd364c573fcdb7009fcf47601bc8be01a"
+          data-specialty="Multi"
+          data-r30="81962.401448"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>Macro-Multi</span>
+              <span class="badge" style="color: #6366f1">Multi</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">Macro book across BTC/ETH/HYPE. Conservative, 3x max.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0xf822…e01a</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0xf822fa0fd364c573fcdb7009fcf47601bc8be01a"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-  <div class="pos-section">
-    <div class="pos-head"><span><span class="live-pulse"></span>Current positions</span><span class="pos-count">flat</span></div>
-    <div class="pos-content"><div class="pos-empty">Flat right now</div></div>
-  </div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$1.26M</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$1.18M</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$18.03M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-  <div class="wcard-cta">
-    <a class="btn btn-primary btn-sm" href="https://t.me/whalepod_bot?start=src_whale_steady44" rel="noopener">Mirror this whale →</a>
-  </div>
-</article>
-<article class="wcard" data-address="0x6dc903ab5fe0d286cbef6c5042dd2684b7fd78d7" data-specialty="Multi">
-  <div class="wcard-head">
-    <div class="wcard-alias">
-      <span>Trend-166</span>
-      <span class="badge" style="color:#6366f1">Multi</span>
-    </div>
-    <span class="wcard-stale" style="display:none">data stale</span>
-  </div>
-  <p class="wcard-tagline">Trend-follower across BTC/ETH/HYPE.</p>
-  <div class="wcard-addr">
-    <span class="addr-text">0x6dc9…78d7</span>
-    <span>·</span>
-    <a href="https://hypurrscan.io/address/0x6dc903ab5fe0d286cbef6c5042dd2684b7fd78d7" rel="noopener" target="_blank">HypurrScan<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-  </div>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">3 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$14.11M</span>
+                  </div>
+                  <div class="pos-pnl good">+$1.18M</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side long">LONG</span
+                    ><span class="pos-size">$50.2K</span>
+                  </div>
+                  <div class="pos-pnl bad">−$471</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">HYPE</span><span class="pos-side long">LONG</span
+                    ><span class="pos-size">$25</span>
+                  </div>
+                  <div class="pos-pnl good">+$8</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  <div class="stat-grid">
-    <div class="stat-cell"><div class="sv good">+$40.6K</div><div class="sl">30d realized</div></div>
-    <div class="stat-cell"><div class="sv good">+$40.6K</div><div class="sl">recent total</div></div>
-    <div class="stat-cell"><div class="sv">$9.7K</div><div class="sl">live equity</div></div>
-  </div>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_macromulti"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0xb798aef79972ce8f73d47b9ebbcda6bbb7ec4fbf"
+          data-specialty="BTC"
+          data-r30="-16007.285129999993"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>BTC-Anchor</span>
+              <span class="badge" style="color: #f7931a">BTC</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">BTC conviction at 2x. Ultra-low leverage.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0xb798…4fbf</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0xb798aef79972ce8f73d47b9ebbcda6bbb7ec4fbf"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-  <div class="pos-section">
-    <div class="pos-head"><span><span class="live-pulse"></span>Current positions</span><span class="pos-count">1 open</span></div>
-    <div class="pos-content"><ul class="pos-list"><li class="pos-row"><div class="pos-left"><span class="pos-coin">HYPE</span><span class="pos-side long">LONG</span><span class="pos-size">$41.2K</span></div><div class="pos-pnl bad">−$853</div></li></ul></div>
-  </div>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$1.75M</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$1.77M</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$14.76M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-  <div class="wcard-cta">
-    <a class="btn btn-primary btn-sm" href="https://t.me/whalepod_bot?start=src_whale_trend166" rel="noopener">Mirror this whale →</a>
-  </div>
-</article></div>
-</main>
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">3 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$23.84M</span>
+                  </div>
+                  <div class="pos-pnl good">+$1.72M</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$146.4K</span>
+                  </div>
+                  <div class="pos-pnl good">+$28.2K</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">SOL</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$91.6K</span>
+                  </div>
+                  <div class="pos-pnl good">+$20.8K</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-<section class="foot-cta">
-  <h2>Ready to mirror one?</h2>
-  <p>Open the bot, browse the same list, and tap <strong>/follow</strong> on any whale to start mirroring. Set a per-trade cap so a bad call can't blow up your account.</p>
-  <div class="cta-row">
-    <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener">Launch in Telegram →</a>
-    <a class="btn btn-ghost" href="https://app.whalepod.trade" rel="noopener">Open mini-app</a>
-  </div>
-</section>
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_btcanchor"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+        <article
+          class="wcard"
+          data-address="0x218a65e21eddeece7a9df38c6bbdd89f692b7da2"
+          data-specialty="Multi"
+          data-r30="-10408.841046"
+        >
+          <div class="wcard-head">
+            <div class="wcard-alias">
+              <span>Dual-Major</span>
+              <span class="badge" style="color: #6366f1">Multi</span>
+            </div>
+            <span class="wcard-stale" style="display: none">data stale</span>
+          </div>
+          <p class="wcard-tagline">Concentrated major-pair book. Tight 2-leg directional.</p>
+          <div class="wcard-addr">
+            <span class="addr-text">0x218a…7da2</span>
+            <span>·</span>
+            <a
+              href="https://hypurrscan.io/address/0x218a65e21eddeece7a9df38c6bbdd89f692b7da2"
+              rel="noopener"
+              target="_blank"
+              >HypurrScan<svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 17L17 7M9 7h8v8" /></svg
+            ></a>
+          </div>
 
-<footer>
-  <div class="foot-inner">
-    <div>
-      <div class="brand" style="margin-bottom:6px"><img src="/logo.png" alt="WhalePod" width="28" height="28" style="width:28px;height:28px"><span>WhalePod</span></div>
-      <div>Copy-trade Hyperliquid perps from Telegram. Non-custodial.</div>
-      <div style="margin-top:8px;font-size:12px">Trading derivatives carries risk of loss. Past whale performance is not indicative of future results.</div>
-    </div>
-    <div class="socials" aria-label="Social links">
-      <a href="https://x.com/whalepodapp" rel="noopener" aria-label="X / Twitter" title="X / Twitter"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-      <a href="https://t.me/whalepod_news" rel="noopener" aria-label="Telegram channel" title="Telegram announcements"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.05 2.555 1.95 10.39c-1.366.535-1.358 1.27-.25 1.61l5.156 1.61L18.78 6.087c.564-.343 1.078-.158.656.218l-9.668 8.728-.371 5.51c.534 0 .77-.245 1.07-.535l2.572-2.498 5.34 3.943c.984.543 1.69.264 1.935-.913l3.502-16.5c.36-1.444-.547-2.098-1.766-1.485z"/></svg></a>
-      <a href="https://t.me/whalepod_chat" rel="noopener" aria-label="Telegram group" title="Telegram chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
-      <a href="https://github.com/Tonyflam/U" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.7 5.5.7 11.8c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.7 1.2 3.4.9.1-.7.4-1.2.7-1.5-2.5-.3-5.2-1.3-5.2-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.2 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.3 5.5 18.3.5 12 .5z"/></svg></a>
-    </div>
-  </div>
-  <div style="max-width:1200px;margin:24px auto 0;text-align:center;font-size:12px;color:var(--muted)">© 2026 WhalePod · Open source under AGPL-3.0</div>
-</footer>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="sv good">+$3.65M</div>
+              <div class="sl">30d PnL</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv good">+$3.66M</div>
+              <div class="sl">unrealized</div>
+            </div>
+            <div class="stat-cell">
+              <div class="sv">$3.41M</div>
+              <div class="sl">live equity</div>
+            </div>
+          </div>
 
-<script>
-(function(){
-  var glow=document.querySelector('.cursor-glow');
-  if(glow&&window.matchMedia('(hover:hover)').matches){
-    var rx=0,ry=0,cx=0,cy=0;
-    document.addEventListener('mousemove',function(e){rx=e.clientX;ry=e.clientY});
-    function loop(){cx+=(rx-cx)*0.12;cy+=(ry-cy)*0.12;glow.style.transform='translate('+cx+'px,'+cy+'px) translate(-50%,-50%)';requestAnimationFrame(loop)}
-    loop();
-  }
-  document.querySelectorAll('.wcard').forEach(function(c){
-    c.addEventListener('mousemove',function(e){
-      var r=c.getBoundingClientRect();
-      c.style.setProperty('--mx',(e.clientX-r.left)+'px');
-      c.style.setProperty('--my',(e.clientY-r.top)+'px');
-    });
-  });
+          <div class="pos-section">
+            <div class="pos-head">
+              <span><span class="live-pulse"></span>Current positions</span
+              ><span class="pos-count">2 open</span>
+            </div>
+            <div class="pos-content">
+              <ul class="pos-list">
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">ETH</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$14.11M</span>
+                  </div>
+                  <div class="pos-pnl good">+$777.3K</div>
+                </li>
+                <li class="pos-row">
+                  <div class="pos-left">
+                    <span class="pos-coin">BTC</span><span class="pos-side short">SHORT</span
+                    ><span class="pos-size">$12.03M</span>
+                  </div>
+                  <div class="pos-pnl good">+$2.88M</div>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-  // ── filter pills ──────────────────────────────────────────────
-  var pills=document.querySelectorAll('.filter-pill');
-  var cards=document.querySelectorAll('.wcard');
-  pills.forEach(function(p){
-    p.addEventListener('click',function(){
-      pills.forEach(function(x){x.classList.remove('active')});
-      p.classList.add('active');
-      var f=p.getAttribute('data-filter')||'all';
-      cards.forEach(function(c){
-        if(f==='all'||c.getAttribute('data-specialty')===f){c.classList.remove('hidden')}
-        else{c.classList.add('hidden')}
-      });
-    });
-  });
+          <div class="wcard-cta">
+            <a
+              class="btn btn-primary btn-sm"
+              href="https://t.me/whalepod_bot?start=src_whale_dualmajor"
+              rel="noopener"
+              >Mirror this whale →</a
+            >
+          </div>
+        </article>
+      </div>
+    </main>
 
-  // ── "Updated Xs ago" ticker + live data refresh ───────────────
-  var stamp=document.getElementById('refresh-stamp');
-  var bar=document.getElementById('refresh-row');
-  var dataAt=Number(document.body.getAttribute('data-generated-at'))||Date.now();
+    <section class="foot-cta">
+      <h2>Ready to mirror one?</h2>
+      <p>
+        Open the bot, browse the same list, and tap <strong>/follow</strong> on any whale to start
+        mirroring. Set a per-trade cap so a bad call can't blow up your account.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://t.me/whalepod_bot" rel="noopener"
+          >Launch in Telegram →</a
+        >
+        <a class="btn btn-ghost" href="https://app.whalepod.trade" rel="noopener">Open mini-app</a>
+      </div>
+    </section>
 
-  function fmtAgo(ms){
-    var s=Math.floor(ms/1000);
-    if(s<5)return 'just now';
-    if(s<60)return s+'s ago';
-    var m=Math.floor(s/60);
-    if(m<60)return m+'m ago';
-    var h=Math.floor(m/60);
-    return h+'h ago';
-  }
-  function tick(){if(stamp)stamp.textContent=fmtAgo(Date.now()-dataAt)}
-  setInterval(tick,1000);tick();
+    <footer>
+      <div class="foot-inner">
+        <div>
+          <div class="brand" style="margin-bottom: 6px">
+            <img
+              src="/logo.png"
+              alt="WhalePod"
+              width="28"
+              height="28"
+              style="width: 28px; height: 28px"
+            /><span>WhalePod</span>
+          </div>
+          <div>Copy-trade Hyperliquid perps from Telegram. Non-custodial.</div>
+          <div style="margin-top: 8px; font-size: 12px">
+            Trading derivatives carries risk of loss. Past whale performance is not indicative of
+            future results.
+          </div>
+        </div>
+        <div class="socials" aria-label="Social links">
+          <a
+            href="https://x.com/whalepodapp"
+            rel="noopener"
+            aria-label="X / Twitter"
+            title="X / Twitter"
+            ><svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+              /></svg
+          ></a>
+          <a
+            href="https://t.me/whalepod_news"
+            rel="noopener"
+            aria-label="Telegram channel"
+            title="Telegram announcements"
+            ><svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M22.05 2.555 1.95 10.39c-1.366.535-1.358 1.27-.25 1.61l5.156 1.61L18.78 6.087c.564-.343 1.078-.158.656.218l-9.668 8.728-.371 5.51c.534 0 .77-.245 1.07-.535l2.572-2.498 5.34 3.943c.984.543 1.69.264 1.935-.913l3.502-16.5c.36-1.444-.547-2.098-1.766-1.485z"
+              /></svg
+          ></a>
+          <a
+            href="https://t.me/whalepod_chat"
+            rel="noopener"
+            aria-label="Telegram group"
+            title="Telegram chat"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+              /></svg
+          ></a>
+          <a href="https://github.com/Tonyflam/U" rel="noopener" aria-label="GitHub" title="GitHub"
+            ><svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 .5C5.7.5.7 5.5.7 11.8c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.7 1.2 3.4.9.1-.7.4-1.2.7-1.5-2.5-.3-5.2-1.3-5.2-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.2 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.8C23.3 5.5 18.3.5 12 .5z"
+              /></svg
+          ></a>
+        </div>
+      </div>
+      <div
+        style="
+          max-width: 1200px;
+          margin: 24px auto 0;
+          text-align: center;
+          font-size: 12px;
+          color: var(--muted);
+        "
+      >
+        © 2026 WhalePod · Open source under AGPL-3.0
+      </div>
+    </footer>
 
-  function fmtUsd(n){
-    if(n===null||n===undefined||!isFinite(n))return '—';
-    var abs=Math.abs(n);
-    var sign=n<0?'−':'';
-    if(abs>=1e6)return sign+'$'+(abs/1e6).toFixed(2)+'M';
-    if(abs>=1e3)return sign+'$'+(abs/1e3).toFixed(1)+'K';
-    return sign+'$'+abs.toFixed(0);
-  }
-  function pnlClass(n){if(n===null||n===undefined||!isFinite(n)||n===0)return '';return n>0?'good':'bad'}
-  function fmtPnlSigned(n){
-    if(n===null||n===undefined||!isFinite(n))return '—';
-    if(n===0)return '$0';
-    var s=n>0?'+':'−';
-    var abs=Math.abs(n);
-    if(abs>=1e6)return s+'$'+(abs/1e6).toFixed(2)+'M';
-    if(abs>=1e3)return s+'$'+(abs/1e3).toFixed(1)+'K';
-    return s+'$'+abs.toFixed(0);
-  }
+    <script>
+      (function () {
+        var glow = document.querySelector('.cursor-glow');
+        if (glow && window.matchMedia('(hover:hover)').matches) {
+          var rx = 0,
+            ry = 0,
+            cx = 0,
+            cy = 0;
+          document.addEventListener('mousemove', function (e) {
+            rx = e.clientX;
+            ry = e.clientY;
+          });
+          function loop() {
+            cx += (rx - cx) * 0.12;
+            cy += (ry - cy) * 0.12;
+            glow.style.transform = 'translate(' + cx + 'px,' + cy + 'px) translate(-50%,-50%)';
+            requestAnimationFrame(loop);
+          }
+          loop();
+        }
+        document.querySelectorAll('.wcard').forEach(function (c) {
+          c.addEventListener('mousemove', function (e) {
+            var r = c.getBoundingClientRect();
+            c.style.setProperty('--mx', e.clientX - r.left + 'px');
+            c.style.setProperty('--my', e.clientY - r.top + 'px');
+          });
+        });
 
-  function renderPositions(positions){
-    if(!positions||positions.length===0){
-      return '<div class="pos-empty">Flat right now</div>';
-    }
-    var top=positions.slice(0,3);
-    var rest=positions.length-top.length;
-    var html='<ul class="pos-list">';
-    top.forEach(function(p){
-      var pnlC=pnlClass(p.unrealizedPnlUsd);
-      html+='<li class="pos-row">'
-        +'<div class="pos-left">'
-        +'<span class="pos-coin">'+escapeText(p.coin)+'</span>'
-        +'<span class="pos-side '+p.side+'">'+(p.side==='long'?'LONG':'SHORT')+'</span>'
-        +'<span class="pos-size">'+fmtUsd(p.sizeUsd)+'</span>'
-        +'</div>'
-        +'<div class="pos-pnl '+pnlC+'">'+fmtPnlSigned(p.unrealizedPnlUsd)+'</div>'
-        +'</li>';
-    });
-    html+='</ul>';
-    if(rest>0)html+='<div class="pos-more">+ '+rest+' more position'+(rest===1?'':'s')+'</div>';
-    return html;
-  }
-  function escapeText(s){var d=document.createElement('div');d.textContent=String(s);return d.innerHTML}
+        // ── filter pills ──────────────────────────────────────────────
+        var pills = document.querySelectorAll('.filter-pill');
+        var cards = document.querySelectorAll('.wcard');
+        pills.forEach(function (p) {
+          p.addEventListener('click', function () {
+            pills.forEach(function (x) {
+              x.classList.remove('active');
+            });
+            p.classList.add('active');
+            var f = p.getAttribute('data-filter') || 'all';
+            cards.forEach(function (c) {
+              if (f === 'all' || c.getAttribute('data-specialty') === f) {
+                c.classList.remove('hidden');
+              } else {
+                c.classList.add('hidden');
+              }
+            });
+          });
+        });
 
-  // ── live refresh, straight from Hyperliquid's public /info ──────
-  // HL's endpoint is CORS-open, so the browser pulls each whale's
-  // clearinghouseState directly. This makes the volatile numbers —
-  // open positions, unrealized PnL, account equity — genuinely live
-  // per visitor instead of frozen at the last deploy. The realized-PnL
-  // windows (30d / recent) stay from the build snapshot: they're
-  // 30-day aggregates that don't move minute-to-minute.
-  var HL_INFO='https://api.hyperliquid.xyz/info';
-  function hlInfo(body){
-    return fetch(HL_INFO,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){
-      if(!r.ok)throw new Error('hl '+r.status);return r.json();
-    });
-  }
-  function num(v){var n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0}
-  function parseState(raw){
-    var equity=num(raw&&raw.marginSummary&&raw.marginSummary.accountValue);
-    var positions=[];
-    var aps=(raw&&raw.assetPositions)||[];
-    for(var i=0;i<aps.length;i++){
-      var p=aps[i]&&aps[i].position;if(!p||!p.coin)continue;
-      var szi=num(p.szi);if(szi===0)continue;
-      var entry=num(p.entryPx);
-      var sz=num(p.positionValue)||Math.abs(szi)*entry;
-      positions.push({coin:String(p.coin).toUpperCase(),side:szi>0?'long':'short',sizeUsd:sz,entryPx:entry,unrealizedPnlUsd:num(p.unrealizedPnl)});
-    }
-    positions.sort(function(a,b){return b.sizeUsd-a.sizeUsd});
-    return {equityUsd:equity,positions:positions};
-  }
-  function cardAddrs(){
-    var out=[];
-    document.querySelectorAll('.wcard').forEach(function(c){var a=c.getAttribute('data-address');if(a)out.push(a)});
-    return out;
-  }
-  function refresh(){
-    var addrs=cardAddrs();
-    if(addrs.length===0)return;
-    if(bar)bar.classList.add('refreshing');
-    Promise.all(addrs.map(function(a){
-      return hlInfo({type:'clearinghouseState',user:a}).then(function(raw){return {address:a,state:parseState(raw)}}).catch(function(){return null});
-    })).then(function(results){
-      var ok=0;
-      results.forEach(function(res){
-        if(!res)return;ok++;
-        var card=document.querySelector('.wcard[data-address="'+res.address.toLowerCase()+'"]');
-        if(!card)return;
-        var staleEl=card.querySelector('.wcard-stale');if(staleEl)staleEl.style.display='none';
-        var cells=card.querySelectorAll('.stat-cell .sv');
-        if(cells[2]){cells[2].textContent=fmtUsd(res.state.equityUsd);cells[2].className='sv'}
-        var posWrap=card.querySelector('.pos-content');
-        if(posWrap)posWrap.innerHTML=renderPositions(res.state.positions);
-        var posCount=card.querySelector('.pos-count');
-        if(posCount)posCount.textContent=res.state.positions.length?String(res.state.positions.length)+' open':'flat';
-      });
-      if(ok>0){dataAt=Date.now();document.body.setAttribute('data-generated-at',String(dataAt))}
-    }).catch(function(){}).finally(function(){
-      setTimeout(function(){bar&&bar.classList.remove('refreshing')},400);
-    });
-  }
-  refresh();
-  setInterval(refresh,30000);
-  // Also refresh when tab regains focus after >30s
-  var lastFocus=Date.now();
-  document.addEventListener('visibilitychange',function(){
-    if(!document.hidden && Date.now()-lastFocus>30000){refresh();lastFocus=Date.now()}
-  });
-})();
-</script>
-</body>
+        // ── "Updated Xs ago" ticker + live data refresh ───────────────
+        var stamp = document.getElementById('refresh-stamp');
+        var bar = document.getElementById('refresh-row');
+        var dataAt = Number(document.body.getAttribute('data-generated-at')) || Date.now();
+
+        function fmtAgo(ms) {
+          var s = Math.floor(ms / 1000);
+          if (s < 5) return 'just now';
+          if (s < 60) return s + 's ago';
+          var m = Math.floor(s / 60);
+          if (m < 60) return m + 'm ago';
+          var h = Math.floor(m / 60);
+          return h + 'h ago';
+        }
+        function tick() {
+          if (stamp) stamp.textContent = fmtAgo(Date.now() - dataAt);
+        }
+        setInterval(tick, 1000);
+        tick();
+
+        function fmtUsd(n) {
+          if (n === null || n === undefined || !isFinite(n)) return '—';
+          var abs = Math.abs(n);
+          var sign = n < 0 ? '−' : '';
+          if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+          if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'K';
+          return sign + '$' + abs.toFixed(0);
+        }
+        function pnlClass(n) {
+          if (n === null || n === undefined || !isFinite(n) || n === 0) return '';
+          return n > 0 ? 'good' : 'bad';
+        }
+        function fmtPnlSigned(n) {
+          if (n === null || n === undefined || !isFinite(n)) return '—';
+          if (n === 0) return '$0';
+          var s = n > 0 ? '+' : '−';
+          var abs = Math.abs(n);
+          if (abs >= 1e6) return s + '$' + (abs / 1e6).toFixed(2) + 'M';
+          if (abs >= 1e3) return s + '$' + (abs / 1e3).toFixed(1) + 'K';
+          return s + '$' + abs.toFixed(0);
+        }
+
+        function renderPositions(positions) {
+          if (!positions || positions.length === 0) {
+            return '<div class="pos-empty">Flat right now</div>';
+          }
+          var top = positions.slice(0, 3);
+          var rest = positions.length - top.length;
+          var html = '<ul class="pos-list">';
+          top.forEach(function (p) {
+            var pnlC = pnlClass(p.unrealizedPnlUsd);
+            html +=
+              '<li class="pos-row">' +
+              '<div class="pos-left">' +
+              '<span class="pos-coin">' +
+              escapeText(p.coin) +
+              '</span>' +
+              '<span class="pos-side ' +
+              p.side +
+              '">' +
+              (p.side === 'long' ? 'LONG' : 'SHORT') +
+              '</span>' +
+              '<span class="pos-size">' +
+              fmtUsd(p.sizeUsd) +
+              '</span>' +
+              '</div>' +
+              '<div class="pos-pnl ' +
+              pnlC +
+              '">' +
+              fmtPnlSigned(p.unrealizedPnlUsd) +
+              '</div>' +
+              '</li>';
+          });
+          html += '</ul>';
+          if (rest > 0)
+            html +=
+              '<div class="pos-more">+ ' +
+              rest +
+              ' more position' +
+              (rest === 1 ? '' : 's') +
+              '</div>';
+          return html;
+        }
+        function escapeText(s) {
+          var d = document.createElement('div');
+          d.textContent = String(s);
+          return d.innerHTML;
+        }
+
+        // ── live refresh, straight from Hyperliquid's public /info ──────
+        // HL's endpoint is CORS-open, so the browser pulls each whale's
+        // clearinghouseState directly. Every volatile number on the card is
+        // genuinely live per visitor instead of frozen at the last deploy:
+        // open positions, unrealized PnL, account equity, AND the headline
+        // 30d PnL. The realized 30d base is carried in data-r30; we add live
+        // unrealized to it (total = realized + unrealized) so the headline
+        // moves with the market.
+        var HL_INFO = 'https://api.hyperliquid.xyz/info';
+        function hlInfo(body) {
+          return fetch(HL_INFO, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }).then(function (r) {
+            if (!r.ok) throw new Error('hl ' + r.status);
+            return r.json();
+          });
+        }
+        function num(v) {
+          var n = typeof v === 'number' ? v : parseFloat(v);
+          return isFinite(n) ? n : 0;
+        }
+        function parseState(raw) {
+          var equity = num(raw && raw.marginSummary && raw.marginSummary.accountValue);
+          var positions = [];
+          var aps = (raw && raw.assetPositions) || [];
+          for (var i = 0; i < aps.length; i++) {
+            var p = aps[i] && aps[i].position;
+            if (!p || !p.coin) continue;
+            var szi = num(p.szi);
+            if (szi === 0) continue;
+            var entry = num(p.entryPx);
+            var sz = num(p.positionValue) || Math.abs(szi) * entry;
+            positions.push({
+              coin: String(p.coin).toUpperCase(),
+              side: szi > 0 ? 'long' : 'short',
+              sizeUsd: sz,
+              entryPx: entry,
+              unrealizedPnlUsd: num(p.unrealizedPnl),
+            });
+          }
+          positions.sort(function (a, b) {
+            return b.sizeUsd - a.sizeUsd;
+          });
+          return { equityUsd: equity, positions: positions };
+        }
+        function cardAddrs() {
+          var out = [];
+          document.querySelectorAll('.wcard').forEach(function (c) {
+            var a = c.getAttribute('data-address');
+            if (a) out.push(a);
+          });
+          return out;
+        }
+        function refresh() {
+          var addrs = cardAddrs();
+          if (addrs.length === 0) return;
+          if (bar) bar.classList.add('refreshing');
+          Promise.all(
+            addrs.map(function (a) {
+              return hlInfo({ type: 'clearinghouseState', user: a })
+                .then(function (raw) {
+                  return { address: a, state: parseState(raw) };
+                })
+                .catch(function () {
+                  return null;
+                });
+            }),
+          )
+            .then(function (results) {
+              var ok = 0;
+              results.forEach(function (res) {
+                if (!res) return;
+                ok++;
+                var card = document.querySelector(
+                  '.wcard[data-address="' + res.address.toLowerCase() + '"]',
+                );
+                if (!card) return;
+                var staleEl = card.querySelector('.wcard-stale');
+                if (staleEl) staleEl.style.display = 'none';
+                var cells = card.querySelectorAll('.stat-cell .sv');
+                var unreal = 0;
+                res.state.positions.forEach(function (p) {
+                  unreal += p.unrealizedPnlUsd;
+                });
+                var r30 = parseFloat(card.getAttribute('data-r30') || '0');
+                if (!isFinite(r30)) r30 = 0;
+                var total = r30 + unreal;
+                if (cells[0]) {
+                  cells[0].textContent = fmtPnlSigned(total);
+                  cells[0].className = 'sv ' + pnlClass(total);
+                }
+                if (cells[1]) {
+                  cells[1].textContent = fmtPnlSigned(unreal);
+                  cells[1].className = 'sv ' + pnlClass(unreal);
+                }
+                if (cells[2]) {
+                  cells[2].textContent = fmtUsd(res.state.equityUsd);
+                  cells[2].className = 'sv';
+                }
+                var posWrap = card.querySelector('.pos-content');
+                if (posWrap) posWrap.innerHTML = renderPositions(res.state.positions);
+                var posCount = card.querySelector('.pos-count');
+                if (posCount)
+                  posCount.textContent = res.state.positions.length
+                    ? String(res.state.positions.length) + ' open'
+                    : 'flat';
+              });
+              if (ok > 0) {
+                dataAt = Date.now();
+                document.body.setAttribute('data-generated-at', String(dataAt));
+              }
+            })
+            .catch(function () {})
+            .finally(function () {
+              setTimeout(function () {
+                bar && bar.classList.remove('refreshing');
+              }, 400);
+            });
+        }
+        refresh();
+        setInterval(refresh, 30000);
+        // Also refresh when tab regains focus after >30s
+        var lastFocus = Date.now();
+        document.addEventListener('visibilitychange', function () {
+          if (!document.hidden && Date.now() - lastFocus > 30000) {
+            refresh();
+            lastFocus = Date.now();
+          }
+        });
+      })();
+    </script>
+  </body>
 </html>

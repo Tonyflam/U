@@ -30,16 +30,10 @@ export const CURATED_WHALES: readonly CuratedWhale[] = [
     tagline: 'HYPE perp specialist. Concentrated, scales in trends.',
   },
   {
-    address: '0x632b0a6bb6b6184b97f61a6c773077cab99d1838',
-    alias: 'Spot-Specialist',
-    specialty: 'Spot',
-    tagline: 'Spot/perp hybrid. Near-zero drawdown across cycles.',
-  },
-  {
-    address: '0x99b1098d9d50aa076f78bd26ab22e6abd3710729',
-    alias: 'BNB-Sharp',
-    specialty: 'BNB',
-    tagline: 'BNB-focused. Multi-cycle survivor on tight risk.',
+    address: '0x0ddf9bae2af4b874b96d287a5ad42eb47138a902',
+    alias: 'ETH-Lead',
+    specialty: 'ETH',
+    tagline: 'Top of the HL board. ETH-led directional, 3x max leverage.',
   },
   {
     address: '0xd05808946809c180d190608e13f473db30aa8524',
@@ -54,22 +48,28 @@ export const CURATED_WHALES: readonly CuratedWhale[] = [
     tagline: 'High-turnover BTC scalper. Consistent monthly.',
   },
   {
+    address: '0xf822fa0fd364c573fcdb7009fcf47601bc8be01a',
+    alias: 'Macro-Multi',
+    specialty: 'Multi',
+    tagline: 'Macro book across BTC/ETH/HYPE. Conservative, 3x max.',
+  },
+  {
     address: '0x54dbc1fbf6b1cd59807db61109b1d9eb91fd1a04',
     alias: 'Patient-145',
     specialty: 'Multi',
     tagline: 'Long-term holder. Few but conviction-sized trades.',
   },
   {
-    address: '0x5e8e18557c0df89fb79a41941c03768da69100af',
-    alias: 'Steady-44',
-    specialty: 'Diversified',
-    tagline: 'Diversified directional. Steady monthly compounder.',
+    address: '0xb798aef79972ce8f73d47b9ebbcda6bbb7ec4fbf',
+    alias: 'BTC-Anchor',
+    specialty: 'BTC',
+    tagline: 'BTC conviction at 2x. Ultra-low leverage.',
   },
   {
-    address: '0x6dc903ab5fe0d286cbef6c5042dd2684b7fd78d7',
-    alias: 'Trend-166',
+    address: '0x218a65e21eddeece7a9df38c6bbdd89f692b7da2',
+    alias: 'Dual-Major',
     specialty: 'Multi',
-    tagline: 'Trend-follower across BTC/ETH/HYPE.',
+    tagline: 'Concentrated major-pair book. Tight 2-leg directional.',
   },
 ];
 
@@ -82,7 +82,7 @@ export const CURATED_WHALES: readonly CuratedWhale[] = [
  *
  *   whaleSlug('HYPE-Maxi')        // 'hypemaxi'
  *   whaleSlug('BTC-Volume-King')  // 'btcvolumeking'
- *   whaleSlug('Steady-44')        // 'steady44'
+ *   whaleSlug('BTC-Anchor')       // 'btcanchor'
  */
 export function whaleSlug(alias: string): string {
   return alias.toLowerCase().replace(/[^a-z0-9]+/gu, '');
