@@ -754,9 +754,46 @@ async function handlePnl(ctx: HandlerCtx): Promise<Reply[]> {
 async function handleLeaderboard(ctx: HandlerCtx): Promise<Reply[]> {
   const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
   const entries = await ctx.repo.listLeaderboard(50);
-  const result = computeLeaderboard(entries, { topN: 10 });
+  // Hide anyone in the red. A "top traders" board should never headline a
+  // losing trader, and at low user counts that would otherwise be a
+  // first-impression killer — often just the founder, underwater.
+  const result = computeLeaderboard(entries, { topN: 10, losersHidden: true });
+  if (result.entries.length === 0) {
+    // Nobody has booked a green closed trade yet. Don't show an empty or red
+    // board — route the visitor to the whales they can copy to become the
+    // first name up here.
+    return [await renderCopyToRank(ctx)];
+  }
   const reply = renderLeaderboard(result, user ? { viewerUserId: user.id } : {});
   return [reply];
+}
+
+/**
+ * Leaderboard fallback shown until at least one WhalePod user has a winning
+ * closed trade. Instead of "No ranked traders yet" (empty) or a red founder
+ * row, it frames the empty board as an opportunity and points at the curated
+ * whales + the live web directory — the exact next action a new visitor wants.
+ */
+async function renderCopyToRank(ctx: HandlerCtx): Promise<Reply> {
+  const whales = await ctx.repo.listFeaturedWhales(3);
+  const lines = [
+    '🏆 Top traders',
+    '',
+    'No winning trade has closed yet — this board is wide open. Copy a curated Hyperliquid whale and your realized PnL shows up right here.',
+    '',
+  ];
+  if (whales.length > 0) {
+    lines.push('Start with one of these:', '');
+    whales.forEach((w) => {
+      const label = w.alias && w.alias.length > 0 ? w.alias : 'Whale';
+      lines.push(`🐳 ${label}`);
+      lines.push(`   /follow ${w.address}`);
+    });
+    lines.push('');
+  }
+  lines.push('→ /whales — browse every curated whale');
+  lines.push('→ Live positions & PnL: https://www.whalepod.trade/whales');
+  return { text: lines.join('\n') };
 }
 
 async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {

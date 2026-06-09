@@ -450,11 +450,27 @@ describe('handleCommand /leaderboard', () => {
     expect(text).toMatch(/Top traders/);
     expect(text).toMatch(/@alpha/);
     expect(text).toMatch(/← you/);
+    // a red trader is never featured on the board
+    expect(text).not.toMatch(/@beta/);
   });
 
-  it('returns empty-state when no traders', async () => {
+  it('hides a lone underwater trader and shows the copy-to-rank fallback', async () => {
+    const { ctx, repo } = setup({ tgId: 500n });
+    const me = await repo.getUserByTgId(500n);
+    if (!me) throw new Error('user missing');
+    // Only trader is the viewer, and they're in the red (the founder-at-zero case).
+    repo.seedLeaderboard([{ userId: me.id, handle: '@me', realizedPnlUsd: -42 }]);
+    const replies = await handleCommand({ kind: 'leaderboard' }, ctx);
+    const text = replies[0]?.text ?? '';
+    expect(text).not.toMatch(/-\$42/);
+    expect(text).toMatch(/wide open/);
+    expect(text).toMatch(/\/whales/);
+  });
+
+  it('shows the copy-to-rank fallback when no traders', async () => {
     const { ctx } = setup();
     const replies = await handleCommand({ kind: 'leaderboard' }, ctx);
-    expect(replies[0]?.text).toMatch(/no ranked traders/i);
+    expect(replies[0]?.text).toMatch(/Top traders/);
+    expect(replies[0]?.text).toMatch(/whalepod\.trade\/whales/);
   });
 });
