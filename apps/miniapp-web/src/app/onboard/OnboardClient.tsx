@@ -105,21 +105,23 @@ async function signTypedDataV4Raw(
 }
 
 /**
- * Resolve once `predicate()` is true or `timeoutMs` elapses, polling every
- * 150ms. Used to wait out an async WalletConnect session restore after a mobile
- * page reload before deciding the session is really gone.
+ * True when an EIP-1193 error indicates the WalletConnect session is gone (vs.
+ * the user simply rejecting). WalletConnect surfaces these as "Please call
+ * connect() before request()", "No matching key", "session topic doesn't
+ * exist", etc. We only attempt a reconnect for these — a user rejection must
+ * propagate so we don't loop.
  */
-async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
-  if (predicate()) return true;
-  return new Promise((resolve) => {
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      if (predicate() || Date.now() - startedAt >= timeoutMs) {
-        clearInterval(timer);
-        resolve(predicate());
-      }
-    }, 150);
-  });
+function isSessionError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes('connect() before request') ||
+    msg.includes('no matching key') ||
+    msg.includes("session topic doesn't exist") ||
+    msg.includes('session topic') ||
+    msg.includes('missing or invalid') ||
+    msg.includes('please call connect') ||
+    msg.includes('no active session')
+  );
 }
 
 export default function OnboardClient(): JSX.Element {
@@ -299,51 +301,49 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Acquire the wallet's EIP-1193 provider and ensure it has a LIVE session
-      // before signing. Two mobile failure modes are handled here:
-      //  1) wagmi's signTypedData asserts the connector chain and throws
-      //     "connector (id: undefined) does not match the connection's chain"
-      //     on wallets that report chainId `undefined` (mobile MetaMask over
-      //     WalletConnect) — avoided entirely by signing through the raw
-      //     provider (see signTypedDataV4Raw). HL approvals are off-chain, so
-      //     the wallet's active chain is irrelevant; no network switch needed.
-      //  2) wagmi can report "connected" (from storage) while the underlying
-      //     WalletConnect session is gone — common in Telegram's in-app browser,
-      //     which drops the session across the wallet deep-link round-trip. In
-      //     that state request() throws "Please call connect() before request()".
-      // So we wait out an async restore, then re-establish the session if gone.
+      // Sign HL's two OFF-CHAIN approvals through the wallet's raw EIP-1193
+      // provider. Two things matter on mobile:
+      //  1) We sign via the raw provider (not wagmi's signTypedData) because
+      //     wagmi asserts the connector chain first and throws "connector
+      //     (id: undefined) does not match the connection's chain" on mobile
+      //     MetaMask over WalletConnect. HL approvals are off-chain (chainId is
+      //     inside the signed domain), so the wallet's active chain is moot.
+      //  2) Calling provider.request() is ALSO what fires WalletConnect's
+      //     deep-link to bring the wallet app to the foreground. We must NOT
+      //     pre-gate on provider.session — the AppKit-wrapped universal
+      //     provider doesn't reliably expose `.session` on this reference, and
+      //     gating on it caused us to bail before ever sending the request (so
+      //     the wallet never opened). Instead we send the request directly and
+      //     only re-establish the session if the request itself fails with a
+      //     session error (e.g. Telegram's in-app browser dropping it across
+      //     the deep-link round-trip).
       if (!connector) {
         throw new Error('Wallet connection lost — tap "Connect wallet" and try again.');
       }
-      const isWalletConnect =
-        connector.id === 'walletConnect' || connector.type === 'walletConnect';
-      const provider = (await connector.getProvider()) as Eip1193Provider & {
-        session?: unknown;
-      };
+      const signer = address;
+      const provider = (await connector.getProvider()) as Eip1193Provider;
+      const activeConnector = connector;
 
-      if (isWalletConnect && !provider.session) {
-        // Session may still be restoring after a reload — give it a moment.
-        await waitFor(() => Boolean(provider.session), 2500);
-      }
-      if (isWalletConnect && !provider.session) {
-        // Truly gone — re-establish it (re-opens the wallet to approve), bounded
-        // so a stalled reconnect can't hang the button forever.
-        await Promise.race([
-          connector.connect(),
-          new Promise((resolve) => setTimeout(resolve, 45000)),
-        ]).catch(() => undefined);
-      }
-      if (isWalletConnect && !provider.session) {
-        throw new Error(
-          'Your wallet session dropped — common in Telegram’s in-app browser. Tap "Sign & ' +
-            'authorize" again, or open app.whalepod.trade in your wallet’s built-in browser to finish.',
-        );
+      async function signWithSession(td: TypedData): Promise<`0x${string}`> {
+        try {
+          return await signTypedDataV4Raw(provider, signer, td);
+        } catch (err) {
+          if (!isSessionError(err)) throw err;
+          // Session dropped — re-establish it once (re-opens the wallet to
+          // approve), bounded so a stalled reconnect can't hang forever, then
+          // retry the signature on the now-live session.
+          await Promise.race([
+            activeConnector.connect(),
+            new Promise((resolve) => setTimeout(resolve, 60000)),
+          ]).catch(() => undefined);
+          return signTypedDataV4Raw(provider, signer, td);
+        }
       }
 
       setSignStep(1);
-      const approveAgentSig = await signTypedDataV4Raw(provider, address, td1);
+      const approveAgentSig = await signWithSession(td1);
       setSignStep(2);
-      const approveBuilderFeeSig = await signTypedDataV4Raw(provider, address, td2);
+      const approveBuilderFeeSig = await signWithSession(td2);
 
       const completeRes = await fetch('/api/onboarding/complete', {
         method: 'POST',
