@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react';
+import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -51,6 +51,7 @@ function shortAddr(a: string): string {
 export default function OnboardClient(): JSX.Element {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  const { disconnect: appkitDisconnect } = useAppKitDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const { switchChainAsync } = useSwitchChain();
   const { open } = useAppKit();
@@ -132,6 +133,39 @@ export default function OnboardClient(): JSX.Element {
     };
   }, []);
 
+  // Tear down BOTH the Reown AppKit/WalletConnect session and the wagmi
+  // connector. On mobile, wagmi's disconnect() alone leaves the AppKit
+  // WalletConnect session alive, so useAccount() keeps reporting connected and
+  // the UI never updates — the disconnect control appears to do nothing.
+  // AppKit's async disconnect clears the session for real; the wagmi call is a
+  // belt-and-braces fallback for the injected/desktop path.
+  async function tearDownWallet(): Promise<void> {
+    try {
+      await appkitDisconnect();
+    } catch {
+      // session may already be gone — fall through to the wagmi fallback
+    }
+    try {
+      disconnect();
+    } catch {
+      // ignore wallet disconnect errors
+    }
+  }
+
+  // Top-of-app wallet pill. Disconnects the wallet; the render falls back to
+  // the connect screen once `isConnected` flips. Guarded by `busy` so a
+  // double-tap on mobile can't stack teardowns.
+  async function handleDisconnectWallet(): Promise<void> {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await tearDownWallet();
+      setSignStep(0);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disconnectAndRestart(): Promise<void> {
     const tgUserId = getTgUserId();
     if (!tgUserId) return;
@@ -142,11 +176,8 @@ export default function OnboardClient(): JSX.Element {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ tgUserId }),
       });
-      try {
-        disconnect();
-      } catch {
-        // ignore wallet disconnect errors
-      }
+      await tearDownWallet();
+      setSignStep(0);
       setState({ step: 'connect' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -259,7 +290,13 @@ export default function OnboardClient(): JSX.Element {
             <span>WhalePod</span>
           </div>
           {isConnected && address ? (
-            <button className="pill" type="button" onClick={() => disconnect()} title="Disconnect">
+            <button
+              className="pill"
+              type="button"
+              disabled={busy}
+              onClick={() => void handleDisconnectWallet()}
+              title="Disconnect"
+            >
               {shortAddr(address)}
             </button>
           ) : null}
