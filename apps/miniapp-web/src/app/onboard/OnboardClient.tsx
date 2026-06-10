@@ -71,6 +71,28 @@ function openInExternalBrowser(): void {
   else window.open(url, '_blank', 'noreferrer noopener');
 }
 
+/**
+ * True when the page is running INSIDE the Telegram in-app webview (vs. a real
+ * browser tab the user reached via "Open in browser"). Telegram injects
+ * `Telegram.WebApp` with non-empty `initData`/a known `platform` only inside the
+ * Mini App container; an external browser opened from Telegram has no such
+ * object. We use this to steer wallet signing — which can't survive Telegram's
+ * webview reload — into a real browser.
+ */
+function isInsideTelegram(): boolean {
+  if (typeof window === 'undefined') return false;
+  const wa = (
+    window as unknown as {
+      Telegram?: { WebApp?: { initData?: string; platform?: string } };
+    }
+  ).Telegram?.WebApp;
+  if (!wa) return false;
+  if (wa.initData && wa.initData.length > 0) return true;
+  // `platform` is 'ios' | 'android' | 'tdesktop' | ... inside Telegram, and
+  // 'unknown' when the SDK is loaded outside the Telegram container.
+  return Boolean(wa.platform && wa.platform !== 'unknown');
+}
+
 interface TypedData {
   domain: Record<string, unknown>;
   types: Record<string, unknown>;
@@ -115,6 +137,13 @@ export default function OnboardClient(): JSX.Element {
   const [state, setState] = useState<State>({ step: 'loading' });
   const [busy, setBusy] = useState(false);
   const [signStep, setSignStep] = useState<0 | 1 | 2>(0);
+  // Detected once on mount: are we inside Telegram's webview (where WalletConnect
+  // can't survive the app-switch reload) or a real browser tab?
+  const [inTelegram, setInTelegram] = useState(false);
+
+  useEffect(() => {
+    setInTelegram(isInsideTelegram());
+  }, []);
 
   useEffect(() => {
     const tg = (
@@ -504,12 +533,35 @@ export default function OnboardClient(): JSX.Element {
                 <strong>Agent key</strong> can trade — never withdraw.
               </li>
             </ul>
-            <button className="cta" type="button" onClick={() => void open()}>
-              Connect wallet
-            </button>
-            <p className="muted small">
-              MetaMask · Rabby · Coinbase · Trust · 380+ wallets via WalletConnect
-            </p>
+            {inTelegram ? (
+              <>
+                <button className="cta" type="button" onClick={() => openInExternalBrowser()}>
+                  Open in browser to connect →
+                </button>
+                <p className="muted small">
+                  Wallet signing doesn&apos;t work reliably inside Telegram — it reloads the page
+                  and drops the wallet session. Tap above to finish in your phone&apos;s browser
+                  (you&apos;ll stay logged in), then return to Telegram.
+                </p>
+                <button
+                  className="ghostBtn"
+                  type="button"
+                  onClick={() => void open()}
+                  style={{ marginTop: 8 }}
+                >
+                  Try connecting here anyway
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="cta" type="button" onClick={() => void open()}>
+                  Connect wallet
+                </button>
+                <p className="muted small">
+                  MetaMask · Rabby · Coinbase · Trust · 380+ wallets via WalletConnect
+                </p>
+              </>
+            )}
           </section>
         ) : state.step === 'done' ? (
           <section className="done">
