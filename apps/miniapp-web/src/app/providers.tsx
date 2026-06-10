@@ -1,7 +1,7 @@
 'use client';
 
 import { WagmiProvider, cookieStorage, createStorage } from 'wagmi';
-import { arbitrum } from 'wagmi/chains';
+import { arbitrum, mainnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { createAppKit } from '@reown/appkit/react';
@@ -9,11 +9,18 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
 const projectId = '300db405c25f36a3847110ee52bf3bc7';
 
+// HL onboarding signs OFF-CHAIN EIP-712 payloads whose chainId (Arbitrum,
+// 0xa4b1) lives inside the signed domain — the wallet can produce a valid
+// signature while sitting on ANY chain. We therefore register Ethereum
+// mainnet (1) too: mobile MetaMask connects on mainnet by default, and if 1
+// isn't a configured network wagmi can't resolve the connector's chain and
+// throws "connector (id: undefined) does not match connection's chain (id: 1)"
+// before signing. Arbitrum stays the default we (best-effort) switch to.
 const wagmiAdapter = new WagmiAdapter({
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,
   projectId,
-  networks: [arbitrum],
+  networks: [arbitrum, mainnet],
 });
 
 if (typeof window !== 'undefined') {
@@ -22,7 +29,7 @@ if (typeof window !== 'undefined') {
     // ChainNamespace; the runtime is correct.
     adapters: [wagmiAdapter as never],
     projectId,
-    networks: [arbitrum],
+    networks: [arbitrum, mainnet],
     defaultNetwork: arbitrum,
     metadata: {
       name: 'WhalePod',
