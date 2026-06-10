@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 
 interface StartResponse {
@@ -48,83 +48,11 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-interface Eip1193Provider {
-  request(args: { method: string; params: unknown[] }): Promise<unknown>;
-}
-
-// Canonical EIP-712 domain field order. `eth_signTypedData_v4` requires an
-// `EIP712Domain` entry in `types`; viem/wagmi inject it automatically, but a
-// raw provider call does not — so we add it ourselves, including only the
-// fields actually present so the struct hash matches the server's verification.
-const EIP712_DOMAIN_FIELDS: readonly { name: string; type: string }[] = [
-  { name: 'name', type: 'string' },
-  { name: 'version', type: 'string' },
-  { name: 'chainId', type: 'uint256' },
-  { name: 'verifyingContract', type: 'address' },
-  { name: 'salt', type: 'bytes32' },
-];
-
-interface TypedData {
-  domain: Record<string, unknown>;
-  types: Record<string, unknown>;
-  primaryType: string;
-  message: Record<string, unknown>;
-}
-
-/**
- * Sign EIP-712 typed data via the wallet's raw EIP-1193 provider, bypassing
- * wagmi's `signTypedData`. wagmi asserts the connector's reported chain matches
- * the connection chain BEFORE signing; mobile MetaMask over WalletConnect
- * frequently reports `getChainId() → undefined`, making wagmi throw
- * "connector (id: undefined) does not match the connection's chain (id: 1)" at
- * the sign step. HL's approveAgent / approveBuilderFee are OFF-CHAIN signatures
- * (the Arbitrum chainId lives inside the signed domain), so the wallet's active
- * chain is irrelevant and the guard is pure friction. Signing directly avoids
- * it entirely while producing a byte-identical signature.
- */
-async function signTypedDataV4Raw(
-  provider: Eip1193Provider,
-  address: string,
-  td: TypedData,
-): Promise<`0x${string}`> {
-  const domainFields = EIP712_DOMAIN_FIELDS.filter((f) => td.domain[f.name] !== undefined);
-  const payload = {
-    domain: td.domain,
-    types: { EIP712Domain: domainFields, ...td.types },
-    primaryType: td.primaryType,
-    message: td.message,
-  };
-  const sig = await provider.request({
-    method: 'eth_signTypedData_v4',
-    params: [address, JSON.stringify(payload)],
-  });
-  if (typeof sig !== 'string' || !sig.startsWith('0x')) {
-    throw new Error('Wallet returned an invalid signature. Reconnect and try again.');
-  }
-  return sig as `0x${string}`;
-}
-
-/**
- * Resolve once `predicate()` is true or `timeoutMs` elapses, polling every
- * 150ms. Used to wait out an async WalletConnect session restore after a mobile
- * page reload before deciding the session is really gone.
- */
-async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
-  if (predicate()) return true;
-  return new Promise((resolve) => {
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      if (predicate() || Date.now() - startedAt >= timeoutMs) {
-        clearInterval(timer);
-        resolve(predicate());
-      }
-    }, 150);
-  });
-}
-
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected, connector } = useAccount();
+  const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  const { signTypedDataAsync } = useSignTypedData();
+  const { switchChainAsync } = useSwitchChain();
   const { open } = useAppKit();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
@@ -268,46 +196,21 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Acquire the wallet's EIP-1193 provider and ensure it has a LIVE session
-      // before signing. Two mobile failure modes are handled here:
-      //  1) wagmi's signTypedData asserts the connector chain and throws on
-      //     wallets that report chainId `undefined` — avoided entirely by
-      //     signing through the raw provider (see signTypedDataV4Raw).
-      //  2) wagmi can report "connected" (from storage) while the underlying
-      //     WalletConnect session is gone — common in Telegram's in-app browser,
-      //     which drops the session across the wallet deep-link round-trip. In
-      //     that state request() throws "Please call connect() before request()".
-      // So we wait out an async restore, then re-establish the session if gone.
-      if (!connector) {
-        throw new Error('Wallet connection lost — tap “Connect wallet” and try again.');
-      }
-      const isWalletConnect =
-        connector.id === 'walletConnect' || connector.type === 'walletConnect';
-      const provider = (await connector.getProvider()) as Eip1193Provider & { session?: unknown };
-
-      if (isWalletConnect && !provider.session) {
-        // Session may still be restoring after a reload — give it a moment.
-        await waitFor(() => Boolean(provider.session), 2500);
-      }
-      if (isWalletConnect && !provider.session) {
-        // Truly gone — re-establish it (re-opens the wallet to approve), bounded
-        // so a stalled reconnect can't hang the button forever.
-        await Promise.race([
-          connector.connect(),
-          new Promise((resolve) => setTimeout(resolve, 45000)),
-        ]).catch(() => undefined);
-      }
-      if (isWalletConnect && !provider.session) {
-        throw new Error(
-          'Your wallet session dropped — common in Telegram’s in-app browser. Tap “Sign & ' +
-            'authorize” again, or open app.whalepod.trade in your wallet’s built-in browser to finish.',
-        );
+      const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
+      if (targetChainId > 0) {
+        try {
+          await switchChainAsync({ chainId: targetChainId });
+        } catch {
+          throw new Error(
+            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
+          );
+        }
       }
 
       setSignStep(1);
-      const approveAgentSig = await signTypedDataV4Raw(provider, address, td1);
+      const approveAgentSig = await signTypedDataAsync(td1 as never);
       setSignStep(2);
-      const approveBuilderFeeSig = await signTypedDataV4Raw(provider, address, td2);
+      const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
 
       const completeRes = await fetch('/api/onboarding/complete', {
         method: 'POST',
