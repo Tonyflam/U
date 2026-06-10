@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { useAppKit, useAppKitProvider } from '@reown/appkit/react';
+import { useAppKit } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -104,15 +104,28 @@ async function signTypedDataV4Raw(
   return sig as `0x${string}`;
 }
 
+/**
+ * Resolve once `predicate()` is true or `timeoutMs` elapses, polling every
+ * 150ms. Used to wait out an async WalletConnect session restore after a mobile
+ * page reload before deciding the session is really gone.
+ */
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
+  if (predicate()) return true;
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (predicate() || Date.now() - startedAt >= timeoutMs) {
+        clearInterval(timer);
+        resolve(predicate());
+      }
+    }, 150);
+  });
+}
+
 export default function OnboardClient(): JSX.Element {
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
-  // AppKit holds the live wallet session on its own provider instance. The
-  // wagmi connector's getProvider() can hand back a WalletConnect provider
-  // whose session is detached on mobile, making request() throw "Please call
-  // connect() before request()". Sign through AppKit's provider instead.
-  const { walletProvider } = useAppKitProvider<Eip1193Provider | undefined>('eip155');
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
   // Users do not choose this — it's the WhalePod take rate.
@@ -255,15 +268,40 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Sign through the wallet's raw EIP-1193 provider rather than wagmi's
-      // signTypedData, which asserts the connector's chain and breaks on
-      // mobile wallets that report chainId `undefined`. See signTypedDataV4Raw.
-      // Prefer AppKit's provider (it carries the live WalletConnect session);
-      // the wagmi connector's provider can be session-detached on mobile.
-      const provider =
-        walletProvider ?? ((await connector?.getProvider()) as Eip1193Provider | undefined);
-      if (!provider) {
-        throw new Error('Wallet connection unavailable — reconnect and try again.');
+      // Acquire the wallet's EIP-1193 provider and ensure it has a LIVE session
+      // before signing. Two mobile failure modes are handled here:
+      //  1) wagmi's signTypedData asserts the connector chain and throws on
+      //     wallets that report chainId `undefined` — avoided entirely by
+      //     signing through the raw provider (see signTypedDataV4Raw).
+      //  2) wagmi can report "connected" (from storage) while the underlying
+      //     WalletConnect session is gone — common in Telegram's in-app browser,
+      //     which drops the session across the wallet deep-link round-trip. In
+      //     that state request() throws "Please call connect() before request()".
+      // So we wait out an async restore, then re-establish the session if gone.
+      if (!connector) {
+        throw new Error('Wallet connection lost — tap “Connect wallet” and try again.');
+      }
+      const isWalletConnect =
+        connector.id === 'walletConnect' || connector.type === 'walletConnect';
+      const provider = (await connector.getProvider()) as Eip1193Provider & { session?: unknown };
+
+      if (isWalletConnect && !provider.session) {
+        // Session may still be restoring after a reload — give it a moment.
+        await waitFor(() => Boolean(provider.session), 2500);
+      }
+      if (isWalletConnect && !provider.session) {
+        // Truly gone — re-establish it (re-opens the wallet to approve), bounded
+        // so a stalled reconnect can't hang the button forever.
+        await Promise.race([
+          connector.connect(),
+          new Promise((resolve) => setTimeout(resolve, 45000)),
+        ]).catch(() => undefined);
+      }
+      if (isWalletConnect && !provider.session) {
+        throw new Error(
+          'Your wallet session dropped — common in Telegram’s in-app browser. Tap “Sign & ' +
+            'authorize” again, or open app.whalepod.trade in your wallet’s built-in browser to finish.',
+        );
       }
 
       setSignStep(1);
