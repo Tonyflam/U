@@ -51,6 +51,55 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
+// WalletConnect stores the wallet the user picked (its deep-link href + name)
+// under this localStorage key when connecting on mobile. We reuse it to
+// foreground that exact wallet on demand.
+const WC_DEEPLINK_KEY = 'WALLETCONNECT_DEEPLINK_CHOICE';
+
+/**
+ * Foreground the connected mobile wallet so it shows the pending signature.
+ *
+ * Inside the Telegram Mini App webview, WalletConnect's automatic
+ * `handleDeeplinkRedirect` (a bare `window.open` to the wallet) is swallowed by
+ * Telegram and the wallet never comes forward — so the sign request sits on the
+ * relay unseen and the UI appears to "hang at Approve". This re-opens the
+ * wallet from a real user gesture, which Telegram does honour. Must be called
+ * synchronously inside an onClick handler (no awaits before it) or the webview
+ * will block the navigation.
+ */
+function openConnectedWallet(): void {
+  if (typeof window === 'undefined') return;
+  let href = '';
+  try {
+    const raw = window.localStorage.getItem(WC_DEEPLINK_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { href?: string };
+      if (typeof parsed.href === 'string') href = parsed.href;
+    }
+  } catch {
+    // ignore — fall through to the generic fallback below
+  }
+  // Fallback: MetaMask universal link works for the common case and harmlessly
+  // no-ops if the user is on a different wallet that ignores it.
+  if (!href) href = 'https://metamask.app.link';
+
+  const tg = (window as unknown as { Telegram?: { WebApp?: { openLink?: (u: string) => void } } })
+    .Telegram?.WebApp;
+  const isHttp = href.startsWith('http://') || href.startsWith('https://');
+  if (isHttp && tg?.openLink) {
+    // Telegram only opens http(s) links; this escapes the webview to the
+    // wallet's universal link, which the OS then hands to the wallet app.
+    tg.openLink(href);
+    return;
+  }
+  if (isHttp) {
+    window.open(href, '_blank', 'noreferrer noopener');
+    return;
+  }
+  // Custom scheme (e.g. metamask://) — a direct location change launches the app.
+  window.location.href = href;
+}
+
 interface TypedData {
   domain: Record<string, unknown>;
   types: Record<string, unknown>;
@@ -532,6 +581,17 @@ export default function OnboardClient(): JSX.Element {
               </div>
             ) : null}
 
+            {busy ? (
+              <button
+                className="cta"
+                type="button"
+                onClick={() => openConnectedWallet()}
+                style={{ background: '#1f2937', color: '#e6e6e6' }}
+              >
+                Open wallet to approve →
+              </button>
+            ) : null}
+
             <button
               className="cta"
               type="button"
@@ -541,8 +601,9 @@ export default function OnboardClient(): JSX.Element {
               {busy ? 'Waiting for signatures…' : 'Sign & authorize'}
             </button>
             <p className="muted small">
-              Two signatures: one to register the agent, one to approve the builder fee. Free — no
-              on-chain transaction.
+              {busy
+                ? 'Approve both prompts in your wallet. If it didn’t open, tap “Open wallet to approve”.'
+                : 'Two signatures: one to register the agent, one to approve the builder fee. Free — no on-chain transaction.'}
             </p>
           </section>
         )}
