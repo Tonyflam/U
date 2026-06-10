@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
-import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
+import {
+  useAppKit,
+  useAppKitNetwork,
+  useDisconnect as useAppKitDisconnect,
+} from '@reown/appkit/react';
+import { arbitrum } from '@reown/appkit/networks';
 
 interface StartResponse {
   provisionalId: string;
@@ -49,11 +54,12 @@ function shortAddr(a: string): string {
 }
 
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId: connectedChainId } = useAccount();
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const { switchChainAsync } = useSwitchChain();
+  const { switchNetwork: appkitSwitchNetwork } = useAppKitNetwork();
   const { open } = useAppKit();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
@@ -187,6 +193,29 @@ export default function OnboardClient(): JSX.Element {
     }
   }
 
+  // Best-effort: get the wallet onto the chain named in the signed EIP-712
+  // domain (Arbitrum). MetaMask refuses to sign typed data unless its active
+  // chain matches domain.chainId, so we switch automatically rather than asking
+  // the user to do it. wagmi's switchChain is awaitable and works on desktop /
+  // injected wallets; when it throws (common in mobile in-app browsers, or when
+  // wagmi spuriously reports a connector/chain mismatch) we fall back to
+  // AppKit, which drives the WalletConnect session directly. Neither is fatal —
+  // HL signatures are off-chain EIP-712 and stay valid on any chain, so we
+  // always fall through to signing instead of dead-ending.
+  async function switchToChain(targetChainId: number): Promise<void> {
+    try {
+      await switchChainAsync({ chainId: targetChainId });
+      return;
+    } catch {
+      // fall through to the AppKit session-level nudge below
+    }
+    try {
+      appkitSwitchNetwork(arbitrum);
+    } catch {
+      // ignore — signing is the real gate and works cross-chain
+    }
+  }
+
   async function beginOnboarding(): Promise<void> {
     if (!address) return;
     setBusy(true);
@@ -228,14 +257,8 @@ export default function OnboardClient(): JSX.Element {
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
       const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
-      if (targetChainId > 0) {
-        try {
-          await switchChainAsync({ chainId: targetChainId });
-        } catch {
-          throw new Error(
-            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
-          );
-        }
+      if (targetChainId > 0 && connectedChainId !== targetChainId) {
+        await switchToChain(targetChainId);
       }
 
       setSignStep(1);
