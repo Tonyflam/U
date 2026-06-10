@@ -1,13 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
-import {
-  useAppKit,
-  useAppKitNetwork,
-  useDisconnect as useAppKitDisconnect,
-} from '@reown/appkit/react';
-import { arbitrum } from '@reown/appkit/networks';
+import { useAccount, useDisconnect } from 'wagmi';
+import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -53,13 +48,84 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
+interface Eip1193Provider {
+  request(args: { method: string; params: unknown[] }): Promise<unknown>;
+}
+
+// Canonical EIP-712 domain field order. `eth_signTypedData_v4` requires an
+// `EIP712Domain` entry in `types`; viem/wagmi inject it automatically, but a
+// raw provider call does not — so we add it ourselves, including only the
+// fields actually present so the struct hash matches the server's verification.
+const EIP712_DOMAIN_FIELDS: readonly { name: string; type: string }[] = [
+  { name: 'name', type: 'string' },
+  { name: 'version', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+  { name: 'salt', type: 'bytes32' },
+];
+
+interface TypedData {
+  domain: Record<string, unknown>;
+  types: Record<string, unknown>;
+  primaryType: string;
+  message: Record<string, unknown>;
+}
+
+/**
+ * Sign EIP-712 typed data via the wallet's raw EIP-1193 provider, bypassing
+ * wagmi's `signTypedData`. wagmi asserts the connector's reported chain matches
+ * the connection chain BEFORE signing; mobile MetaMask over WalletConnect
+ * frequently reports `getChainId() → undefined`, making wagmi throw
+ * "connector (id: undefined) does not match the connection's chain (id: 42161)"
+ * at the sign step. HL's approveAgent / approveBuilderFee are OFF-CHAIN
+ * signatures (the Arbitrum chainId lives inside the signed domain), so the
+ * wallet's active chain is irrelevant and the guard is pure friction. Signing
+ * directly avoids it entirely while producing a byte-identical signature.
+ */
+async function signTypedDataV4Raw(
+  provider: Eip1193Provider,
+  address: string,
+  td: TypedData,
+): Promise<`0x${string}`> {
+  const domainFields = EIP712_DOMAIN_FIELDS.filter((f) => td.domain[f.name] !== undefined);
+  const payload = {
+    domain: td.domain,
+    types: { EIP712Domain: domainFields, ...td.types },
+    primaryType: td.primaryType,
+    message: td.message,
+  };
+  const sig = await provider.request({
+    method: 'eth_signTypedData_v4',
+    params: [address, JSON.stringify(payload)],
+  });
+  if (typeof sig !== 'string' || !sig.startsWith('0x')) {
+    throw new Error('Wallet returned an invalid signature. Reconnect and try again.');
+  }
+  return sig as `0x${string}`;
+}
+
+/**
+ * Resolve once `predicate()` is true or `timeoutMs` elapses, polling every
+ * 150ms. Used to wait out an async WalletConnect session restore after a mobile
+ * page reload before deciding the session is really gone.
+ */
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
+  if (predicate()) return true;
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (predicate() || Date.now() - startedAt >= timeoutMs) {
+        clearInterval(timer);
+        resolve(predicate());
+      }
+    }, 150);
+  });
+}
+
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected, chainId: connectedChainId } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
-  const { signTypedDataAsync } = useSignTypedData();
-  const { switchChainAsync } = useSwitchChain();
-  const { switchNetwork: appkitSwitchNetwork } = useAppKitNetwork();
   const { open } = useAppKit();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
@@ -193,29 +259,6 @@ export default function OnboardClient(): JSX.Element {
     }
   }
 
-  // Best-effort: get the wallet onto the chain named in the signed EIP-712
-  // domain (Arbitrum). MetaMask refuses to sign typed data unless its active
-  // chain matches domain.chainId, so we switch automatically rather than asking
-  // the user to do it. wagmi's switchChain is awaitable and works on desktop /
-  // injected wallets; when it throws (common in mobile in-app browsers, or when
-  // wagmi spuriously reports a connector/chain mismatch) we fall back to
-  // AppKit, which drives the WalletConnect session directly. Neither is fatal —
-  // HL signatures are off-chain EIP-712 and stay valid on any chain, so we
-  // always fall through to signing instead of dead-ending.
-  async function switchToChain(targetChainId: number): Promise<void> {
-    try {
-      await switchChainAsync({ chainId: targetChainId });
-      return;
-    } catch {
-      // fall through to the AppKit session-level nudge below
-    }
-    try {
-      appkitSwitchNetwork(arbitrum);
-    } catch {
-      // ignore — signing is the real gate and works cross-chain
-    }
-  }
-
   async function beginOnboarding(): Promise<void> {
     if (!address) return;
     setBusy(true);
@@ -256,15 +299,51 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
-      if (targetChainId > 0 && connectedChainId !== targetChainId) {
-        await switchToChain(targetChainId);
+      // Acquire the wallet's EIP-1193 provider and ensure it has a LIVE session
+      // before signing. Two mobile failure modes are handled here:
+      //  1) wagmi's signTypedData asserts the connector chain and throws
+      //     "connector (id: undefined) does not match the connection's chain"
+      //     on wallets that report chainId `undefined` (mobile MetaMask over
+      //     WalletConnect) — avoided entirely by signing through the raw
+      //     provider (see signTypedDataV4Raw). HL approvals are off-chain, so
+      //     the wallet's active chain is irrelevant; no network switch needed.
+      //  2) wagmi can report "connected" (from storage) while the underlying
+      //     WalletConnect session is gone — common in Telegram's in-app browser,
+      //     which drops the session across the wallet deep-link round-trip. In
+      //     that state request() throws "Please call connect() before request()".
+      // So we wait out an async restore, then re-establish the session if gone.
+      if (!connector) {
+        throw new Error('Wallet connection lost — tap "Connect wallet" and try again.');
+      }
+      const isWalletConnect =
+        connector.id === 'walletConnect' || connector.type === 'walletConnect';
+      const provider = (await connector.getProvider()) as Eip1193Provider & {
+        session?: unknown;
+      };
+
+      if (isWalletConnect && !provider.session) {
+        // Session may still be restoring after a reload — give it a moment.
+        await waitFor(() => Boolean(provider.session), 2500);
+      }
+      if (isWalletConnect && !provider.session) {
+        // Truly gone — re-establish it (re-opens the wallet to approve), bounded
+        // so a stalled reconnect can't hang the button forever.
+        await Promise.race([
+          connector.connect(),
+          new Promise((resolve) => setTimeout(resolve, 45000)),
+        ]).catch(() => undefined);
+      }
+      if (isWalletConnect && !provider.session) {
+        throw new Error(
+          'Your wallet session dropped — common in Telegram’s in-app browser. Tap "Sign & ' +
+            'authorize" again, or open app.whalepod.trade in your wallet’s built-in browser to finish.',
+        );
       }
 
       setSignStep(1);
-      const approveAgentSig = await signTypedDataAsync(td1 as never);
+      const approveAgentSig = await signTypedDataV4Raw(provider, address, td1);
       setSignStep(2);
-      const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
+      const approveBuilderFeeSig = await signTypedDataV4Raw(provider, address, td2);
 
       const completeRes = await fetch('/api/onboarding/complete', {
         method: 'POST',
