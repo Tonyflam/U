@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react';
+import { useAppKit, useAppKitProvider } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -108,6 +108,11 @@ export default function OnboardClient(): JSX.Element {
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
+  // AppKit holds the live wallet session on its own provider instance. The
+  // wagmi connector's getProvider() can hand back a WalletConnect provider
+  // whose session is detached on mobile, making request() throw "Please call
+  // connect() before request()". Sign through AppKit's provider instead.
+  const { walletProvider } = useAppKitProvider<Eip1193Provider | undefined>('eip155');
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
   // Users do not choose this — it's the WhalePod take rate.
@@ -253,10 +258,13 @@ export default function OnboardClient(): JSX.Element {
       // Sign through the wallet's raw EIP-1193 provider rather than wagmi's
       // signTypedData, which asserts the connector's chain and breaks on
       // mobile wallets that report chainId `undefined`. See signTypedDataV4Raw.
-      if (!connector) {
-        throw new Error('Wallet connector unavailable — reconnect and try again.');
+      // Prefer AppKit's provider (it carries the live WalletConnect session);
+      // the wagmi connector's provider can be session-detached on mobile.
+      const provider =
+        walletProvider ?? ((await connector?.getProvider()) as Eip1193Provider | undefined);
+      if (!provider) {
+        throw new Error('Wallet connection unavailable — reconnect and try again.');
       }
-      const provider = (await connector.getProvider()) as Eip1193Provider;
 
       setSignStep(1);
       const approveAgentSig = await signTypedDataV4Raw(provider, address, td1);
