@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 
 interface StartResponse {
@@ -48,11 +48,65 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
+interface Eip1193Provider {
+  request(args: { method: string; params: unknown[] }): Promise<unknown>;
+}
+
+// Canonical EIP-712 domain field order. `eth_signTypedData_v4` requires an
+// `EIP712Domain` entry in `types`; viem/wagmi inject it automatically, but a
+// raw provider call does not — so we add it ourselves, including only the
+// fields actually present so the struct hash matches the server's verification.
+const EIP712_DOMAIN_FIELDS: readonly { name: string; type: string }[] = [
+  { name: 'name', type: 'string' },
+  { name: 'version', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+  { name: 'salt', type: 'bytes32' },
+];
+
+interface TypedData {
+  domain: Record<string, unknown>;
+  types: Record<string, unknown>;
+  primaryType: string;
+  message: Record<string, unknown>;
+}
+
+/**
+ * Sign EIP-712 typed data via the wallet's raw EIP-1193 provider, bypassing
+ * wagmi's `signTypedData`. wagmi asserts the connector's reported chain matches
+ * the connection chain BEFORE signing; mobile MetaMask over WalletConnect
+ * frequently reports `getChainId() → undefined`, making wagmi throw
+ * "connector (id: undefined) does not match the connection's chain (id: 1)" at
+ * the sign step. HL's approveAgent / approveBuilderFee are OFF-CHAIN signatures
+ * (the Arbitrum chainId lives inside the signed domain), so the wallet's active
+ * chain is irrelevant and the guard is pure friction. Signing directly avoids
+ * it entirely while producing a byte-identical signature.
+ */
+async function signTypedDataV4Raw(
+  provider: Eip1193Provider,
+  address: string,
+  td: TypedData,
+): Promise<`0x${string}`> {
+  const domainFields = EIP712_DOMAIN_FIELDS.filter((f) => td.domain[f.name] !== undefined);
+  const payload = {
+    domain: td.domain,
+    types: { EIP712Domain: domainFields, ...td.types },
+    primaryType: td.primaryType,
+    message: td.message,
+  };
+  const sig = await provider.request({
+    method: 'eth_signTypedData_v4',
+    params: [address, JSON.stringify(payload)],
+  });
+  if (typeof sig !== 'string' || !sig.startsWith('0x')) {
+    throw new Error('Wallet returned an invalid signature. Reconnect and try again.');
+  }
+  return sig as `0x${string}`;
+}
+
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
-  const { signTypedDataAsync } = useSignTypedData();
-  const { switchChainAsync } = useSwitchChain();
   const { open } = useAppKit();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
@@ -196,29 +250,18 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // HL's approveAgent / approveBuilderFee are OFF-CHAIN typed-data
-      // signatures (eth_signTypedData_v4). The chainId (0xa4b1 / Arbitrum)
-      // lives INSIDE the EIP-712 domain and is what the server verifies — the
-      // wallet does NOT need to be connected to Arbitrum to produce a valid
-      // signature. We attempt a switch only as a courtesy so desktop MetaMask
-      // doesn't show a network-mismatch warning, but we NEVER block on it:
-      // mobile MetaMask (over WalletConnect) routinely fails
-      // wallet_switchEthereumChain, and hard-failing there stranded phone
-      // users at "failed to switch to Arbitrum". Best-effort, then sign.
-      const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
-      if (targetChainId > 0 && chainId !== targetChainId) {
-        try {
-          await switchChainAsync({ chainId: targetChainId });
-        } catch {
-          // Swallow — signing below works regardless of the active chain.
-          // Mobile wallets often reject/timeout the switch; that's fine.
-        }
+      // Sign through the wallet's raw EIP-1193 provider rather than wagmi's
+      // signTypedData, which asserts the connector's chain and breaks on
+      // mobile wallets that report chainId `undefined`. See signTypedDataV4Raw.
+      if (!connector) {
+        throw new Error('Wallet connector unavailable — reconnect and try again.');
       }
+      const provider = (await connector.getProvider()) as Eip1193Provider;
 
       setSignStep(1);
-      const approveAgentSig = await signTypedDataAsync(td1 as never);
+      const approveAgentSig = await signTypedDataV4Raw(provider, address, td1);
       setSignStep(2);
-      const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
+      const approveBuilderFeeSig = await signTypedDataV4Raw(provider, address, td2);
 
       const completeRes = await fetch('/api/onboarding/complete', {
         method: 'POST',
