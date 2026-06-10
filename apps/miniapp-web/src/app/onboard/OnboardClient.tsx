@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
+import {
+  useAppKit,
+  useAppKitProvider,
+  useDisconnect as useAppKitDisconnect,
+} from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -129,6 +133,13 @@ export default function OnboardClient(): JSX.Element {
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
   const { open } = useAppKit();
+  // The EIP-1193 provider AppKit actually established the session on. On mobile
+  // WalletConnect this is the UniversalProvider that holds the live session;
+  // the wagmi connector's getProvider() returns a reference that often lacks
+  // the session (=> "Please call connect() before request()"). On desktop with
+  // an injected wallet this is the injected provider. Either way it supports
+  // eth_signTypedData_v4, so we sign through it.
+  const { walletProvider } = useAppKitProvider<Eip1193Provider | undefined>('eip155');
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
   // Users do not choose this — it's the WhalePod take rate.
@@ -301,27 +312,25 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Sign HL's two OFF-CHAIN approvals through the wallet's raw EIP-1193
-      // provider. Two things matter on mobile:
+      // Sign HL's two OFF-CHAIN approvals through the EIP-1193 provider that
+      // owns the live session. Two things matter on mobile:
       //  1) We sign via the raw provider (not wagmi's signTypedData) because
       //     wagmi asserts the connector chain first and throws "connector
       //     (id: undefined) does not match the connection's chain" on mobile
       //     MetaMask over WalletConnect. HL approvals are off-chain (chainId is
       //     inside the signed domain), so the wallet's active chain is moot.
-      //  2) Calling provider.request() is ALSO what fires WalletConnect's
-      //     deep-link to bring the wallet app to the foreground. We must NOT
-      //     pre-gate on provider.session — the AppKit-wrapped universal
-      //     provider doesn't reliably expose `.session` on this reference, and
-      //     gating on it caused us to bail before ever sending the request (so
-      //     the wallet never opened). Instead we send the request directly and
-      //     only re-establish the session if the request itself fails with a
-      //     session error (e.g. Telegram's in-app browser dropping it across
-      //     the deep-link round-trip).
+      //  2) We prefer AppKit's walletProvider over the wagmi connector's
+      //     provider: the connector reference frequently has no `.session`
+      //     attached on mobile, so its request() throws "Please call connect()
+      //     before request()" before the wallet ever opens. AppKit's provider
+      //     is the one the session was established on. Calling request() on it
+      //     also fires WalletConnect's deep-link to foreground the wallet.
       if (!connector) {
         throw new Error('Wallet connection lost — tap "Connect wallet" and try again.');
       }
       const signer = address;
-      const provider = (await connector.getProvider()) as Eip1193Provider;
+      const fallbackProvider = (await connector.getProvider()) as Eip1193Provider;
+      const provider = walletProvider ?? fallbackProvider;
       const activeConnector = connector;
 
       async function signWithSession(td: TypedData): Promise<`0x${string}`> {
@@ -336,7 +345,8 @@ export default function OnboardClient(): JSX.Element {
             activeConnector.connect(),
             new Promise((resolve) => setTimeout(resolve, 60000)),
           ]).catch(() => undefined);
-          return signTypedDataV4Raw(provider, signer, td);
+          const restored = (await activeConnector.getProvider()) as Eip1193Provider;
+          return signTypedDataV4Raw(walletProvider ?? restored, signer, td);
         }
       }
 
