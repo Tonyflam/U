@@ -49,7 +49,7 @@ function shortAddr(a: string): string {
 }
 
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const { switchChainAsync } = useSwitchChain();
@@ -196,14 +196,22 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
+      // HL's approveAgent / approveBuilderFee are OFF-CHAIN typed-data
+      // signatures (eth_signTypedData_v4). The chainId (0xa4b1 / Arbitrum)
+      // lives INSIDE the EIP-712 domain and is what the server verifies — the
+      // wallet does NOT need to be connected to Arbitrum to produce a valid
+      // signature. We attempt a switch only as a courtesy so desktop MetaMask
+      // doesn't show a network-mismatch warning, but we NEVER block on it:
+      // mobile MetaMask (over WalletConnect) routinely fails
+      // wallet_switchEthereumChain, and hard-failing there stranded phone
+      // users at "failed to switch to Arbitrum". Best-effort, then sign.
       const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
-      if (targetChainId > 0) {
+      if (targetChainId > 0 && chainId !== targetChainId) {
         try {
           await switchChainAsync({ chainId: targetChainId });
         } catch {
-          throw new Error(
-            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
-          );
+          // Swallow — signing below works regardless of the active chain.
+          // Mobile wallets often reject/timeout the switch; that's fine.
         }
       }
 
