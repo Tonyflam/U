@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
-import {
-  useAppKit,
-  useAppKitProvider,
-  useDisconnect as useAppKitDisconnect,
-} from '@reown/appkit/react';
+import { useAccount, useConfig, useDisconnect } from 'wagmi';
+import { getConnectorClient } from 'wagmi/actions';
+import { arbitrum } from 'wagmi/chains';
+import { signTypedData as viemSignTypedData } from 'viem/actions';
+import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
 
 interface StartResponse {
   provisionalId: string;
@@ -52,60 +51,11 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-interface Eip1193Provider {
-  request(args: { method: string; params: unknown[] }): Promise<unknown>;
-}
-
-// Canonical EIP-712 domain field order. `eth_signTypedData_v4` requires an
-// `EIP712Domain` entry in `types`; viem/wagmi inject it automatically, but a
-// raw provider call does not — so we add it ourselves, including only the
-// fields actually present so the struct hash matches the server's verification.
-const EIP712_DOMAIN_FIELDS: readonly { name: string; type: string }[] = [
-  { name: 'name', type: 'string' },
-  { name: 'version', type: 'string' },
-  { name: 'chainId', type: 'uint256' },
-  { name: 'verifyingContract', type: 'address' },
-  { name: 'salt', type: 'bytes32' },
-];
-
 interface TypedData {
   domain: Record<string, unknown>;
   types: Record<string, unknown>;
   primaryType: string;
   message: Record<string, unknown>;
-}
-
-/**
- * Sign EIP-712 typed data via the wallet's raw EIP-1193 provider, bypassing
- * wagmi's `signTypedData`. wagmi asserts the connector's reported chain matches
- * the connection chain BEFORE signing; mobile MetaMask over WalletConnect
- * frequently reports `getChainId() → undefined`, making wagmi throw
- * "connector (id: undefined) does not match the connection's chain (id: 42161)"
- * at the sign step. HL's approveAgent / approveBuilderFee are OFF-CHAIN
- * signatures (the Arbitrum chainId lives inside the signed domain), so the
- * wallet's active chain is irrelevant and the guard is pure friction. Signing
- * directly avoids it entirely while producing a byte-identical signature.
- */
-async function signTypedDataV4Raw(
-  provider: Eip1193Provider,
-  address: string,
-  td: TypedData,
-): Promise<`0x${string}`> {
-  const domainFields = EIP712_DOMAIN_FIELDS.filter((f) => td.domain[f.name] !== undefined);
-  const payload = {
-    domain: td.domain,
-    types: { EIP712Domain: domainFields, ...td.types },
-    primaryType: td.primaryType,
-    message: td.message,
-  };
-  const sig = await provider.request({
-    method: 'eth_signTypedData_v4',
-    params: [address, JSON.stringify(payload)],
-  });
-  if (typeof sig !== 'string' || !sig.startsWith('0x')) {
-    throw new Error('Wallet returned an invalid signature. Reconnect and try again.');
-  }
-  return sig as `0x${string}`;
 }
 
 /**
@@ -133,13 +83,10 @@ export default function OnboardClient(): JSX.Element {
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
   const { open } = useAppKit();
-  // The EIP-1193 provider AppKit actually established the session on. On mobile
-  // WalletConnect this is the UniversalProvider that holds the live session;
-  // the wagmi connector's getProvider() returns a reference that often lacks
-  // the session (=> "Please call connect() before request()"). On desktop with
-  // an injected wallet this is the injected provider. Either way it supports
-  // eth_signTypedData_v4, so we sign through it.
-  const { walletProvider } = useAppKitProvider<Eip1193Provider | undefined>('eip155');
+  // wagmi config — used to drive signing through wagmi's own connector-client
+  // resolution (the same provider it uses for every other working call), which
+  // holds the live WalletConnect session after AppKit reconnects.
+  const config = useConfig();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
   // Users do not choose this — it's the WhalePod take rate.
@@ -312,30 +259,50 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Sign HL's two OFF-CHAIN approvals through the EIP-1193 provider that
-      // owns the live session. Two things matter on mobile:
-      //  1) We sign via the raw provider (not wagmi's signTypedData) because
-      //     wagmi asserts the connector chain first and throws "connector
-      //     (id: undefined) does not match the connection's chain" on mobile
-      //     MetaMask over WalletConnect. HL approvals are off-chain (chainId is
-      //     inside the signed domain), so the wallet's active chain is moot.
-      //  2) We prefer AppKit's walletProvider over the wagmi connector's
-      //     provider: the connector reference frequently has no `.session`
-      //     attached on mobile, so its request() throws "Please call connect()
-      //     before request()" before the wallet ever opens. AppKit's provider
-      //     is the one the session was established on. Calling request() on it
-      //     also fires WalletConnect's deep-link to foreground the wallet.
+      // Sign HL's two OFF-CHAIN approvals using wagmi's canonical signing path,
+      // not a hand-rolled raw provider call. `getConnectorClient` resolves the
+      // exact provider wagmi uses for every working call (the WalletConnect
+      // UniversalProvider that holds the live session after AppKit reconnect)
+      // and builds a viem client; viem then issues `eth_signTypedData_v4`, which
+      // is what fires WalletConnect's deep-link to foreground the wallet on
+      // mobile. Two mobile-specific details:
+      //  1) `assertChainId: false` skips wagmi's connector-chain guard, which
+      //     throws "connector (id: undefined) does not match the connection's
+      //     chain (id: 42161)" because mobile MetaMask over WalletConnect often
+      //     reports no active chain. HL approvals are off-chain (the Arbitrum
+      //     chainId lives inside the signed domain) so the wallet's live chain
+      //     is irrelevant.
+      //  2) If the session genuinely dropped (page reload on app-switch back
+      //     from the wallet), the first request throws a session error; we
+      //     reconnect once to re-establish it, then retry.
       if (!connector) {
         throw new Error('Wallet connection lost — tap "Connect wallet" and try again.');
       }
-      const signer = address;
-      const fallbackProvider = (await connector.getProvider()) as Eip1193Provider;
-      const provider = walletProvider ?? fallbackProvider;
+      const signer = address as `0x${string}`;
       const activeConnector = connector;
+
+      async function signOnce(td: TypedData): Promise<`0x${string}`> {
+        const client = await getConnectorClient(config, {
+          account: signer,
+          chainId: arbitrum.id,
+          assertChainId: false,
+        });
+        // viem derives the EIP712Domain entry from the domain fields, so strip
+        // any EIP712Domain the server may have included to avoid a redefinition.
+        const types = { ...(td.types as Record<string, unknown>) };
+        delete types.EIP712Domain;
+        return viemSignTypedData(client, {
+          account: signer,
+          domain: td.domain,
+          types,
+          primaryType: td.primaryType,
+          message: td.message,
+        } as Parameters<typeof viemSignTypedData>[1]);
+      }
 
       async function signWithSession(td: TypedData): Promise<`0x${string}`> {
         try {
-          return await signTypedDataV4Raw(provider, signer, td);
+          return await signOnce(td);
         } catch (err) {
           if (!isSessionError(err)) throw err;
           // Session dropped — re-establish it once (re-opens the wallet to
@@ -345,8 +312,7 @@ export default function OnboardClient(): JSX.Element {
             activeConnector.connect(),
             new Promise((resolve) => setTimeout(resolve, 60000)),
           ]).catch(() => undefined);
-          const restored = (await activeConnector.getProvider()) as Eip1193Provider;
-          return signTypedDataV4Raw(walletProvider ?? restored, signer, td);
+          return signOnce(td);
         }
       }
 
