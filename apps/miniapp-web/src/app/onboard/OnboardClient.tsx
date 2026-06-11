@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useConfig, useDisconnect } from 'wagmi';
-import { getConnectorClient } from 'wagmi/actions';
-import { arbitrum } from 'wagmi/chains';
-import { signTypedData as viemSignTypedData } from 'viem/actions';
+import { useAccount, useDisconnect, useSignTypedData, useSwitchChain } from 'wagmi';
 import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
 
 interface StartResponse {
@@ -51,103 +48,13 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-/**
- * Escape the Telegram Mini App webview into the device's real browser, carrying
- * the current URL (incl. the `?tg=` param) so onboarding resumes there.
- *
- * WalletConnect is fundamentally fragile inside Telegram's in-app webview:
- * Telegram reloads the page on the app-switch back from the wallet, which wipes
- * the in-memory WalletConnect session, and it swallows the automatic deep-link
- * that should foreground the wallet. In a normal browser both work, so this is
- * the reliable fallback when in-Telegram signing can't establish a live session.
- */
-function openInExternalBrowser(): void {
-  if (typeof window === 'undefined') return;
-  const url = window.location.href;
-  const tg = (window as unknown as { Telegram?: { WebApp?: { openLink?: (u: string) => void } } })
-    .Telegram?.WebApp;
-  // Telegram.WebApp.openLink opens http(s) links in the external system browser.
-  if (tg?.openLink) tg.openLink(url);
-  else window.open(url, '_blank', 'noreferrer noopener');
-}
-
-/**
- * Open this exact page INSIDE MetaMask's in-app browser via its universal link.
- *
- * This is the only rock-solid mobile path: inside MetaMask's browser the dapp
- * gets an INJECTED `window.ethereum` provider — no WalletConnect, no relay, no
- * session to lose, and no page reload on signing (the wallet UI overlays). It
- * sidesteps every WalletConnect-in-Telegram failure mode at once. The link form
- * is `https://metamask.app.link/dapp/<host><path><query>` (scheme stripped).
- */
-function openInMetaMask(): void {
-  if (typeof window === 'undefined') return;
-  const { host, pathname, search } = window.location;
-  const target = `https://metamask.app.link/dapp/${host}${pathname}${search}`;
-  const tg = (window as unknown as { Telegram?: { WebApp?: { openLink?: (u: string) => void } } })
-    .Telegram?.WebApp;
-  if (tg?.openLink) tg.openLink(target);
-  else window.location.href = target;
-}
-
-/**
- * True when the page is running INSIDE the Telegram in-app webview (vs. a real
- * browser tab the user reached via "Open in browser"). Telegram injects
- * `Telegram.WebApp` with non-empty `initData`/a known `platform` only inside the
- * Mini App container; an external browser opened from Telegram has no such
- * object. We use this to steer wallet signing — which can't survive Telegram's
- * webview reload — into a real browser.
- */
-function isInsideTelegram(): boolean {
-  if (typeof window === 'undefined') return false;
-  const wa = (
-    window as unknown as {
-      Telegram?: { WebApp?: { initData?: string; platform?: string } };
-    }
-  ).Telegram?.WebApp;
-  if (!wa) return false;
-  if (wa.initData && wa.initData.length > 0) return true;
-  // `platform` is 'ios' | 'android' | 'tdesktop' | ... inside Telegram, and
-  // 'unknown' when the SDK is loaded outside the Telegram container.
-  return Boolean(wa.platform && wa.platform !== 'unknown');
-}
-
-interface TypedData {
-  domain: Record<string, unknown>;
-  types: Record<string, unknown>;
-  primaryType: string;
-  message: Record<string, unknown>;
-}
-
-/**
- * True when an EIP-1193 error indicates the WalletConnect session is gone (vs.
- * the user simply rejecting). WalletConnect surfaces these as "Please call
- * connect() before request()", "No matching key", "session topic doesn't
- * exist", etc. We only attempt a reconnect for these — a user rejection must
- * propagate so we don't loop.
- */
-function isSessionError(err: unknown): boolean {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return (
-    msg.includes('connect() before request') ||
-    msg.includes('no matching key') ||
-    msg.includes("session topic doesn't exist") ||
-    msg.includes('session topic') ||
-    msg.includes('missing or invalid') ||
-    msg.includes('please call connect') ||
-    msg.includes('no active session')
-  );
-}
-
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected, connector } = useAccount();
+  const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
+  const { signTypedDataAsync } = useSignTypedData();
+  const { switchChainAsync } = useSwitchChain();
   const { open } = useAppKit();
-  // wagmi config — used to drive signing through wagmi's own connector-client
-  // resolution (the same provider it uses for every other working call), which
-  // holds the live WalletConnect session after AppKit reconnects.
-  const config = useConfig();
 
   // Builder fee is locked to the protocol default (5 bps). Cap on-chain is 10 bps.
   // Users do not choose this — it's the WhalePod take rate.
@@ -156,45 +63,6 @@ export default function OnboardClient(): JSX.Element {
   const [state, setState] = useState<State>({ step: 'loading' });
   const [busy, setBusy] = useState(false);
   const [signStep, setSignStep] = useState<0 | 1 | 2>(0);
-  // Detected once on mount: are we inside Telegram's webview (where WalletConnect
-  // can't survive the app-switch reload) or a real browser tab?
-  const [inTelegram, setInTelegram] = useState(false);
-
-  useEffect(() => {
-    setInTelegram(isInsideTelegram());
-  }, []);
-
-  // Passive readout of whether the live wallet provider actually holds a
-  // session. wagmi's `isConnected` can be true (rehydrated from the SSR cookie)
-  // while the in-memory WalletConnect provider has NO session — that mismatch is
-  // exactly what makes signing fail with "call connect() before request()".
-  // Surfacing it lets us both diagnose and gate the Sign action.
-  const [sessionLive, setSessionLive] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check(): Promise<void> {
-      if (!connector) {
-        if (!cancelled) setSessionLive(null);
-        return;
-      }
-      try {
-        const provider = (await connector.getProvider()) as { session?: unknown } | undefined;
-        // Injected wallets (MetaMask in-app browser) have no `.session` field but
-        // are always live; only WalletConnect exposes `.session`. Treat a missing
-        // field as live, and an explicitly-falsy WC session as dead.
-        const live =
-          provider && 'session' in provider ? Boolean(provider.session) : Boolean(provider);
-        if (!cancelled) setSessionLive(live);
-      } catch {
-        if (!cancelled) setSessionLive(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, [connector, isConnected, address]);
 
   useEffect(() => {
     const tg = (
@@ -359,86 +227,21 @@ export default function OnboardClient(): JSX.Element {
       };
       const td2 = start.approveBuilderFee.typedData as typeof td1;
 
-      // Sign HL's two OFF-CHAIN approvals using wagmi's canonical signing path.
-      // `getConnectorClient` resolves the exact provider wagmi uses and builds a
-      // viem client; viem then issues `eth_signTypedData_v4`. `assertChainId:
-      // false` skips wagmi's connector-chain guard (mobile MetaMask over
-      // WalletConnect reports no active chain, and HL approvals are off-chain so
-      // the wallet's live chain is irrelevant).
-      //
-      // The hard part on mobile is that the SSR cookie makes wagmi report
-      // `isConnected` even when the live WalletConnect provider has NO `.session`
-      // (the in-memory session is gone after Telegram reloads the webview on the
-      // app-switch, and `session.getAll()` comes back empty). In that state the
-      // provider throws "Please call connect() before request()" and the request
-      // never reaches the wallet. So we VERIFY a live session before signing and
-      // re-establish it if missing.
-      if (!connector) {
-        throw new Error('Wallet connection lost — tap "Connect wallet" and try again.');
-      }
-      const signer = address as `0x${string}`;
-      const activeConnector = connector;
-
-      async function hasLiveSession(): Promise<boolean> {
-        const provider = (await activeConnector.getProvider().catch(() => undefined)) as
-          | { session?: unknown }
-          | undefined;
-        return Boolean(provider?.session);
-      }
-
-      // Ensure a live WalletConnect session exists before issuing a request.
-      // Re-opens the wallet to approve the connection if it dropped. Bounded so
-      // a stalled reconnect can't hang forever. Throws an actionable error (with
-      // a browser-fallback hint) if a session still can't be established.
-      async function ensureLiveSession(): Promise<void> {
-        if (await hasLiveSession()) return;
-        await Promise.race([
-          activeConnector.connect(),
-          new Promise((resolve) => setTimeout(resolve, 60000)),
-        ]).catch(() => undefined);
-        if (await hasLiveSession()) return;
-        throw new Error(
-          'Wallet session not active — the request never reached your wallet. ' +
-            'Tap your address at the top to disconnect, reconnect, and approve the ' +
-            'connection prompt. If it keeps failing inside Telegram, use “Open in browser”.',
-        );
-      }
-
-      async function signOnce(td: TypedData): Promise<`0x${string}`> {
-        const client = await getConnectorClient(config, {
-          account: signer,
-          chainId: arbitrum.id,
-          assertChainId: false,
-        });
-        // viem derives the EIP712Domain entry from the domain fields, so strip
-        // any EIP712Domain the server may have included to avoid a redefinition.
-        const types = { ...(td.types as Record<string, unknown>) };
-        delete types.EIP712Domain;
-        return viemSignTypedData(client, {
-          account: signer,
-          domain: td.domain,
-          types,
-          primaryType: td.primaryType,
-          message: td.message,
-        } as Parameters<typeof viemSignTypedData>[1]);
-      }
-
-      async function signWithSession(td: TypedData): Promise<`0x${string}`> {
-        await ensureLiveSession();
+      const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
+      if (targetChainId > 0) {
         try {
-          return await signOnce(td);
-        } catch (err) {
-          if (!isSessionError(err)) throw err;
-          // Session dropped mid-flow — re-establish once and retry.
-          await ensureLiveSession();
-          return signOnce(td);
+          await switchChainAsync({ chainId: targetChainId });
+        } catch {
+          throw new Error(
+            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
+          );
         }
       }
 
       setSignStep(1);
-      const approveAgentSig = await signWithSession(td1);
+      const approveAgentSig = await signTypedDataAsync(td1 as never);
       setSignStep(2);
-      const approveBuilderFeeSig = await signWithSession(td2);
+      const approveBuilderFeeSig = await signTypedDataAsync(td2 as never);
 
       const completeRes = await fetch('/api/onboarding/complete', {
         method: 'POST',
@@ -584,50 +387,12 @@ export default function OnboardClient(): JSX.Element {
                 <strong>Agent key</strong> can trade — never withdraw.
               </li>
             </ul>
-            {inTelegram ? (
-              <>
-                <button className="cta" type="button" onClick={() => openInMetaMask()}>
-                  Open in MetaMask →
-                </button>
-                <p className="muted small">
-                  Telegram&apos;s in-app browser drops the wallet session when you switch back, so
-                  signing fails here. Opening inside MetaMask connects directly — no reconnecting,
-                  no lost session. You stay logged in; return to Telegram when done.
-                </p>
-                <button
-                  className="ghostBtn"
-                  type="button"
-                  onClick={() => openInExternalBrowser()}
-                  style={{ marginTop: 8 }}
-                >
-                  Use a different wallet (open in browser) →
-                </button>
-                <button
-                  className="ghostBtn"
-                  type="button"
-                  onClick={() => void open()}
-                  style={{ marginTop: 8 }}
-                >
-                  Try connecting here anyway
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="cta" type="button" onClick={() => void open()}>
-                  Connect wallet
-                </button>
-                <p className="muted small">
-                  MetaMask · Rabby · Coinbase · Trust · 380+ wallets via WalletConnect
-                </p>
-              </>
-            )}
-            <DiagLine
-              inTelegram={inTelegram}
-              isConnected={isConnected}
-              address={address}
-              connectorName={connector?.name}
-              sessionLive={sessionLive}
-            />
+            <button className="cta" type="button" onClick={() => void open()}>
+              Connect wallet
+            </button>
+            <p className="muted small">
+              MetaMask · Rabby · Coinbase · Trust · 380+ wallets via WalletConnect
+            </p>
           </section>
         ) : state.step === 'done' ? (
           <section className="done">
@@ -647,34 +412,9 @@ export default function OnboardClient(): JSX.Element {
             <div className="x">!</div>
             <h2>Something went wrong</h2>
             <p className="errMsg">{state.error}</p>
-            {inTelegram ? (
-              <button className="cta" type="button" onClick={() => openInMetaMask()}>
-                Open in MetaMask →
-              </button>
-            ) : (
-              <button className="cta" type="button" onClick={() => setState({ step: 'connect' })}>
-                Try again
-              </button>
-            )}
-            <button
-              className="ghostBtn"
-              type="button"
-              onClick={() => (inTelegram ? openInExternalBrowser() : setState({ step: 'connect' }))}
-              style={{ marginTop: 8 }}
-            >
-              {inTelegram ? 'Open in browser instead' : 'Reconnect wallet'}
+            <button className="cta" type="button" onClick={() => setState({ step: 'connect' })}>
+              Try again
             </button>
-            <p className="muted small" style={{ marginTop: 8 }}>
-              Wallet signing is far more reliable inside MetaMask or your phone&apos;s browser than
-              inside Telegram.
-            </p>
-            <DiagLine
-              inTelegram={inTelegram}
-              isConnected={isConnected}
-              address={address}
-              connectorName={connector?.name}
-              sessionLive={sessionLive}
-            />
           </section>
         ) : (
           <section className="cfg">
@@ -723,9 +463,8 @@ export default function OnboardClient(): JSX.Element {
               {busy ? 'Waiting for signatures…' : 'Sign & authorize'}
             </button>
             <p className="muted small">
-              {busy
-                ? 'Approve both prompts in your wallet.'
-                : 'Two signatures: one to register the agent, one to approve the builder fee. Free — no on-chain transaction.'}
+              Two signatures: one to register the agent, one to approve the builder fee. Free — no
+              on-chain transaction.
             </p>
           </section>
         )}
@@ -749,43 +488,6 @@ export default function OnboardClient(): JSX.Element {
 
       <style jsx>{styles}</style>
     </main>
-  );
-}
-
-// Compact, always-visible state readout. The mobile WalletConnect failures are
-// invisible without it: it shows whether we're trapped in Telegram's webview,
-// whether wagmi thinks we're connected, and — crucially — whether the live
-// provider actually holds a session (the cookie can fake "connected" while the
-// session is dead, which is what breaks signing).
-function DiagLine({
-  inTelegram,
-  isConnected,
-  address,
-  connectorName,
-  sessionLive,
-}: {
-  inTelegram: boolean;
-  isConnected: boolean;
-  address?: string;
-  connectorName?: string;
-  sessionLive: boolean | null;
-}): JSX.Element {
-  const session = sessionLive === null ? 'n/a' : sessionLive ? 'live' : 'DEAD';
-  return (
-    <p
-      style={{
-        marginTop: 14,
-        fontSize: 11,
-        lineHeight: 1.5,
-        color: '#5b6472',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        wordBreak: 'break-all',
-      }}
-    >
-      env={inTelegram ? 'telegram' : 'browser'} · connected={String(isConnected)} · session=
-      {session} · wallet={connectorName ?? 'none'}
-      {address ? ` · ${shortAddr(address)}` : ''}
-    </p>
   );
 }
 
