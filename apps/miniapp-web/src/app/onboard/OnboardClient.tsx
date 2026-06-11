@@ -49,7 +49,7 @@ function shortAddr(a: string): string {
 }
 
 export default function OnboardClient(): JSX.Element {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { disconnect: appkitDisconnect } = useAppKitDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
@@ -80,6 +80,47 @@ export default function OnboardClient(): JSX.Element {
     tg?.expand?.();
     tg?.setHeaderColor?.('#0b0e14');
   }, []);
+
+  // Detect & repair phantom WalletConnect connections. The SSR cookie can
+  // rehydrate wagmi to `isConnected=true` even when the live WalletConnect
+  // provider has NO `.session` — typically because the mobile webview was
+  // reloaded after the wallet round-trip and the in-memory session was wiped
+  // (or the user backgrounded the wallet long enough for the relay link to
+  // lapse). In that state every sign request silently fails because the
+  // provider throws "Please call connect() before request()" and nothing ever
+  // reaches the wallet (and MetaMask shows no connection in Manage Connections).
+  // We tear down the stale state so the UI falls back to "Connect wallet" and
+  // the user does a fresh handshake that the wallet actually approves.
+  // Injected wallets (no `.session` on their provider) are skipped — they are
+  // always live by definition.
+  useEffect(() => {
+    if (!isConnected || !connector) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const provider = (await connector.getProvider()) as { session?: unknown } | undefined;
+        if (!provider || !('session' in provider)) return;
+        if (cancelled) return;
+        if (!provider.session) {
+          try {
+            await appkitDisconnect();
+          } catch {
+            // session may already be gone — wagmi disconnect below is the fallback
+          }
+          try {
+            disconnect();
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // If we can't read the provider, do nothing — don't surprise-disconnect.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, connector, appkitDisconnect, disconnect]);
 
   // Resolve TG user id (URL param OR Telegram.WebApp init data) — retry up to
   // ~1.5s because the SDK script may not be ready when this effect first runs.
@@ -229,12 +270,15 @@ export default function OnboardClient(): JSX.Element {
 
       const targetChainId = Number((td1.domain as { chainId?: number | string }).chainId ?? 0);
       if (targetChainId > 0) {
+        // Best-effort: HL approveAgent/approveBuilderFee are OFF-CHAIN EIP-712
+        // payloads — the Arbitrum chainId lives inside the signed domain and
+        // the signature is valid regardless of the wallet's active chain. Some
+        // mobile wallets (MetaMask over WalletConnect, in particular) refuse
+        // programmatic switches; we let them sign on whatever chain they're on.
         try {
           await switchChainAsync({ chainId: targetChainId });
         } catch {
-          throw new Error(
-            `Please switch your wallet to chain ${String(targetChainId)} (Arbitrum) and try again.`,
-          );
+          // ignore — proceed to sign on the wallet's current chain
         }
       }
 
@@ -267,7 +311,34 @@ export default function OnboardClient(): JSX.Element {
       setState({ step: 'done', userId: out.userId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setState({ step: 'error', error: msg });
+      const lower = msg.toLowerCase();
+      // If the wallet session died mid-flow (relay dropped, wallet backgrounded,
+      // pairing expired), the cookie still claims connected but signing throws.
+      // Tear down so the user lands on Connect and can do a fresh handshake.
+      const sessionDead =
+        lower.includes('connect() before request') ||
+        lower.includes('no matching key') ||
+        lower.includes("session topic doesn't exist") ||
+        lower.includes('session topic') ||
+        lower.includes('no active session');
+      if (sessionDead) {
+        try {
+          await appkitDisconnect();
+        } catch {
+          // ignore
+        }
+        try {
+          disconnect();
+        } catch {
+          // ignore
+        }
+        setState({
+          step: 'error',
+          error: 'Your wallet session expired. Tap “Try again” and reconnect your wallet.',
+        });
+      } else {
+        setState({ step: 'error', error: msg });
+      }
     } finally {
       setBusy(false);
     }
