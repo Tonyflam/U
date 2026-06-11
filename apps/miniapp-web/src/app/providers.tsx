@@ -1,6 +1,7 @@
 'use client';
 
 import { WagmiProvider, cookieStorage, createStorage } from 'wagmi';
+import { metaMask } from 'wagmi/connectors';
 import { arbitrum, mainnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
@@ -20,7 +21,26 @@ const wagmiAdapter = new WagmiAdapter({
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,
   projectId,
-  networks: [arbitrum, mainnet],
+  networks: [arbitrum, mainnet], // The MetaMask SDK connector — the same mechanism pump.fun and other
+  // production apps use to connect MetaMask on a phone. Unlike WalletConnect
+  // (which AppKit wires up by default) the SDK PERSISTS its session to
+  // localStorage and opens MetaMask through a real `metamask://` deeplink, so
+  // the connection survives Telegram's in-app-webview reload on the
+  // app-switch back from the wallet — the exact failure that left WalletConnect
+  // signing stuck with "Please call connect() before request()". `useDeeplink`
+  // forces the direct app-scheme open (vs. the universal-link interstitial that
+  // an embedded webview can swallow). On desktop it transparently uses the
+  // injected extension instead.
+  connectors: [
+    metaMask({
+      dappMetadata: {
+        name: 'WhalePod',
+        url: 'https://app.whalepod.trade',
+        iconUrl: 'https://app.whalepod.trade/favicon.png',
+      },
+      useDeeplink: true,
+    }),
+  ],
 });
 
 if (typeof window !== 'undefined') {
