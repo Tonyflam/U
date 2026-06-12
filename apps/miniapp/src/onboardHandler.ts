@@ -105,6 +105,15 @@ export interface OnboardDeps {
   readonly newId?: () => string;
   readonly verifyTypedData: VerifyTypedDataFn;
   readonly submitExchange: ExchangeSubmitter;
+  /**
+   * Optional pre-flight: resolves false when `mainWallet` has never been
+   * activated on Hyperliquid (no deposit). HL refuses every L1 action —
+   * including approveAgent — until then, so we check up front to avoid asking
+   * the user to sign twice only to fail. Omitted in tests; on an HL info
+   * outage the implementation should throw so the caller can fall through to
+   * the authoritative /exchange submission.
+   */
+  readonly checkAccountFunded?: (mainWallet: string) => Promise<boolean>;
 }
 
 export interface StartResponse {
@@ -127,6 +136,7 @@ export class OnboardError extends Error {
       | 'provisional_not_found'
       | 'signature_mismatch'
       | 'exchange_rejected'
+      | 'needs_deposit'
       | 'internal',
     message: string,
   ) {
@@ -148,6 +158,28 @@ export async function onboardStartHandler(
   deps: OnboardDeps,
 ): Promise<StartResponse> {
   const req: TOnboardStart = parseOrThrow(OnboardStartRequest, body);
+
+  // Gate: HL rejects approveAgent until the account exists (created by a first
+  // deposit). Check before generating/sealing the agent key and before the
+  // user signs anything, so an unfunded wallet gets an actionable "deposit
+  // first" response instead of two pointless signature prompts. If the check
+  // itself errors (HL info outage), don't block — the /exchange submission in
+  // complete remains the authority and maps the same "Must deposit" error.
+  if (deps.checkAccountFunded) {
+    let funded = true;
+    try {
+      funded = await deps.checkAccountFunded(req.mainWallet);
+    } catch {
+      funded = true;
+    }
+    if (!funded) {
+      throw new OnboardError(
+        'needs_deposit',
+        "This wallet hasn't deposited to Hyperliquid yet. Deposit USDC on Hyperliquid, then return and continue.",
+      );
+    }
+  }
+
   const now = deps.now ?? (() => Date.now());
   const gen = deps.generateAgentKey ?? defaultGenerateAgentKey;
   const newId = deps.newId ?? (() => crypto.randomUUID());
@@ -247,6 +279,20 @@ export async function onboardCompleteHandler(
   if (!okAgent || !okBuilder) {
     throw new OnboardError('signature_mismatch', 'one or both signatures do not match mainWallet');
   }
+  // HL refuses every L1 action (incl. approveAgent) until the account has been
+  // created by a first deposit. Surface that specific case as an actionable
+  // `needs_deposit` code so the UI routes the user to deposit rather than
+  // showing a raw exchange error.
+  const rejectExchange = (label: 'approveAgent' | 'approveBuilderFee', err: unknown): never => {
+    const m = err instanceof Error ? err.message : String(err);
+    if (/must deposit/iu.test(m)) {
+      throw new OnboardError(
+        'needs_deposit',
+        "This wallet hasn't deposited to Hyperliquid yet. Deposit USDC on Hyperliquid, then return and continue.",
+      );
+    }
+    throw new OnboardError('exchange_rejected', `Hyperliquid rejected ${label}: ${m}`);
+  };
   try {
     await deps.submitExchange.submit({
       action: prov.approveAgentAction,
@@ -254,10 +300,7 @@ export async function onboardCompleteHandler(
       nonce: prov.approveAgentAction.nonce,
     });
   } catch (err) {
-    throw new OnboardError(
-      'exchange_rejected',
-      `Hyperliquid rejected approveAgent: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    rejectExchange('approveAgent', err);
   }
   try {
     await deps.submitExchange.submit({
@@ -266,10 +309,7 @@ export async function onboardCompleteHandler(
       nonce: prov.approveBuilderFeeAction.nonce,
     });
   } catch (err) {
-    throw new OnboardError(
-      'exchange_rejected',
-      `Hyperliquid rejected approveBuilderFee: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    rejectExchange('approveBuilderFee', err);
   }
   return deps.repo.finalize(req.provisionalId, {
     approveAgentSig,

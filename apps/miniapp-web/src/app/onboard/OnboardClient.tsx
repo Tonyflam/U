@@ -14,7 +14,16 @@ interface StartResponse {
   approveBuilderFee: { typedData: Record<string, unknown> };
 }
 
-type Step = 'loading' | 'noTg' | 'connect' | 'config' | 'sign' | 'done' | 'already' | 'error';
+type Step =
+  | 'loading'
+  | 'noTg'
+  | 'connect'
+  | 'config'
+  | 'sign'
+  | 'done'
+  | 'already'
+  | 'needsDeposit'
+  | 'error';
 
 interface OnboardedInfo {
   mainWallet: string;
@@ -49,6 +58,21 @@ function getTgUserId(): string | null {
 
 function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+/**
+ * Open the Hyperliquid app so the user can make the first deposit that
+ * activates their account. HL refuses approveAgent until the account exists,
+ * so an unfunded wallet is routed here. Uses Telegram's external-browser open
+ * when inside the Mini App, else a new tab.
+ */
+function openHyperliquid(): void {
+  if (typeof window === 'undefined') return;
+  const target = 'https://app.hyperliquid.xyz/';
+  const tg = (window as unknown as { Telegram?: { WebApp?: { openLink?: (u: string) => void } } })
+    .Telegram?.WebApp;
+  if (tg?.openLink) tg.openLink(target);
+  else window.open(target, '_blank', 'noreferrer noopener');
 }
 
 /**
@@ -377,6 +401,10 @@ export default function OnboardClient(): JSX.Element {
           detail?: string;
           error?: string;
         };
+        if (j.error === 'needs_deposit') {
+          setState({ step: 'needsDeposit' });
+          return;
+        }
         throw new Error(
           j.detail ?? j.message ?? j.error ?? `start failed: ${String(startRes.status)}`,
         );
@@ -493,6 +521,10 @@ export default function OnboardClient(): JSX.Element {
           detail?: string;
           error?: string;
         };
+        if (j.error === 'needs_deposit') {
+          setState({ step: 'needsDeposit' });
+          return;
+        }
         throw new Error(
           j.detail ?? j.message ?? j.error ?? `complete failed: ${String(completeRes.status)}`,
         );
@@ -695,6 +727,34 @@ export default function OnboardClient(): JSX.Element {
             <button className="cta" type="button" onClick={returnToTg}>
               Back to Telegram
             </button>
+          </section>
+        ) : state.step === 'needsDeposit' ? (
+          <section className="done">
+            <div className="check" style={{ background: '#1f2937', color: '#3bd5b5' }}>
+              ↓
+            </div>
+            <h2>Deposit to Hyperliquid first</h2>
+            <p>
+              {address ? <code>{shortAddr(address)}</code> : 'This wallet'} hasn&apos;t deposited to
+              Hyperliquid yet. Hyperliquid requires a first deposit before it can authorize an
+              agent. Add USDC on Hyperliquid, then come back and continue.
+            </p>
+            <button className="cta" type="button" onClick={() => openHyperliquid()}>
+              Deposit on Hyperliquid →
+            </button>
+            <button
+              className="ghostBtn"
+              type="button"
+              disabled={busy}
+              onClick={() => void beginOnboarding()}
+              style={{ marginTop: 8 }}
+            >
+              {busy ? 'Checking…' : "I've deposited — continue"}
+            </button>
+            <p className="muted small" style={{ marginTop: 10 }}>
+              Deposits take a few seconds to confirm on Hyperliquid. If it still says this, wait a
+              moment and try again.
+            </p>
           </section>
         ) : state.step === 'error' ? (
           <section className="err">

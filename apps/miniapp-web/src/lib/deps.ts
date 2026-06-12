@@ -170,6 +170,35 @@ export function getOnboardDeps(): OnboardDeps {
     },
   };
 
+  // Pre-flight used by the onboard `start` handler: is this wallet activated on
+  // Hyperliquid? HL refuses approveAgent until the account exists (first
+  // deposit). We treat the wallet as funded if it has perps equity, any spot
+  // balance, or any ledger history (covers deposited-then-withdrew). If every
+  // probe fails (HL info outage) we throw so the caller falls through to the
+  // authoritative /exchange submission instead of false-blocking onboarding.
+  const checkAccountFunded = async (mainWallet: string): Promise<boolean> => {
+    const user = mainWallet.toLowerCase();
+    const settled = await Promise.allSettled([
+      transport.info<{ marginSummary?: { accountValue?: string } }>({
+        type: 'clearinghouseState',
+        user,
+      }),
+      transport.info<{ balances?: unknown[] }>({ type: 'spotClearinghouseState', user }),
+      transport.info<unknown[]>({ type: 'userNonFundingLedgerUpdates', user }),
+    ]);
+    if (settled.every((res) => res.status === 'rejected')) {
+      throw new Error('HL info unavailable for funded-check');
+    }
+    const perp = settled[0].status === 'fulfilled' ? settled[0].value : undefined;
+    const spot = settled[1].status === 'fulfilled' ? settled[1].value : undefined;
+    const ledger = settled[2].status === 'fulfilled' ? settled[2].value : undefined;
+    const equity = Number(perp?.marginSummary?.accountValue ?? '0');
+    const spotBalances = spot?.balances;
+    const hasSpot = Array.isArray(spotBalances) && spotBalances.length > 0;
+    const hasLedger = Array.isArray(ledger) && ledger.length > 0;
+    return equity > 0 || hasSpot || hasLedger;
+  };
+
   cached = {
     repo: new HybridOnboardRepo(redis, db),
     kms,
@@ -178,6 +207,7 @@ export function getOnboardDeps(): OnboardDeps {
     agentName,
     verifyTypedData: async (args) => verifyTypedData(args),
     submitExchange,
+    checkAccountFunded,
   };
   return cached;
 }
