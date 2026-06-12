@@ -48,6 +48,7 @@ import { RedisDailyNotional } from './redisDailyNotional.js';
 import { RedisGeoCache } from './redisGeoCache.js';
 import { runMirrorConsumer, type ConsumerController } from './mirrorConsumer.js';
 import { runNotifyConsumer } from './notifyConsumer.js';
+import { runWatchNotifyConsumer } from './watchNotifyConsumer.js';
 import { ConsumerSupervisor } from './consumerSupervisor.js';
 import { RedisFillPublisher } from './fillPublisher.js';
 import { DrizzleFillSink } from './fillSink.js';
@@ -382,6 +383,26 @@ async function main(): Promise<void> {
   });
   log.info({ consumer: env.MIRROR_CONSUMER_NAME }, 'mirror-fills consumer started');
 
+  const watchNotifyPromise = supervisor.supervise({
+    name: 'watch-notify-consumer',
+    controller,
+    log: log.child({ component: 'watch-notify-consumer-supervisor' }),
+    alert: adminAlert,
+    factory: (ctl) =>
+      runWatchNotifyConsumer(
+        {
+          redis,
+          bot,
+          log: log.child({ component: 'watch-notify-consumer' }),
+          botUsername: env.TELEGRAM_BOT_USERNAME,
+          consumerName: env.MIRROR_CONSUMER_NAME,
+          batchSize: env.MIRROR_BATCH_SIZE,
+        },
+        ctl,
+      ),
+  });
+  log.info({ consumer: env.MIRROR_CONSUMER_NAME }, 'watch-fills consumer started');
+
   // ─── telegram surface ──────────────────────────────────────────────────────
   if (env.BOT_MODE === 'polling') {
     log.info('starting bot in long-polling mode');
@@ -399,6 +420,7 @@ async function main(): Promise<void> {
     });
     await consumerPromise;
     await notifyPromise;
+    await watchNotifyPromise;
     return;
   }
 
@@ -457,6 +479,7 @@ async function main(): Promise<void> {
     await app.close();
     await consumerPromise;
     await notifyPromise;
+    await watchNotifyPromise;
     await client.end({ timeout: 5 });
     process.exit(0);
   };

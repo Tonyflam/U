@@ -18,9 +18,14 @@ import pino from 'pino';
 import { z } from 'zod';
 import { runConsumer } from './consumer.js';
 import { RedisIntentSink } from './redisSink.js';
+import { RedisWatchAlertSink } from './watchSink.js';
 import { HlWebSocketSource } from './hlWsSource.js';
 import { createWs } from './nodeWs.js';
-import { DrizzleSubscriberLookup, fetchActiveWhaleAddresses } from './drizzleSubscriberLookup.js';
+import {
+  DrizzleSubscriberLookup,
+  DrizzleWatcherLookup,
+  fetchActiveWhaleAddresses,
+} from './drizzleSubscriberLookup.js';
 
 const wsEnv = commonEnv.extend({
   DATABASE_URL: z.string().url(),
@@ -43,6 +48,8 @@ async function main(): Promise<void> {
   });
   const sink = new RedisIntentSink(redis);
   const subscribers = new DrizzleSubscriberLookup(db);
+  const watchers = new DrizzleWatcherLookup(db);
+  const watchSink = new RedisWatchAlertSink(redis);
 
   const initialWhales = await fetchActiveWhaleAddresses(db);
   log.info({ count: initialWhales.length }, 'initial whale set loaded');
@@ -72,7 +79,7 @@ async function main(): Promise<void> {
   });
   await app.listen({ port: env.WS_CONSUMER_HEALTH_PORT, host: '0.0.0.0' });
 
-  const stats = runConsumer({ source, subscribers, sink, logger: log });
+  const stats = runConsumer({ source, subscribers, sink, watchers, watchSink, logger: log });
   stats
     .then((s) => {
       log.info({ stats: s }, 'consumer loop ended');

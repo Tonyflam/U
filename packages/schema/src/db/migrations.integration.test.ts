@@ -177,6 +177,23 @@ describe('migrations integration (pglite)', () => {
     await expect(insertUser({ tgUserId: tg })).rejects.toThrow(/tg_user_id/u);
   });
 
+  it('watches_tg_whale_unique blocks duplicate (tg_user, whale) and cascades on whale delete', async () => {
+    const whale = await insertWhale();
+    const tg = 31337n;
+    await h.db.insert(schema.watches).values({ tgUserId: tg, whaleId: whale.id });
+    await expect(
+      h.db.insert(schema.watches).values({ tgUserId: tg, whaleId: whale.id }),
+    ).rejects.toThrow(/watches_tg_whale_unique/u);
+
+    // Cascade: deleting the whale removes its watches.
+    await h.db.delete(schema.whales).where(sql`${schema.whales.id} = ${whale.id}`);
+    const left = await h.db
+      .select()
+      .from(schema.watches)
+      .where(sql`${schema.watches.tgUserId} = ${tg}`);
+    expect(left).toHaveLength(0);
+  });
+
   it('all eight tables exist after migration', async () => {
     const result = await h.db.execute(sql`
       SELECT table_name FROM information_schema.tables
@@ -193,6 +210,7 @@ describe('migrations integration (pglite)', () => {
         'referrals_attribution',
         'subscriptions',
         'users',
+        'watches',
         'whales',
       ]),
     );

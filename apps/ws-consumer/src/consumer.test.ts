@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryIntentSink } from './sink.js';
-import { runConsumer, type FillSource, type SubscriberLookup } from './consumer.js';
+import { InMemoryWatchAlertSink } from './watchSink.js';
+import {
+  runConsumer,
+  type FillSource,
+  type SubscriberLookup,
+  type WatcherLookup,
+} from './consumer.js';
 import type { Subscriber } from './fanout.js';
 
 const WHALE = '0x1111222233334444555566667777888899990000';
@@ -135,5 +141,86 @@ describe('runConsumer', () => {
     });
     expect(stats.processed).toBe(2);
     expect(stats.emitted).toBe(1);
+  });
+
+  it('fans out watch alerts to every watcher with the whale alias', async () => {
+    const sink = new InMemoryIntentSink();
+    const watchSink = new InMemoryWatchAlertSink();
+    const watchers: WatcherLookup = {
+      watchersFor: (addr) =>
+        Promise.resolve(
+          addr === WHALE
+            ? { tgUserIds: ['111', '222'], whaleAlias: 'HYPE-Maxi' }
+            : { tgUserIds: [], whaleAlias: null },
+        ),
+    };
+    const stats = await runConsumer({
+      source: arraySource([validEvent('f1')]),
+      subscribers: staticLookup({}),
+      sink,
+      watchers,
+      watchSink,
+      logger: silentLogger,
+    });
+    expect(stats.processed).toBe(1);
+    expect(watchSink.recorded).toHaveLength(2);
+    expect(watchSink.recorded.map((r) => r.tgUserId)).toStrictEqual(['111', '222']);
+    expect(watchSink.recorded[0]?.event).toMatchObject({
+      fillHash: 'f1',
+      whaleAddress: WHALE,
+      whaleAlias: 'HYPE-Maxi',
+      coin: 'BTC',
+      side: 'B',
+    });
+  });
+
+  it('dedupes watch alerts per (fill, watcher) on replay', async () => {
+    const watchSink = new InMemoryWatchAlertSink();
+    await runConsumer({
+      source: arraySource([validEvent('replay'), validEvent('replay')]),
+      subscribers: staticLookup({}),
+      sink: new InMemoryIntentSink(),
+      watchers: {
+        watchersFor: () => Promise.resolve({ tgUserIds: ['111'], whaleAlias: null }),
+      },
+      watchSink,
+      logger: silentLogger,
+    });
+    expect(watchSink.recorded).toHaveLength(1);
+  });
+
+  it('watcher lookup or watch sink failures never break the mirror path', async () => {
+    const sink = new InMemoryIntentSink();
+    const stats = await runConsumer({
+      source: arraySource([validEvent('f1'), validEvent('f2')]),
+      subscribers: staticLookup({
+        [WHALE]: [{ id: u1, whaleAddress: WHALE, paused: false, killSwitch: false }],
+      }),
+      sink,
+      watchers: {
+        watchersFor: () => Promise.reject(new Error('db down')),
+      },
+      watchSink: new InMemoryWatchAlertSink(),
+      logger: silentLogger,
+    });
+    expect(stats.processed).toBe(2);
+    expect(stats.emitted).toBe(2);
+
+    const flakySink = {
+      emit: (): Promise<boolean> => Promise.reject(new Error('redis flap')),
+    };
+    const stats2 = await runConsumer({
+      source: arraySource([validEvent('f3')]),
+      subscribers: staticLookup({
+        [WHALE]: [{ id: u1, whaleAddress: WHALE, paused: false, killSwitch: false }],
+      }),
+      sink,
+      watchers: {
+        watchersFor: () => Promise.resolve({ tgUserIds: ['111'], whaleAlias: null }),
+      },
+      watchSink: flakySink,
+      logger: silentLogger,
+    });
+    expect(stats2.emitted).toBe(1);
   });
 });

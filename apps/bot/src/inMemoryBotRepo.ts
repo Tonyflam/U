@@ -118,6 +118,41 @@ export class InMemoryBotRepo implements BotRepo {
     return out;
   }
 
+  /** tgUserId (decimal string) → Set of whale ids being watched. */
+  readonly watches = new Map<string, Set<string>>();
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async listWatchedWhales(tgUserId: bigint): Promise<readonly Whale[]> {
+    const set = this.watches.get(tgUserId.toString());
+    if (!set) return [];
+    const out: Whale[] = [];
+    for (const whaleId of set) {
+      const w = this.whales.get(whaleId);
+      if (w) out.push(w);
+    }
+    return out;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async addWatch(tgUserId: bigint, whaleId: string): Promise<{ readonly created: boolean }> {
+    const key = tgUserId.toString();
+    let set = this.watches.get(key);
+    if (!set) {
+      set = new Set();
+      this.watches.set(key, set);
+    }
+    if (set.has(whaleId)) return { created: false };
+    set.add(whaleId);
+    return { created: true };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async removeWatch(tgUserId: bigint, whaleId: string): Promise<boolean> {
+    const set = this.watches.get(tgUserId.toString());
+    if (!set) return false;
+    return set.delete(whaleId);
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async listSubscriptions(userId: string): Promise<readonly Subscription[]> {
     return this.subscriptions.filter((s) => s.userId === userId);

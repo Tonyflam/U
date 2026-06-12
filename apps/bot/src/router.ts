@@ -27,6 +27,8 @@ export type Command =
   | { readonly kind: 'pnl' }
   | { readonly kind: 'leaderboard' }
   | { readonly kind: 'whales' }
+  | { readonly kind: 'watch'; readonly target: string | null }
+  | { readonly kind: 'unwatch'; readonly target: string | null }
   | { readonly kind: 'notify'; readonly action: 'show' | 'on' | 'off' | 'compact' | 'full' }
   | { readonly kind: 'unknown'; readonly raw: string };
 
@@ -113,6 +115,19 @@ export function parseCommand(text: string): Command | null {
     case 'whales':
     case 'browse':
       return { kind: 'whales' };
+    case 'watch': {
+      // Free, no-wallet whale fill alerts. Bare /watch shows the picker.
+      // Target may be a 0x address or a curated whale name — the handler
+      // resolves it, so the router stays permissive on shape.
+      const parts = args.split(/\s+/u).filter(Boolean);
+      if (parts.length > 1) return { kind: 'unknown', raw: trimmed };
+      return { kind: 'watch', target: parts[0] ?? null };
+    }
+    case 'unwatch': {
+      const parts = args.split(/\s+/u).filter(Boolean);
+      if (parts.length > 1) return { kind: 'unknown', raw: trimmed };
+      return { kind: 'unwatch', target: parts[0] ?? null };
+    }
     case 'notify': {
       if (!args) return { kind: 'notify', action: 'show' };
       const sub = args.toLowerCase();

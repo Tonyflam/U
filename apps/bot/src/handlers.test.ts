@@ -507,3 +507,121 @@ describe('handleCommand /leaderboard', () => {
     expect(replies[0]?.text).toMatch(/whalepod\.trade\/whales/);
   });
 });
+
+describe('handleCommand /watch + /unwatch', () => {
+  it('works WITHOUT onboarding: watching by address needs no user row', async () => {
+    const { ctx, repo } = setup({ onboarded: false });
+    const replies = await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    expect(replies[0]?.text).toMatch(/Watching/i);
+    expect(replies[0]?.text).not.toMatch(/Welcome to WhalePod/i);
+    const watched = await repo.listWatchedWhales(1n);
+    expect(watched).toHaveLength(1);
+    expect(watched[0]?.address).toBe(WHALE);
+  });
+
+  it('gives a non-onboarded watcher a mirror CTA button to the miniapp', async () => {
+    const { ctx } = setup({ onboarded: false });
+    const replies = await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    const btn = replies[0]?.buttons?.[0]?.[0];
+    expect(btn?.label).toMatch(/Mirror/i);
+    expect(btn?.url).toMatch(new RegExp(`^${MINIAPP}/onboard\\?tg=1`));
+  });
+
+  it('resolves curated whale names and carries the slug into the CTA', async () => {
+    const { ctx, repo } = setup({ onboarded: false });
+    const replies = await handleCommand({ kind: 'watch', target: 'HYPE-Maxi' }, ctx);
+    expect(replies[0]?.text).toContain('HYPE-Maxi');
+    expect(replies[0]?.buttons?.[0]?.[0]?.url).toContain('whale=hypemaxi');
+    const watched = await repo.listWatchedWhales(1n);
+    expect(watched[0]?.address).toBe('0xc6758a779bccee1ef0190dbe8292fdf44076795d');
+  });
+
+  it('suggests /follow instead of the connect button for onboarded users', async () => {
+    const { ctx } = setup();
+    const replies = await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    expect(replies[0]?.text).toContain(`/follow ${WHALE}`);
+    expect(replies[0]?.buttons).toBeUndefined();
+  });
+
+  it('is idempotent: watching twice says already watching', async () => {
+    const { ctx } = setup({ onboarded: false });
+    await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    const replies = await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    expect(replies[0]?.text).toMatch(/already watching/i);
+  });
+
+  it('writes a watch audit entry and pings adminAlert', async () => {
+    const { ctx, repo } = setup({ onboarded: false });
+    const calls: string[] = [];
+    const ctxWithAlert: HandlerCtx = {
+      ...ctx,
+      adminAlert: (text) => {
+        calls.push(text);
+        return Promise.resolve();
+      },
+      adminTgUserIds: [99n],
+    };
+    await handleCommand({ kind: 'watch', target: WHALE }, ctxWithAlert);
+    expect(repo.audit.some((a) => a.action === 'watch')).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/New watcher/);
+  });
+
+  it('rejects garbage targets with guidance', async () => {
+    const { ctx } = setup({ onboarded: false });
+    const replies = await handleCommand({ kind: 'watch', target: 'not-a-whale' }, ctx);
+    expect(replies[0]?.text).toMatch(/doesn't look like a whale/i);
+  });
+
+  it('probes raw addresses and rejects dead wallets', async () => {
+    const { ctx } = setup({ onboarded: false });
+    const ctxWithProbe: HandlerCtx = {
+      ...ctx,
+      whaleProbe: {
+        forWhale: () => Promise.resolve({ isReal: false, fillCount: 0 }),
+      },
+    };
+    const replies = await handleCommand({ kind: 'watch', target: WHALE }, ctxWithProbe);
+    expect(replies[0]?.text).toMatch(/no trading history/i);
+  });
+
+  it('bare /watch shows the featured picker and current watches', async () => {
+    const { ctx, repo } = setup({ onboarded: false });
+    repo.seedFeaturedWhale(WHALE2, 'ETH-Lead');
+    await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    const replies = await handleCommand({ kind: 'watch', target: null }, ctx);
+    const text = replies[0]?.text ?? '';
+    expect(text).toMatch(/Whale watch/i);
+    expect(text).toContain(`/watch ${WHALE2}`);
+    expect(text).toMatch(/Already watching/i);
+    expect(text).toContain(`/unwatch ${WHALE}`);
+  });
+
+  it('unwatch with a target removes the watch and audits', async () => {
+    const { ctx, repo } = setup({ onboarded: false });
+    await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    const replies = await handleCommand({ kind: 'unwatch', target: WHALE }, ctx);
+    expect(replies[0]?.text).toMatch(/Stopped watching/i);
+    expect(await repo.listWatchedWhales(1n)).toHaveLength(0);
+    expect(repo.audit.some((a) => a.action === 'unwatch')).toBe(true);
+  });
+
+  it('bare /unwatch removes the only watch, lists when ambiguous', async () => {
+    const { ctx } = setup({ onboarded: false });
+    await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    const one = await handleCommand({ kind: 'unwatch', target: null }, ctx);
+    expect(one[0]?.text).toMatch(/Stopped watching/i);
+
+    await handleCommand({ kind: 'watch', target: WHALE }, ctx);
+    await handleCommand({ kind: 'watch', target: WHALE2 }, ctx);
+    const ambiguous = await handleCommand({ kind: 'unwatch', target: null }, ctx);
+    expect(ambiguous[0]?.text).toMatch(/which one/i);
+    expect(ambiguous[0]?.text).toContain(`/unwatch ${WHALE}`);
+  });
+
+  it('unwatch when not watching anything points at /watch', async () => {
+    const { ctx } = setup({ onboarded: false });
+    const replies = await handleCommand({ kind: 'unwatch', target: null }, ctx);
+    expect(replies[0]?.text).toMatch(/not watching/i);
+  });
+});

@@ -130,6 +130,27 @@ export const subscriptions = pgTable(
   }),
 );
 
+// ─── watches ─────────────────────────────────────────────────────────────────
+// Zero-trust alert subscriptions: a Telegram user gets a ping on every fill
+// from a whale WITHOUT connecting a wallet. Keyed by tg_user_id directly (no
+// users FK — watchers usually have no user row yet; that's the whole point).
+export const watches = pgTable(
+  'watches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tgUserId: bigint('tg_user_id', { mode: 'bigint' }).notNull(),
+    whaleId: uuid('whale_id')
+      .notNull()
+      .references(() => whales.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tgWhaleUnique: uniqueIndex('watches_tg_whale_unique').on(t.tgUserId, t.whaleId),
+    whaleIdx: index('watches_whale_idx').on(t.whaleId),
+    tgUserIdx: index('watches_tg_user_idx').on(t.tgUserId),
+  }),
+);
+
 // ─── fills ───────────────────────────────────────────────────────────────────
 export const fills = pgTable(
   'fills',

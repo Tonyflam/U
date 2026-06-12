@@ -62,3 +62,30 @@ export const MirrorIntent = z.object({
   emittedAt: z.number().int().nonnegative(),
 });
 export type MirrorIntent = z.infer<typeof MirrorIntent>;
+
+/**
+ * Alert payload published to the `watch-fills` Redis stream for each
+ * (whale fill × watcher) pair. Consumed by the bot's watch-notify consumer
+ * which renders it into a Telegram ping with a "mirror this whale" CTA.
+ *
+ * Watchers have no `users` row (no wallet connected), so the stream entry
+ * carries the Telegram user id alongside this payload — same envelope shape
+ * as the `mirror-fills` stream.
+ */
+export const WatchFillEvent = z.object({
+  /** HL fill hash — idempotency root, paired with the watcher's tg id. */
+  fillHash: z.string().min(1),
+  /** Whale wallet that produced the fill. */
+  whaleAddress: Address,
+  /** Optional curated/db alias for friendlier alert copy. */
+  whaleAlias: z.string().min(1).max(64).nullable(),
+  coin: Coin,
+  side: Side,
+  /** Decimal-string price. */
+  px: z.string().regex(/^\d+(\.\d+)?$/u, 'invalid px'),
+  /** Decimal-string size. */
+  sz: z.string().regex(/^\d+(\.\d+)?$/u, 'invalid sz'),
+  /** Whale-fill server timestamp (ms). */
+  whaleTs: z.number().int().nonnegative(),
+});
+export type WatchFillEvent = z.infer<typeof WatchFillEvent>;

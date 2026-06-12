@@ -7,6 +7,7 @@ import {
   referralsAttribution,
   subscriptions,
   users,
+  watches,
   whales,
 } from './schema.js';
 
@@ -66,5 +67,12 @@ describe('Drizzle schema', () => {
     const cols = Object.keys(subscriptions);
     expect(cols).toContain('tpBps');
     expect(cols).toContain('slBps');
+  });
+
+  it('watches keys on tg_user_id (no users FK — zero-trust watchers)', () => {
+    const cols = Object.keys(watches);
+    expect(cols).toContain('tgUserId');
+    expect(cols).toContain('whaleId');
+    expect(cols).not.toContain('userId');
   });
 });

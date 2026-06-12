@@ -103,6 +103,36 @@ export class DrizzleBotRepo implements BotRepo {
     return rows;
   }
 
+  async listWatchedWhales(tgUserId: bigint): Promise<readonly Whale[]> {
+    const rows = await this.db
+      .select({
+        id: schema.whales.id,
+        address: schema.whales.address,
+        alias: schema.whales.alias,
+      })
+      .from(schema.watches)
+      .innerJoin(schema.whales, eq(schema.whales.id, schema.watches.whaleId))
+      .where(eq(schema.watches.tgUserId, tgUserId));
+    return rows;
+  }
+
+  async addWatch(tgUserId: bigint, whaleId: string): Promise<{ readonly created: boolean }> {
+    const rows = await this.db
+      .insert(schema.watches)
+      .values({ tgUserId, whaleId })
+      .onConflictDoNothing({ target: [schema.watches.tgUserId, schema.watches.whaleId] })
+      .returning({ id: schema.watches.id });
+    return { created: rows.length > 0 };
+  }
+
+  async removeWatch(tgUserId: bigint, whaleId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(schema.watches)
+      .where(and(eq(schema.watches.tgUserId, tgUserId), eq(schema.watches.whaleId, whaleId)))
+      .returning({ id: schema.watches.id });
+    return rows.length > 0;
+  }
+
   async listSubscriptions(userId: string): Promise<readonly Subscription[]> {
     const rows = await this.db
       .select({

@@ -61,6 +61,15 @@ export interface BotRepo {
   listSubscriptions(userId: string): Promise<readonly Subscription[]>;
   /** Featured whales (curated). Ordered by most recent fill first. */
   listFeaturedWhales(limit: number): Promise<readonly Whale[]>;
+  /**
+   * Whales this Telegram user is watching (free alerts, no wallet). Keyed
+   * by tg user id directly — watchers usually have no `users` row.
+   */
+  listWatchedWhales(tgUserId: bigint): Promise<readonly Whale[]>;
+  /** Idempotent watch insert. `created` is false when already watching. */
+  addWatch(tgUserId: bigint, whaleId: string): Promise<{ readonly created: boolean }>;
+  /** Returns true when a watch row was actually removed. */
+  removeWatch(tgUserId: bigint, whaleId: string): Promise<boolean>;
   subscribe(userId: string, whaleId: string, maxSizeUsd?: string): Promise<Subscription>;
   unsubscribe(userId: string, whaleId: string): Promise<boolean>;
   setAllSubscriptionsPaused(userId: string, paused: boolean): Promise<number>;
@@ -260,7 +269,10 @@ const ONBOARD_PROMPT = [
   '✅ Non-custodial — you keep your keys (agent wallet only, no withdraw)',
   '✅ 5 bps fee via HL builder codes (no monthly, no profit share)',
   '✅ Hard size cap + SL/TP on every mirrored trade',
-  '✅ 8 verified-profitable whales seeded — check /whales',
+  '✅ Verified-profitable whales seeded — check /whales',
+  '',
+  'Not ready to connect a wallet? /watch a whale instead — free fill alerts,',
+  'no wallet needed.',
   '',
   '60 seconds to set up. Tap below 👇',
 ].join('\n');
@@ -388,6 +400,10 @@ export async function handleCommand(command: Command, ctx: HandlerCtx): Promise<
       return handleLeaderboard(ctx);
     case 'whales':
       return handleWhales(ctx);
+    case 'watch':
+      return handleWatch(command.target, ctx);
+    case 'unwatch':
+      return handleUnwatch(command.target, ctx);
     case 'notify':
       return handleNotify(command.action, ctx);
     case 'unknown':
@@ -685,6 +701,8 @@ function helpReply(): Reply {
       '',
       '▸ Find & follow whales',
       '/whales — browse traders you can copy',
+      '/watch 0xabc... — FREE fill alerts for any whale (no wallet needed)',
+      '/unwatch 0xabc... — stop those alerts',
       '/follow 0xabc... 50 — start copying a trader, risk at most $50 per trade',
       '/mirrors — list everyone you are copying',
       '',
@@ -829,7 +847,185 @@ async function handleWhales(ctx: HandlerCtx): Promise<Reply[]> {
   lines.push(
     'After following, use /mirrors to see your list, /setcap to change the size, /unfollow to stop.',
   );
+  lines.push('');
+  lines.push('Not ready to connect a wallet? /watch 0x… — free fill alerts, no wallet needed.');
   return [{ text: lines.join('\n') }];
+}
+
+/**
+ * Resolves a /watch | /unwatch target to a whale address. Accepts a raw 0x
+ * address or a curated whale name in any casing ("HYPE-Maxi", "hypemaxi").
+ * Returns null when the target matches neither.
+ */
+function resolveWhaleTarget(
+  target: string,
+): { readonly address: string; readonly alias: string | null } | null {
+  if (ADDRESS_RE.test(target)) return { address: target.toLowerCase(), alias: null };
+  const curated = findCuratedWhaleBySlug(whaleSlug(target));
+  if (curated) return { address: curated.address.toLowerCase(), alias: curated.alias };
+  return null;
+}
+
+async function handleWatch(target: string | null, ctx: HandlerCtx): Promise<Reply[]> {
+  if (target === null) return [await watchMenuReply(ctx)];
+
+  const resolved = resolveWhaleTarget(target);
+  if (!resolved) {
+    return [
+      {
+        text: [
+          `${target} doesn't look like a whale I know.`,
+          '',
+          'Send a 0x… Hyperliquid address, or a featured whale name from /whales.',
+          'Example: /watch 0xc6758a… or /watch HYPE-Maxi',
+        ].join('\n'),
+      },
+    ];
+  }
+
+  // Raw addresses get the same liveness probe as /follow so a typo doesn't
+  // become a silent watch that never alerts. Curated names skip it — they
+  // are pre-verified. Probe failures fail open (HL outage ≠ blocked funnel).
+  if (resolved.alias === null && ctx.whaleProbe) {
+    const probe = await ctx.whaleProbe.forWhale(resolved.address as `0x${string}`);
+    if (!probe.isReal) {
+      return [
+        {
+          text: [
+            `⚠️ ${resolved.address} has no trading history on Hyperliquid.`,
+            '',
+            'This usually means a typo or an empty wallet. Double-check the',
+            'address and try again.',
+          ].join('\n'),
+        },
+      ];
+    }
+  }
+
+  const whale = await ctx.repo.upsertWhaleByAddress(resolved.address);
+  const label = whale.alias ?? resolved.alias ?? fmtAddr(whale.address);
+  const { created } = await ctx.repo.addWatch(ctx.tgUser.id, whale.id);
+  if (!created) {
+    return [
+      {
+        text: `You're already watching ${label} — you'll get a ping on every fill. /unwatch ${whale.address} to stop.`,
+      },
+    ];
+  }
+
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'watch',
+    target: `whale:${whale.id}`,
+    after: { whaleAddress: whale.address, alias: label },
+  });
+
+  if (ctx.adminAlert) {
+    const isAdminSelf = (ctx.adminTgUserIds ?? []).some((id) => id === ctx.tgUser.id);
+    if (!isAdminSelf) {
+      const handle =
+        ctx.tgUser.username !== null ? `@${ctx.tgUser.username}` : `tg:${ctx.tgUser.id.toString()}`;
+      await ctx.adminAlert(`👀 New watcher • ${handle} • ${label}`);
+    }
+  }
+
+  const user = await ctx.repo.getUserByTgId(ctx.tgUser.id);
+  const lines = [
+    `👀 Watching ${label}.`,
+    '',
+    `You'll get a Telegram ping every time this whale trades on Hyperliquid — side, size and price. Free, no wallet needed.`,
+    '',
+    user
+      ? `Want the trades copied into your account automatically? /follow ${whale.address} 50 mirrors this whale with a $50 per-trade cap.`
+      : `Want the trades copied into your own account automatically? Connect a wallet (60s, non-custodial — no withdraw access) and WhalePod mirrors this whale with a hard per-trade size cap.`,
+    '',
+    `/unwatch ${whale.address} — stop alerts`,
+  ];
+  if (!user) {
+    const base = ctx.miniAppUrl.replace(/\/+$/u, '');
+    const url = resolved.alias
+      ? `${base}/onboard?tg=${ctx.tgUser.id.toString()}&whale=${whaleSlug(resolved.alias)}`
+      : `${base}/onboard?tg=${ctx.tgUser.id.toString()}`;
+    return [
+      {
+        text: lines.join('\n'),
+        buttons: [[{ label: `⚡ Mirror ${label} automatically`, url }]],
+      },
+    ];
+  }
+  return [{ text: lines.join('\n') }];
+}
+
+/** Bare /watch — pick-a-whale menu plus the caller's current watches. */
+async function watchMenuReply(ctx: HandlerCtx): Promise<Reply> {
+  const [featured, watched] = await Promise.all([
+    ctx.repo.listFeaturedWhales(5),
+    ctx.repo.listWatchedWhales(ctx.tgUser.id),
+  ]);
+  const lines = [
+    '👀 Whale watch — free fill alerts in Telegram',
+    '',
+    'Pick a whale and get a ping every time they trade. No wallet, no sign-up.',
+    '',
+  ];
+  if (featured.length > 0) {
+    featured.forEach((w) => {
+      const label = w.alias && w.alias.length > 0 ? w.alias : fmtAddr(w.address);
+      lines.push(`🐳 ${label}`);
+      lines.push(`   /watch ${w.address}`);
+    });
+    lines.push('');
+  }
+  lines.push('Or watch any Hyperliquid address: /watch 0x…');
+  if (watched.length > 0) {
+    lines.push('', 'Already watching:');
+    watched.forEach((w) => {
+      const label = w.alias && w.alias.length > 0 ? w.alias : fmtAddr(w.address);
+      lines.push(`  • ${label} — /unwatch ${w.address}`);
+    });
+  }
+  return { text: lines.join('\n') };
+}
+
+async function handleUnwatch(target: string | null, ctx: HandlerCtx): Promise<Reply[]> {
+  const watched = await ctx.repo.listWatchedWhales(ctx.tgUser.id);
+  if (watched.length === 0) {
+    return [{ text: "You're not watching any whales. /watch to start getting free fill alerts." }];
+  }
+
+  let whale: Whale | undefined;
+  if (target === null) {
+    if (watched.length === 1) {
+      whale = watched[0];
+    } else {
+      const lines = ['You watch more than one whale — which one?', ''];
+      watched.forEach((w) => {
+        const label = w.alias && w.alias.length > 0 ? w.alias : fmtAddr(w.address);
+        lines.push(`  • ${label} — /unwatch ${w.address}`);
+      });
+      return [{ text: lines.join('\n') }];
+    }
+  } else {
+    const resolved = resolveWhaleTarget(target);
+    if (!resolved) {
+      return [{ text: `${target} doesn't match a watched whale. Bare /unwatch lists them.` }];
+    }
+    whale = watched.find((w) => w.address === resolved.address);
+    if (!whale) {
+      return [{ text: `You're not watching ${resolved.alias ?? resolved.address}.` }];
+    }
+  }
+  if (!whale) return [{ text: 'Nothing to unwatch.' }];
+
+  await ctx.repo.removeWatch(ctx.tgUser.id, whale.id);
+  await ctx.repo.appendAudit({
+    actor: `tg:${ctx.tgUser.id.toString()}`,
+    action: 'unwatch',
+    target: `whale:${whale.id}`,
+    before: { whaleAddress: whale.address },
+  });
+  const label = whale.alias && whale.alias.length > 0 ? whale.alias : fmtAddr(whale.address);
+  return [{ text: `Stopped watching ${label}. /watch to re-add any time.` }];
 }
 
 async function handleNotify(

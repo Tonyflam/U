@@ -23,7 +23,11 @@ describe('parseCommand', () => {
   });
 
   it('parses /follow with target', () => {
-    expect(parseCommand('/follow 0xabc')).toStrictEqual({ kind: 'follow', target: '0xabc', maxSizeUsd: null });
+    expect(parseCommand('/follow 0xabc')).toStrictEqual({
+      kind: 'follow',
+      target: '0xabc',
+      maxSizeUsd: null,
+    });
   });
 
   it('marks /follow with no arg as unknown', () => {
@@ -119,5 +123,19 @@ describe('parseCommand', () => {
     expect(parseCommand('/tp 0xabc 10000')).toMatchObject({ kind: 'unknown' });
     expect(parseCommand('/tp 0xabc 1.5')).toMatchObject({ kind: 'unknown' });
     expect(parseCommand('/tp 0xabc')).toMatchObject({ kind: 'unknown' });
+  });
+
+  it('parses /watch with and without a target', () => {
+    expect(parseCommand('/watch')).toStrictEqual({ kind: 'watch', target: null });
+    expect(parseCommand('/watch 0xabc')).toStrictEqual({ kind: 'watch', target: '0xabc' });
+    expect(parseCommand('/watch HYPE-Maxi')).toStrictEqual({ kind: 'watch', target: 'HYPE-Maxi' });
+    expect(parseCommand('/WATCH 0xabc')).toStrictEqual({ kind: 'watch', target: '0xabc' });
+    expect(parseCommand('/watch 0xabc extra')).toMatchObject({ kind: 'unknown' });
+  });
+
+  it('parses /unwatch with and without a target', () => {
+    expect(parseCommand('/unwatch')).toStrictEqual({ kind: 'unwatch', target: null });
+    expect(parseCommand('/unwatch 0xabc')).toStrictEqual({ kind: 'unwatch', target: '0xabc' });
+    expect(parseCommand('/unwatch a b')).toMatchObject({ kind: 'unknown' });
   });
 });

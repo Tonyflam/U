@@ -1,7 +1,8 @@
 import type { Logger } from 'pino';
-import { HlFillEvent, type MirrorIntent } from './types.js';
+import { HlFillEvent, type MirrorIntent, type WatchFillEvent } from './types.js';
 import { fanOutFill, type Subscriber } from './fanout.js';
 import type { IntentSink } from './sink.js';
+import type { WatchAlertSink } from './watchSink.js';
 
 /**
  * Input source for raw whale fill events. Production binds this to an
@@ -25,11 +26,30 @@ export interface SubscriberLookup {
   subscribersFor(whaleAddress: string): Promise<readonly Subscriber[]>;
 }
 
+/**
+ * Lookup: which Telegram users are watching this whale (free alerts, no
+ * wallet)? `whaleAlias` rides along so the alert renderer can show a
+ * friendly name without a second query.
+ */
+export interface WatcherLookup {
+  watchersFor(whaleAddress: string): Promise<{
+    readonly tgUserIds: readonly string[];
+    readonly whaleAlias: string | null;
+  }>;
+}
+
 export interface ConsumerOptions {
   readonly source: FillSource;
   readonly subscribers: SubscriberLookup;
   readonly sink: IntentSink;
   readonly logger: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>;
+  /**
+   * Optional watcher fan-out. When both are present, every fill is also
+   * delivered as a `WatchFillEvent` to each watcher of the whale. Failures
+   * are logged and never affect the mirror path.
+   */
+  readonly watchers?: WatcherLookup;
+  readonly watchSink?: WatchAlertSink;
   /**
    * Optional clock override for tests. Defaults to `Date.now`. Result is
    * stamped onto `MirrorIntent.emittedAt`.
@@ -91,6 +111,38 @@ export async function runConsumer(options: ConsumerOptions): Promise<RunStats> {
         }
       } catch (err) {
         options.logger.error({ err, key: intent.idempotencyKey }, 'ws-consumer: sink emit failed');
+      }
+    }
+
+    // Watcher fan-out is strictly best-effort and isolated from the mirror
+    // path: a watcher-lookup or alert-sink failure must never block intents.
+    if (options.watchers && options.watchSink) {
+      try {
+        const { tgUserIds, whaleAlias } = await options.watchers.watchersFor(fill.user);
+        if (tgUserIds.length > 0) {
+          const event: WatchFillEvent = {
+            fillHash: fill.hash,
+            whaleAddress: fill.user,
+            whaleAlias,
+            coin: fill.coin,
+            side: fill.side,
+            px: fill.px,
+            sz: fill.sz,
+            whaleTs: fill.time,
+          };
+          for (const tgUserId of tgUserIds) {
+            try {
+              await options.watchSink.emit(event, tgUserId);
+            } catch (err) {
+              options.logger.error(
+                { err, whale: fill.user, tgUserId },
+                'ws-consumer: watch sink emit failed',
+              );
+            }
+          }
+        }
+      } catch (err) {
+        options.logger.error({ err, whale: fill.user }, 'ws-consumer: watcher lookup failed');
       }
     }
   }

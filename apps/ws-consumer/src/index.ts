@@ -15,10 +15,12 @@ export {
   type FillSource,
   type RunStats,
   type SubscriberLookup,
+  type WatcherLookup,
 } from './consumer.js';
 export { InMemoryIntentSink, type IntentSink } from './sink.js';
 export { RedisIntentSink } from './redisSink.js';
-export { HlFillEvent, MirrorIntent } from './types.js';
+export { InMemoryWatchAlertSink, RedisWatchAlertSink, type WatchAlertSink } from './watchSink.js';
+export { HlFillEvent, MirrorIntent, WatchFillEvent } from './types.js';
 export {
   HlWebSocketSource,
   type HlWsSourceOptions,
