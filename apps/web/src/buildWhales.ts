@@ -29,6 +29,16 @@ import {
  */
 const MIN_30D_PNL_USD = 0;
 
+/**
+ * Whales whose live account equity is below this floor are filtered OUT —
+ * an account that has withdrawn/closed out ($0 equity, no positions) can't
+ * be mirrored and renders as a broken "$0" card, even if its 30d realized
+ * PnL is still positive from trades before the exit. Like the PnL filter,
+ * they stay curated and auto-rejoin once they redeposit. Set well below the
+ * smallest real whale (~$0.9M) so it only catches exited/dust accounts.
+ */
+const MIN_EQUITY_USD = 10_000;
+
 export async function buildWhalesSite(opts: {
   readonly outDir: string;
   readonly botUrl: string;
@@ -52,6 +62,14 @@ export async function buildWhalesSite(opts: {
   const snapshots = all.filter((s) => {
     if (s.stale) return true;
     if (s.thirtyDayUsd === null) return true;
+    // Hide accounts that have withdrawn/closed out — $0 (or dust) equity is
+    // un-mirrorable and looks broken, even with positive trailing realized PnL.
+    if (s.equityUsd !== null && s.equityUsd < MIN_EQUITY_USD) {
+      log(
+        `whales: hiding ${s.meta.alias} — equity $${s.equityUsd.toFixed(0)} below floor (withdrawn/empty)`,
+      );
+      return false;
+    }
     // Total 30d performance = realized (closed fills) + current unrealized
     // (open positions). A conviction whale holding a big winner shows ~$0
     // realized but is a prime mirror target, so we judge on the total.
