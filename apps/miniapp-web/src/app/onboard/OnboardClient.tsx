@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount, useConfig, useConnect, useDisconnect } from 'wagmi';
-import { getConnectorClient } from 'wagmi/actions';
+import { getConnectorClient, switchChain } from 'wagmi/actions';
 import { arbitrum } from 'wagmi/chains';
 import { signTypedData as viemSignTypedData } from 'viem/actions';
 import { useAppKit, useDisconnect as useAppKitDisconnect } from '@reown/appkit/react';
@@ -470,6 +470,13 @@ export default function OnboardClient(): JSX.Element {
       }
 
       async function signOnce(td: TypedData): Promise<`0x${string}`> {
+        // MetaMask validates that `eth_signTypedData_v4`'s domain.chainId equals
+        // the wallet's ACTIVE chain and rejects otherwise ("Provided chainId X
+        // must match the active chainId Y"). HL pins the domain to Arbitrum
+        // (42161), so move the wallet there first. Best-effort: it's a no-op if
+        // already on Arbitrum (the common mobile case), and a rejected/failed
+        // switch falls through to signing, which surfaces a clear error.
+        await switchChain(config, { chainId: arbitrum.id }).catch(() => undefined);
         const client = await getConnectorClient(config, {
           account: signer,
           chainId: arbitrum.id,
