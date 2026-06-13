@@ -65,6 +65,16 @@ export interface RunStats {
 }
 
 /**
+ * Watch alerts only fire for fills younger than this. HL's `userFills`
+ * subscribe-response replays a snapshot of historical fills on every
+ * (re)connect; without this guard a reconnect would spam every watcher
+ * with days-old fills presented as live. Mirror intents are protected
+ * separately by sink idempotency + IOC pricing; alerts have no such
+ * backstop, so we gate on the whale's own fill timestamp.
+ */
+export const WATCH_ALERT_MAX_AGE_MS = 5 * 60 * 1000;
+
+/**
  * Run the per-event pipeline to completion of the source's iterable.
  *
  * Pipeline per event:
@@ -116,7 +126,9 @@ export async function runConsumer(options: ConsumerOptions): Promise<RunStats> {
 
     // Watcher fan-out is strictly best-effort and isolated from the mirror
     // path: a watcher-lookup or alert-sink failure must never block intents.
-    if (options.watchers && options.watchSink) {
+    // Stale fills (snapshot replay on reconnect) are dropped: an alert that
+    // says "just bought" must actually be recent.
+    if (options.watchers && options.watchSink && now() - fill.time <= WATCH_ALERT_MAX_AGE_MS) {
       try {
         const { tgUserIds, whaleAlias } = await options.watchers.watchersFor(fill.user);
         if (tgUserIds.length > 0) {

@@ -161,6 +161,7 @@ describe('runConsumer', () => {
       watchers,
       watchSink,
       logger: silentLogger,
+      now: () => 1_700_000_000_100,
     });
     expect(stats.processed).toBe(1);
     expect(watchSink.recorded).toHaveLength(2);
@@ -185,8 +186,30 @@ describe('runConsumer', () => {
       },
       watchSink,
       logger: silentLogger,
+      now: () => 1_700_000_000_100,
     });
     expect(watchSink.recorded).toHaveLength(1);
+  });
+
+  it('drops watch alerts for stale fills (snapshot replay) but still mirrors them', async () => {
+    const sink = new InMemoryIntentSink();
+    const watchSink = new InMemoryWatchAlertSink();
+    const stats = await runConsumer({
+      source: arraySource([validEvent('old-fill')]),
+      subscribers: staticLookup({
+        [WHALE]: [{ id: u1, whaleAddress: WHALE, paused: false, killSwitch: false }],
+      }),
+      sink,
+      watchers: {
+        watchersFor: () => Promise.resolve({ tgUserIds: ['111'], whaleAlias: null }),
+      },
+      watchSink,
+      logger: silentLogger,
+      // Fill is 6 minutes old — past WATCH_ALERT_MAX_AGE_MS (5 min).
+      now: () => 1_700_000_000_000 + 6 * 60 * 1000,
+    });
+    expect(watchSink.recorded).toHaveLength(0); // no alert
+    expect(stats.emitted).toBe(1); // mirror path unaffected
   });
 
   it('watcher lookup or watch sink failures never break the mirror path', async () => {
@@ -202,6 +225,7 @@ describe('runConsumer', () => {
       },
       watchSink: new InMemoryWatchAlertSink(),
       logger: silentLogger,
+      now: () => 1_700_000_000_100,
     });
     expect(stats.processed).toBe(2);
     expect(stats.emitted).toBe(2);
@@ -220,6 +244,7 @@ describe('runConsumer', () => {
       },
       watchSink: flakySink,
       logger: silentLogger,
+      now: () => 1_700_000_000_100,
     });
     expect(stats2.emitted).toBe(1);
   });
