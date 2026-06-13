@@ -162,6 +162,7 @@ describe('runConsumer', () => {
       watchSink,
       logger: silentLogger,
       now: () => 1_700_000_000_100,
+      watchMinNotionalUsd: 0,
     });
     expect(stats.processed).toBe(1);
     expect(watchSink.recorded).toHaveLength(2);
@@ -187,8 +188,31 @@ describe('runConsumer', () => {
       watchSink,
       logger: silentLogger,
       now: () => 1_700_000_000_100,
+      watchMinNotionalUsd: 0,
     });
     expect(watchSink.recorded).toHaveLength(1);
+  });
+
+  it('drops dust watch alerts below the notional floor but still mirrors them', async () => {
+    const sink = new InMemoryIntentSink();
+    const watchSink = new InMemoryWatchAlertSink();
+    const stats = await runConsumer({
+      // validEvent notional = 50000 * 0.1 = $5,000, below a $50k floor.
+      source: arraySource([validEvent('dust')]),
+      subscribers: staticLookup({
+        [WHALE]: [{ id: u1, whaleAddress: WHALE, paused: false, killSwitch: false }],
+      }),
+      sink,
+      watchers: {
+        watchersFor: () => Promise.resolve({ tgUserIds: ['111'], whaleAlias: null }),
+      },
+      watchSink,
+      logger: silentLogger,
+      now: () => 1_700_000_000_100,
+      watchMinNotionalUsd: 50_000,
+    });
+    expect(watchSink.recorded).toHaveLength(0); // dust filtered
+    expect(stats.emitted).toBe(1); // mirror path unaffected
   });
 
   it('drops watch alerts for stale fills (snapshot replay) but still mirrors them', async () => {
@@ -207,6 +231,7 @@ describe('runConsumer', () => {
       logger: silentLogger,
       // Fill is 6 minutes old — past WATCH_ALERT_MAX_AGE_MS (5 min).
       now: () => 1_700_000_000_000 + 6 * 60 * 1000,
+      watchMinNotionalUsd: 0,
     });
     expect(watchSink.recorded).toHaveLength(0); // no alert
     expect(stats.emitted).toBe(1); // mirror path unaffected
@@ -226,6 +251,7 @@ describe('runConsumer', () => {
       watchSink: new InMemoryWatchAlertSink(),
       logger: silentLogger,
       now: () => 1_700_000_000_100,
+      watchMinNotionalUsd: 0,
     });
     expect(stats.processed).toBe(2);
     expect(stats.emitted).toBe(2);
@@ -245,6 +271,7 @@ describe('runConsumer', () => {
       watchSink: flakySink,
       logger: silentLogger,
       now: () => 1_700_000_000_100,
+      watchMinNotionalUsd: 0,
     });
     expect(stats2.emitted).toBe(1);
   });

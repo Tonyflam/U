@@ -35,6 +35,10 @@ const wsEnv = commonEnv.extend({
   HL_WS_URL: z.string().url().default('wss://api.hyperliquid.xyz/ws'),
   WS_CONSUMER_HEALTH_PORT: z.coerce.number().int().positive().default(8081),
   WS_CONSUMER_WHALE_REFRESH_SEC: z.coerce.number().int().positive().default(60),
+  // Minimum USD notional (px × sz) for a fill to produce a watch alert.
+  // Filters dust; whales scale positions with many small fills. Raise to make
+  // the public alerts channel quieter / more "big move" only.
+  WATCH_ALERT_MIN_NOTIONAL_USD: z.coerce.number().nonnegative().default(50_000),
 });
 
 async function main(): Promise<void> {
@@ -79,7 +83,15 @@ async function main(): Promise<void> {
   });
   await app.listen({ port: env.WS_CONSUMER_HEALTH_PORT, host: '0.0.0.0' });
 
-  const stats = runConsumer({ source, subscribers, sink, watchers, watchSink, logger: log });
+  const stats = runConsumer({
+    source,
+    subscribers,
+    sink,
+    watchers,
+    watchSink,
+    watchMinNotionalUsd: env.WATCH_ALERT_MIN_NOTIONAL_USD,
+    logger: log,
+  });
   stats
     .then((s) => {
       log.info({ stats: s }, 'consumer loop ended');

@@ -48,12 +48,6 @@ export const CURATED_WHALES: readonly CuratedWhale[] = [
     tagline: 'High-turnover BTC scalper. Consistent monthly.',
   },
   {
-    address: '0xf822fa0fd364c573fcdb7009fcf47601bc8be01a',
-    alias: 'Macro-Multi',
-    specialty: 'Multi',
-    tagline: 'Macro book across BTC/ETH/HYPE. Conservative, 3x max.',
-  },
-  {
     address: '0x54dbc1fbf6b1cd59807db61109b1d9eb91fd1a04',
     alias: 'Patient-145',
     specialty: 'Multi',

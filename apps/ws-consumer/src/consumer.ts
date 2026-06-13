@@ -51,6 +51,14 @@ export interface ConsumerOptions {
   readonly watchers?: WatcherLookup;
   readonly watchSink?: WatchAlertSink;
   /**
+   * Minimum USD notional (px × sz) a fill must clear to produce a watch
+   * alert. Whales scale into positions with hundreds of small fills; without
+   * a floor a single $60M position becomes hundreds of dust pings. Defaults
+   * to {@link DEFAULT_WATCH_ALERT_MIN_NOTIONAL_USD}. The mirror path is
+   * unaffected — per-subscription size caps govern that independently.
+   */
+  readonly watchMinNotionalUsd?: number;
+  /**
    * Optional clock override for tests. Defaults to `Date.now`. Result is
    * stamped onto `MirrorIntent.emittedAt`.
    */
@@ -75,6 +83,15 @@ export interface RunStats {
 export const WATCH_ALERT_MAX_AGE_MS = 5 * 60 * 1000;
 
 /**
+ * Default minimum USD notional for a watch alert. A whale builds a large
+ * position from many small fills; alerting on every one floods the channel
+ * with dust (medians on real curated whales sit at $300–$4,000). $50k keeps
+ * the feed to moves worth a copy-trader's attention. Tunable per deployment
+ * via the `watchMinNotionalUsd` option (wired to an env var in start.ts).
+ */
+export const DEFAULT_WATCH_ALERT_MIN_NOTIONAL_USD = 50_000;
+
+/**
  * Run the per-event pipeline to completion of the source's iterable.
  *
  * Pipeline per event:
@@ -90,6 +107,7 @@ export const WATCH_ALERT_MAX_AGE_MS = 5 * 60 * 1000;
  */
 export async function runConsumer(options: ConsumerOptions): Promise<RunStats> {
   const now = options.now ?? Date.now;
+  const watchMinNotionalUsd = options.watchMinNotionalUsd ?? DEFAULT_WATCH_ALERT_MIN_NOTIONAL_USD;
   const stats = { processed: 0, emitted: 0, dedupedAtSink: 0, invalid: 0 };
 
   for await (const raw of options.source.events()) {
@@ -126,9 +144,14 @@ export async function runConsumer(options: ConsumerOptions): Promise<RunStats> {
 
     // Watcher fan-out is strictly best-effort and isolated from the mirror
     // path: a watcher-lookup or alert-sink failure must never block intents.
-    // Stale fills (snapshot replay on reconnect) are dropped: an alert that
-    // says "just bought" must actually be recent.
-    if (options.watchers && options.watchSink && now() - fill.time <= WATCH_ALERT_MAX_AGE_MS) {
+    // Two gates protect watchers from noise:
+    //   1. Freshness — drop snapshot-replayed (stale) fills on reconnect.
+    //   2. Notional — drop dust fills below the configured floor; whales
+    //      scale positions with hundreds of small fills.
+    const fillNotionalUsd = Number(fill.px) * Number(fill.sz);
+    const fresh = now() - fill.time <= WATCH_ALERT_MAX_AGE_MS;
+    const bigEnough = Number.isFinite(fillNotionalUsd) && fillNotionalUsd >= watchMinNotionalUsd;
+    if (options.watchers && options.watchSink && fresh && bigEnough) {
       try {
         const { tgUserIds, whaleAlias } = await options.watchers.watchersFor(fill.user);
         if (tgUserIds.length > 0) {
