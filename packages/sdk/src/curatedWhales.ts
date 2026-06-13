@@ -42,12 +42,6 @@ export const CURATED_WHALES: readonly CuratedWhale[] = [
     tagline: 'BTC-only directional. Holds size through volatility.',
   },
   {
-    address: '0x5ae7fe9df15590e286152908112b82969f41c8b8',
-    alias: 'BTC-Volume-King',
-    specialty: 'BTC',
-    tagline: 'High-turnover BTC scalper. Consistent monthly.',
-  },
-  {
     address: '0x54dbc1fbf6b1cd59807db61109b1d9eb91fd1a04',
     alias: 'Patient-145',
     specialty: 'Multi',

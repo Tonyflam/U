@@ -150,7 +150,7 @@ async function hydrateAll(
   generatedAt: number,
   log: (msg: string) => void,
 ): Promise<readonly WhaleSnapshot[]> {
-  // 7 whales — plenty small for a single Promise.all without worker pooling.
+  // 6 whales — plenty small for a single Promise.all without worker pooling.
   // HL `/info` shrugs off ~16 simultaneous requests; sub-second total.
   return Promise.all(whales.map((w) => hydrateOne(w, generatedAt, log)));
 }

@@ -38,7 +38,7 @@ const wsEnv = commonEnv.extend({
   // Minimum USD notional (px × sz) for a fill to produce a watch alert.
   // Filters dust; whales scale positions with many small fills. Raise to make
   // the public alerts channel quieter / more "big move" only.
-  WATCH_ALERT_MIN_NOTIONAL_USD: z.coerce.number().nonnegative().default(50_000),
+  WATCH_ALERT_MIN_NOTIONAL_USD: z.coerce.number().nonnegative().default(25_000),
 });
 
 async function main(): Promise<void> {

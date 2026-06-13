@@ -85,11 +85,12 @@ export const WATCH_ALERT_MAX_AGE_MS = 5 * 60 * 1000;
 /**
  * Default minimum USD notional for a watch alert. A whale builds a large
  * position from many small fills; alerting on every one floods the channel
- * with dust (medians on real curated whales sit at $300–$4,000). $50k keeps
- * the feed to moves worth a copy-trader's attention. Tunable per deployment
- * via the `watchMinNotionalUsd` option (wired to an env var in start.ts).
+ * with dust (medians on real curated whales sit at $300–$4,000). $25k keeps
+ * the feed to moves worth a copy-trader's attention while staying alive
+ * (~40 alerts/day across the curated set). Tunable per deployment via the
+ * `watchMinNotionalUsd` option (wired to an env var in start.ts).
  */
-export const DEFAULT_WATCH_ALERT_MIN_NOTIONAL_USD = 50_000;
+export const DEFAULT_WATCH_ALERT_MIN_NOTIONAL_USD = 25_000;
 
 /**
  * Run the per-event pipeline to completion of the source's iterable.
